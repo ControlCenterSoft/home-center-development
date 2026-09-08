@@ -1,0 +1,63 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Home Center 0.18 Certificate Lifecycle API",
+    "version": "0.18.0-development",
+    "description": "Authenticated, secret-free certificate inventory and deterministic plan-only renewal policy API. No endpoint installs certificates, accesses private keys, or mutates services."
+  },
+  "paths": {
+    "/api/v1/certificates": {
+      "get": {
+        "operationId": "listCertificateInventory",
+        "security": [{"sessionCookie": []}],
+        "responses": {
+          "200": {
+            "description": "UTC-normalized certificate inventory ordered by certificate identifier",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../certificates/certificate-inventory.v1.schema.json"}
+              }
+            }
+          },
+          "401": {"description": "Authentication required"},
+          "503": {"description": "Certificate facts are unavailable or fail validation"}
+        }
+      }
+    },
+    "/api/v1/certificates/renewal-plan": {
+      "post": {
+        "operationId": "planCertificateRenewal",
+        "description": "Evaluates a bounded renewal policy against locally observed certificate facts. The result is a non-executable plan.",
+        "security": [{"sessionCookie": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "../certificates/certificate-renewal-policy.v1.schema.json"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Deterministic planned or blocked renewal plan",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../certificates/certificate-renewal-plan.v2.schema.json"}
+              }
+            }
+          },
+          "400": {"description": "Invalid or execution-capable policy was rejected"},
+          "401": {"description": "Authentication required"},
+          "403": {"description": "Same-origin requirement failed"},
+          "404": {"description": "Certificate identifier is not present in local inventory"},
+          "503": {"description": "Certificate facts are unavailable or fail validation"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {"type": "apiKey", "in": "cookie", "name": "hc_session"}
+    }
+  }
+}
