@@ -1,7 +1,7 @@
-"""Read-only local administrator credential verification.
+"""Проверка учётных данных локального администратора только на чтение.
 
-The credential file contains a scrypt verifier only. This module never creates,
-changes, logs, returns, or persists a plaintext password.
+Файл учётных данных содержит только verifier scrypt. Этот модуль никогда не создаёт,
+не изменяет, не журналирует, не возвращает и не сохраняет пароль в открытом виде.
 """
 
 from __future__ import annotations
@@ -121,7 +121,7 @@ def _derive(password: bytes, salt: bytes) -> bytes:
 
 
 class LocalAdminCredentialStore:
-    """Immutable credential verifier loaded from a root-controlled regular file."""
+    """Неизменяемый verifier учётных данных, загружаемый из обычного файла под контролем root."""
 
     def __init__(
         self,
@@ -173,10 +173,10 @@ class LocalAdminCredentialStore:
         return _parse(document)
 
     def authenticate(self, username: str, password: str) -> str | None:
-        """Return the canonical username on success, otherwise None.
+        """При успехе возвращает каноническое имя пользователя, иначе None.
 
-        Invalid candidate shape still executes the configured scrypt work factor so
-        malformed and unknown credentials do not gain a cheap authentication path.
+        Даже при некорректной форме входных данных выполняется настроенный объём работы scrypt,
+        чтобы повреждённые или неизвестные учётные данные не получали более дешёвый путь аутентификации.
         """
 
         candidate_username = "invalid"
