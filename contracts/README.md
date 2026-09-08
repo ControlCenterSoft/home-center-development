@@ -11,6 +11,7 @@ contracts/
 ├── agent/                    # Control Plane ↔ Node Agent protocol
 ├── capabilities/             # node capability schemas
 ├── inventory/                # authenticated node/infrastructure read models
+├── automation/               # typed runbook planning schemas
 ├── actions/                  # typed action registry/request/result
 ├── desired-state/            # desired/actual state schemas
 ├── jobs/                     # Change/Job/action/result schemas

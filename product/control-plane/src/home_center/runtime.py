@@ -11,6 +11,7 @@ from typing import Any
 from . import __version__
 from .actions import ActionRegistry
 from .ad_auth import AdAuthenticator
+from .automation_execution import AutomationPlanningService
 from .auth import LoginRateLimiter, SessionManager
 from .config import Config
 from .external_access import ExternalAccessPolicy, ExternalRequestRateLimiter
@@ -47,6 +48,7 @@ class Runtime:
         self.external_request_limiter = ExternalRequestRateLimiter()
         self.actions = ActionRegistry(config.node_id, self.store)
         self.node_inventory = NodeInventoryService(self.store, product_version=__version__)
+        self.automation = AutomationPlanningService(self.store.nodes)
         self.reconciler = Reconciler(config, self.store)
 
     def start(self) -> None:
