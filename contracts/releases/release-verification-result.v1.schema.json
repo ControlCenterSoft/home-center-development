@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/releases/release-verification-result.v1.schema.json",
+  "title": "Home Center release-channel verification result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "status", "reason_code", "generation", "ledger_sequence", "payload_sha256", "signing_key_ids", "stable_release", "next_checkpoint"],
+  "properties": {
+    "schema": {"const": "home-center.release-verification-result.v1"},
+    "status": {"enum": ["verified-stable", "verified-no-stable", "rejected"]},
+    "reason_code": {"oneOf": [{"type": "null"}, {"type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]{0,63}$"}]},
+    "generation": {"oneOf": [{"type": "null"}, {"type": "integer", "minimum": 1}]},
+    "ledger_sequence": {"oneOf": [{"type": "null"}, {"type": "integer", "minimum": 0}]},
+    "payload_sha256": {"oneOf": [{"type": "null"}, {"type": "string", "pattern": "^[0-9a-f]{64}$"}]},
+    "signing_key_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}},
+    "stable_release": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["version", "revision", "artifact_sha256", "artifact_verified"],
+          "properties": {
+            "version": {"type": "string"},
+            "revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+            "artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "artifact_verified": {"type": "boolean"}
+          }
+        }
+      ]
+    },
+    "next_checkpoint": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "release-channel-checkpoint.v1.schema.json"}
+      ]
+    }
+  }
+}

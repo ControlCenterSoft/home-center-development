@@ -1,0 +1,108 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Home Center 0.8 Authentication API",
+    "version": "0.8.0-draft",
+    "description": "Authentication-surface contract for local administrator and explicitly enabled, group-mapped AD authentication. Bootstrap Bearer authentication is not accepted."
+  },
+  "paths": {
+    "/api/v1/session": {
+      "get": {
+        "operationId": "getSessionV2",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current authenticated administrator session"
+          },
+          "401": {
+            "description": "Authentication required"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createAdministratorSession",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../auth/login-request.v2.schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Short-lived Secure, HttpOnly, SameSite=Strict session created"
+          },
+          "401": {
+            "description": "Invalid credentials, disabled provider, or denied AD group membership"
+          },
+          "403": {
+            "description": "Cross-origin browser request rejected before credential processing"
+          },
+          "429": {
+            "description": "Authentication rate limit exceeded"
+          },
+          "503": {
+            "description": "Selected authentication backend unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/session/logout": {
+      "post": {
+        "operationId": "deleteAdministratorSession",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Browser session cookie expired"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Cross-origin browser request rejected"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/providers": {
+      "get": {
+        "operationId": "getAuthenticationProviders",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Public, secret-free authentication provider availability",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../auth/auth-providers.v1.schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "hc_session",
+        "description": "Short-lived signed Home Center browser session. Bootstrap Bearer tokens are not an authentication mechanism in the 0.8 runtime."
+      }
+    }
+  }
+}

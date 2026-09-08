@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/auth/login-request.v2.schema.json",
+  "title": "Authentication Provider Login Request v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "provider",
+    "username",
+    "password"
+  ],
+  "properties": {
+    "provider": {
+      "type": "string",
+      "enum": [
+        "local",
+        "ad"
+      ]
+    },
+    "username": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "password": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "writeOnly": true
+    }
+  }
+}

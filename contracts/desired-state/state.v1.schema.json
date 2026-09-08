@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/desired-state/state.v1.schema.json",
+  "title": "Desired/Actual State v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "resource_key", "generation", "observed_at", "spec"],
+  "properties": {
+    "schema": {"enum": ["home-center.desired-state.v1", "home-center.actual-state.v1"]},
+    "resource_key": {"type": "string", "pattern": "^[a-z0-9][a-z0-9./:_-]{2,255}$"},
+    "generation": {"type": "integer", "minimum": 1},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "spec": {"type": "object"},
+    "status": {"type": "object"},
+    "secret_references": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^secret-ref:[a-zA-Z0-9._/-]+$"}}
+  }
+}
