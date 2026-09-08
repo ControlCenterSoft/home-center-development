@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "home-center"
+version = "0.14.0"
+description = "Infrastructure-neutral Home Center development source"
+requires-python = ">=3.12"
+
+[tool.setuptools]
+package-dir = {"" = "product/control-plane/src"}
+
+[tool.setuptools.packages.find]
+where = ["product/control-plane/src"]
