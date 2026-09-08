@@ -42,16 +42,16 @@ jobs:
           target="product/control-plane/src/home_center"
           mkdir -p "$target/core"
           for name in \
-            artifact_store.py helper_client.py intent_preflight.py intent_service.py \
+            intent_preflight.py intent_service.py \
             local_admin_recovery.py local_admin_rotation.py module_admission.py \
             module_artifact.py module_manifest.py privileged_helper.py \
-            privileged_helper_v2.py product_boundary.py qualification_0140.py \
-            resource_snapshot.py upgrade_policy.py; do
+            product_boundary.py qualification_0140.py resource_snapshot.py \
+            upgrade_policy.py; do
             install -m 0644 "$source/$name" "$target/$name"
           done
           for name in \
-            __init__.py action_contracts.py configuration_engine.py contracts.py \
-            intent_engine.py policy_engine.py service_manager.py upgrade_engine.py; do
+            action_contracts.py configuration_engine.py contracts.py intent_engine.py \
+            policy_engine.py service_manager.py upgrade_engine.py; do
             install -m 0644 "$source/core/$name" "$target/core/$name"
           done
 
