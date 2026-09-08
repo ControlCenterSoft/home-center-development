@@ -22,20 +22,15 @@ jobs:
           fetch-depth: 0
       - name: Import infrastructure-neutral public source
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -Eeuo pipefail
-          archive="$RUNNER_TEMP/home-center-free.tar.gz"
           source="$RUNNER_TEMP/source"
-          curl --fail --location --silent --show-error \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/ControlCenterSoft/home-center-free/tarball/main" \
-            -o "$archive"
-          mkdir -p "$source"
-          tar -xzf "$archive" -C "$source" --strip-components=1
+          auth_header="$(git config --local --get http.https://github.com/.extraheader || true)"
+          git config --local --unset-all http.https://github.com/.extraheader || true
+          git clone --depth 1 https://github.com/ControlCenterSoft/home-center-free.git "$source"
+          if test -n "$auth_header"; then
+            git config --local http.https://github.com/.extraheader "$auth_header"
+          fi
           rsync -a --delete \
             --exclude='.git' \
             --exclude='.github/workflows' \
