@@ -115,3 +115,13 @@ The acceptance document records observations and is not release authority. A sep
 - `openapi/home-center-inventory.v1.openapi.json` — read-only `/api/v1/infrastructure` endpoint.
 
 The API omits the internal machine-identity fingerprint, rejects inconsistent node identity or capacity facts fail-closed, and grants no infrastructure mutation authority.
+
+## Home Center 0.16 compute capacity contracts
+
+- `compute/compute-provider-profile.v1.schema.json` — adapter capability profile; the built-in Proxmox profile is data, not a host or topology binding;
+- `compute/compute-capacity-snapshot.v1.schema.json` — monotonically sequenced total, allocated and reserved capacity observation;
+- `compute/compute-capacity-request.v1.schema.json` — closed planning input for VM, generic container or LXC workloads;
+- `compute/compute-capacity-plan.v1.schema.json` — deterministic per-provider evaluation and selected placement;
+- `openapi/home-center-compute.v1.openapi.json` — authenticated plan-only HTTP boundary.
+
+The boundary accepts no endpoints, credentials, arbitrary provider settings, or execution commands. A successful plan has `production_mutation_enabled=false`; provider execution remains a separate, independently authorized lifecycle.

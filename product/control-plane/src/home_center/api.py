@@ -32,6 +32,8 @@ from .certificate_api import (
     CertificateNotFound,
     CertificateRenewalPolicy,
 )
+from .compute_api import ComputeCapacityPlanningApi
+from .core.compute_framework import ComputeFrameworkError
 from .external_access import ExternalAccessRejected, ExternalRequestContext
 from .local_admin_auth import LocalAdminAuthError
 from .node_inventory_api import NodeInventoryError
@@ -505,6 +507,9 @@ class RuntimeRequestHandler(BaseHTTPRequestHandler):
             )
             self._error(status, code, message, correlation_id)
             return
+        if path == "/api/v1/compute/capacity-plans":
+            self._plan_compute_capacity(actor, correlation_id)
+            return
         if path.startswith("/api/v1/actions/"):
             action_id = path.removeprefix("/api/v1/actions/")
             try:
@@ -551,6 +556,35 @@ class RuntimeRequestHandler(BaseHTTPRequestHandler):
             )
             return
         self._error(405, "typed_action_not_available", "Изменение не входит в эту сертифицированную версию", correlation_id)
+
+    def _plan_compute_capacity(self, actor: str, correlation_id: str) -> None:
+        try:
+            body = self._read_json(max_bytes=65_536)
+            result = ComputeCapacityPlanningApi().plan(body)
+        except (ComputeFrameworkError, ValueError, TypeError, json.JSONDecodeError) as exc:
+            code = exc.code if isinstance(exc, ComputeFrameworkError) else "invalid_compute_capacity_request"
+            self.runtime.store.audit(
+                actor=actor,
+                action="compute.capacity-plan",
+                target="compute-plan",
+                outcome="denied",
+                correlation_id=correlation_id,
+                details={"reason": code},
+            )
+            self._error(HTTPStatus.BAD_REQUEST, code, "Некорректный запрос планирования ресурсов", correlation_id)
+            return
+        self.runtime.store.audit(
+            actor=actor,
+            action="compute.capacity-plan",
+            target=str(result["request_id"]),
+            outcome="accepted",
+            correlation_id=correlation_id,
+            details={
+                "state": result["state"],
+                "selected_provider_id": result["selected_provider_id"],
+            },
+        )
+        self._json(HTTPStatus.OK, result)
 
     def do_PUT(self) -> None:  # noqa: N802
         self._reject_mutation()
