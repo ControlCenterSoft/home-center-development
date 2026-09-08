@@ -1,0 +1,20 @@
+{
+  "schema": "home-center.deployment-profile.v2",
+  "profile_id": "example-lab",
+  "directory_provider": null,
+  "nodes": [
+    {
+      "node_id": "node-a",
+      "hostname": null,
+      "endpoint": null,
+      "roles": ["control-plane"],
+      "required_capabilities": ["inventory.v1"]
+    }
+  ],
+  "placement": {
+    "minimum_ready_nodes": 1,
+    "maximum_nodes": 64,
+    "allow_single_node": true,
+    "require_distinct_failure_domains": false
+  }
+}
