@@ -10,6 +10,7 @@ contracts/
 ├── auth/                     # authentication credentials and login envelopes
 ├── agent/                    # Control Plane ↔ Node Agent protocol
 ├── capabilities/             # node capability schemas
+├── inventory/                # authenticated node/infrastructure read models
 ├── actions/                  # typed action registry/request/result
 ├── desired-state/            # desired/actual state schemas
 ├── jobs/                     # Change/Job/action/result schemas
@@ -103,3 +104,10 @@ These contracts grant no router, NAT, DDNS, firewall, arbitrary listener or ambi
 - `releases/release-candidate-verification.v1.schema.json` — bounded non-secret verifier decision.
 
 The acceptance document records observations and is not release authority. A separately verified threshold-signed stable-channel record remains mandatory before deployment.
+
+## Home Center 0.15 inventory contracts
+
+- `inventory/infrastructure-inventory-list.v1.schema.json` — closed, authenticated node and infrastructure inventory view over persisted capability facts;
+- `openapi/home-center-inventory.v1.openapi.json` — read-only `/api/v1/infrastructure` endpoint.
+
+The API omits the internal machine-identity fingerprint, rejects inconsistent node identity or capacity facts fail-closed, and grants no infrastructure mutation authority.
