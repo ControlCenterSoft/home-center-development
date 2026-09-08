@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/releases/release-qualification-0.14.v1.schema.json",
+  "title": "Home Center 0.14 Release Qualification Report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "release", "revision", "artifact_sha256", "profile", "scenario_id", "qualification_id", "capabilities", "runtimes", "state", "plan_only", "production_mutation_enabled", "production_activation_authorized"],
+  "properties": {
+    "schema": {"const": "home-center.release-qualification.0140.v1"},
+    "release": {"const": "0.14.0"},
+    "revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "profile": {"const": "deterministic-ci"},
+    "scenario_id": {"const": "hc-0.14.0-closed-qualification"},
+    "qualification_id": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "capabilities": {
+      "const": ["product_boundary_cleanup", "core_lifecycle_v2", "compute_framework", "home_lab_manager", "certificate_lifecycle", "read_only_planning_ui"]
+    },
+    "runtimes": {"const": ["python_3_12", "python_3_14"]},
+    "state": {"const": "qualified"},
+    "plan_only": {"const": true},
+    "production_mutation_enabled": {"const": false},
+    "production_activation_authorized": {"const": false}
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Home Center 0.13 Resource Snapshot API",
+    "version": "0.13.0-development",
+    "description": "Authenticated read-only cluster capacity facts used for infrastructure planning preflight."
+  },
+  "paths": {
+    "/api/v1/resources": {
+      "get": {
+        "operationId": "getTrustedResourceSnapshot",
+        "security": [{"sessionCookie": []}],
+        "responses": {
+          "200": {
+            "description": "Validated secret-free cluster resource snapshot",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../resources/resource-snapshot.v1.schema.json"}
+              }
+            }
+          },
+          "401": {"description": "Authentication required"},
+          "503": {"description": "Persisted resource facts are unavailable or inconsistent"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {"type": "apiKey", "in": "cookie", "name": "hc_session"}
+    }
+  }
+}

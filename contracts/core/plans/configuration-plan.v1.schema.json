@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/core/plans/configuration-plan.v1.schema.json",
+  "title": "Configuration Plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "key", "state", "blockers", "production_activation_enabled"],
+  "properties": {
+    "schema": {"const": "home-center.configuration-plan.v1"},
+    "key": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{1,127}$"},
+    "state": {"enum": ["planned", "blocked"]},
+    "blockers": {
+      "type": "array",
+      "maxItems": 1,
+      "items": {"type": "string", "pattern": "^locked_by:[a-z][a-z0-9_.:-]{1,127}$"}
+    },
+    "production_activation_enabled": {"const": false}
+  }
+}
