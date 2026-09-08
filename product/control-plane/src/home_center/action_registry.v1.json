@@ -1,0 +1,61 @@
+{
+  "schema": "home-center.action-registry.v1",
+  "version": 1,
+  "actions": [
+    {
+      "id": "service.state.read.v1",
+      "title": "Read owned service state",
+      "permission": "service.read",
+      "risk": "read-only",
+      "target_capabilities": [
+        "systemd"
+      ],
+      "timeout_seconds": 5,
+      "idempotency": {
+        "mode": "result-replay",
+        "scope": "actor-action-target",
+        "conflict": "reject"
+      },
+      "input": {
+        "schema": "home-center.action-input.service-state-read.v1",
+        "required": [
+          "service"
+        ],
+        "additional_properties": false,
+        "properties": {
+          "service": {
+            "type": "string",
+            "enum": [
+              "home-center.service",
+              "home-center-backup.timer"
+            ]
+          }
+        }
+      },
+      "output": {
+        "schema": "home-center.action-output.service-state-read.v1",
+        "fields": [
+          "service",
+          "load_state",
+          "active_state",
+          "sub_state",
+          "unit_file_state",
+          "observed_at"
+        ]
+      },
+      "preconditions": [
+        "authenticated",
+        "authorized",
+        "local-target",
+        "allowlisted-service"
+      ],
+      "postconditions": [
+        "typed-result",
+        "service-identity-match"
+      ],
+      "recovery": {
+        "strategy": "none-read-only"
+      }
+    }
+  ]
+}

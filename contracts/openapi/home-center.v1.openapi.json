@@ -1,0 +1,717 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Home Center Control Plane API",
+    "version": "0.5.0",
+    "description": "Home Center 0.9 release-candidate API with local/optional AD authentication, fail-closed trusted-gateway external access, typed actions and bounded TLS/release verification."
+  },
+  "servers": [
+    {
+      "url": "https://node-a.example.internal:8443",
+      "description": "Current canonical Home Center production endpoint"
+    }
+  ],
+  "paths": {
+    "/healthz": {
+      "get": {
+        "operationId": "getLiveness",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Local process is live",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Liveness"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "operationId": "getReadiness",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Local state and audit chain are ready"
+          },
+          "503": {
+            "description": "Local readiness failed"
+          }
+        }
+      }
+    },
+    "/api/v1/meta": {
+      "get": {
+        "operationId": "getMetadata",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Non-sensitive product metadata"
+          }
+        }
+      }
+    },
+    "/api/v1/session": {
+      "get": {
+        "operationId": "getSession",
+        "responses": {
+          "200": {
+            "description": "Current session"
+          },
+          "401": {
+            "description": "Authentication required"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createSession",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "token"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "minLength": 32,
+                    "writeOnly": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session created"
+          },
+          "401": {
+            "description": "Invalid credentials"
+          },
+          "429": {
+            "description": "Rate limited"
+          }
+        }
+      }
+    },
+    "/external/healthz": {
+      "get": {
+        "operationId": "getExternalHealth",
+        "security": [],
+        "description": "Minimal readiness response available only through the exact configured HTTPS gateway boundary.",
+        "responses": {
+          "200": {
+            "description": "External gateway path is ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../external-access/external-health.v1.schema.json"
+                }
+              }
+            }
+          },
+          "404": {"description": "External access is disabled or the gateway proof is invalid"},
+          "429": {"description": "Bounded external request rate exceeded"},
+          "503": {"description": "Generic unavailable state without internal readiness details"}
+        }
+      }
+    },
+    "/api/v1/external-access": {
+      "get": {
+        "operationId": "getExternalAccessStatus",
+        "description": "Returns non-secret trusted-gateway status; never mutates NAT, DDNS, firewall or router state.",
+        "responses": {
+          "200": {
+            "description": "External access policy status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../external-access/external-access-status.v1.schema.json"
+                }
+              }
+            }
+          },
+          "401": {"description": "Authentication required"}
+        }
+      }
+    },
+    "/api/v1/overview": {
+      "get": {
+        "operationId": "getOverview",
+        "responses": {
+          "200": {
+            "description": "Cluster overview"
+          }
+        }
+      }
+    },
+    "/api/v1/nodes": {
+      "get": {
+        "operationId": "listNodes",
+        "responses": {
+          "200": {
+            "description": "Observed nodes"
+          }
+        }
+      }
+    },
+    "/api/v1/jobs": {
+      "get": {
+        "operationId": "listJobs",
+        "responses": {
+          "200": {
+            "description": "Typed jobs"
+          }
+        }
+      }
+    },
+    "/api/v1/audit": {
+      "get": {
+        "operationId": "listAudit",
+        "responses": {
+          "200": {
+            "description": "HMAC chained audit events"
+          }
+        }
+      }
+    },
+    "/api/v1/desired-state": {
+      "get": {
+        "operationId": "listDesiredState",
+        "responses": {
+          "200": {
+            "description": "Desired state resources"
+          }
+        }
+      }
+    },
+    "/api/v1/deployment-profile": {
+      "get": {
+        "operationId": "getDeploymentProfile",
+        "responses": {
+          "200": {
+            "description": "Active profile"
+          }
+        }
+      }
+    },
+    "/api/v1/backups": {
+      "get": {
+        "operationId": "listBackups",
+        "responses": {
+          "200": {
+            "description": "Verified restore points"
+          }
+        }
+      }
+    },
+    "/api/v1/tls": {
+      "get": {
+        "operationId": "getTlsStatus",
+        "description": "Returns certificate metadata and lifecycle health only. Private keys are never serialized.",
+        "responses": {
+          "200": {
+            "description": "Web/peer certificate health, trust anchor fingerprint, candidate state and renewal status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TlsStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "503": {
+            "description": "TLS status cannot be validated fail-closed"
+          }
+        }
+      }
+    },
+    "/api/v1/tls/ca.crt": {
+      "get": {
+        "operationId": "getTlsTrustAnchor",
+        "security": [],
+        "description": "Downloads only the public, browser-compatible Home Center EXAMPLE.INTERNAL Web CA. The independent peer-mTLS cluster CA is never published by this endpoint.",
+        "responses": {
+          "200": {
+            "description": "Public X.509 trust anchor",
+            "headers": {
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/x-pem-file": {
+                "schema": {
+                  "type": "string",
+                  "contentMediaType": "application/x-pem-file"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Trust anchor is unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/actions": {
+      "get": {
+        "operationId": "listActions",
+        "responses": {
+          "200": {
+            "description": "Immutable typed Action Registry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../actions/action-registry.v1.schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          }
+        }
+      }
+    },
+    "/api/v1/actions/{action_id}": {
+      "post": {
+        "operationId": "runAction",
+        "parameters": [
+          {
+            "name": "action_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9.-]+\\.v[0-9]+$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../actions/action-request.v1.schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Persisted terminal action job or idempotent replay",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../actions/action-result.v1.schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid typed request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission denied"
+          },
+          "404": {
+            "description": "Action not registered"
+          },
+          "409": {
+            "description": "Target or idempotency conflict"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "hc_session"
+      },
+      "bootstrapBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "Liveness": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema",
+          "status",
+          "version",
+          "node_id",
+          "observed_at"
+        ],
+        "properties": {
+          "schema": {
+            "const": "home-center.health.v1"
+          },
+          "status": {
+            "const": "ok"
+          },
+          "version": {
+            "type": "string"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CertificateStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "mode",
+          "fingerprint_sha256",
+          "subject",
+          "issuer",
+          "serial_number",
+          "not_before",
+          "not_after",
+          "days_remaining",
+          "san_dns",
+          "san_ip",
+          "expected_hostname",
+          "hostname_match",
+          "chain_valid",
+          "profile",
+          "profile_valid",
+          "public_key_algorithm",
+          "public_key_curve",
+          "signature_algorithm",
+          "required_san_dns",
+          "required_san_ip",
+          "san_policy_valid"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string"
+          },
+          "fingerprint_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "issuer": {
+            "type": "string"
+          },
+          "serial_number": {
+            "type": "string"
+          },
+          "not_before": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "not_after": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "days_remaining": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "san_dns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "san_ip": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "expected_hostname": {
+            "type": "string"
+          },
+          "hostname_match": {
+            "type": "boolean"
+          },
+          "chain_valid": {
+            "type": "boolean"
+          },
+          "profile": {
+            "type": "string"
+          },
+          "profile_valid": {
+            "type": "boolean"
+          },
+          "public_key_algorithm": {
+            "type": "string"
+          },
+          "public_key_curve": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "signature_algorithm": {
+            "type": "string"
+          },
+          "required_san_dns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "required_san_ip": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "san_policy_valid": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TlsStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema",
+          "node_id",
+          "node_name",
+          "web_hostname",
+          "canonical_web_hostname",
+          "web_url",
+          "web",
+          "peer",
+          "web_ca",
+        "trust_anchor",
+        "candidate",
+        "operational",
+        "renewal"
+        ],
+        "properties": {
+          "schema": {
+            "const": "home-center.tls-status.v1"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "node_name": {
+            "type": "string"
+          },
+          "web_hostname": {
+            "type": "string"
+          },
+          "canonical_web_hostname": {
+            "type": "string"
+          },
+          "web_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "web": {
+            "$ref": "#/components/schemas/CertificateStatus"
+          },
+          "peer": {
+            "$ref": "#/components/schemas/CertificateStatus"
+          },
+          "web_ca": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "fingerprint_sha256",
+              "subject",
+              "not_after",
+              "days_remaining",
+              "profile",
+              "profile_valid"
+            ],
+            "properties": {
+              "fingerprint_sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "subject": {
+                "type": "string"
+              },
+              "not_after": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "days_remaining": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "profile": {
+                "type": "string"
+              },
+              "profile_valid": {
+                "type": "boolean"
+              }
+            }
+          },
+          "trust_anchor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "fingerprint_sha256",
+              "subject",
+              "not_after"
+            ],
+            "properties": {
+              "fingerprint_sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "subject": {
+                "type": "string"
+              },
+              "not_after": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "candidate": {
+            "type": "object",
+            "additionalProperties": false,
+          "required": [
+            "certificate_present",
+            "private_key_present",
+            "owner_marker_present",
+            "complete",
+            "partial",
+            "invalid"
+            ],
+            "properties": {
+              "certificate_present": {
+                "type": "boolean"
+              },
+            "private_key_present": {
+              "type": "boolean"
+            },
+            "owner_marker_present": {
+              "type": "boolean"
+            },
+              "complete": {
+                "type": "boolean"
+              },
+            "partial": {
+              "type": "boolean"
+            },
+            "invalid": {
+              "type": "boolean"
+            }
+          }
+        },
+        "operational": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "healthy",
+            "recovery_required",
+            "reason"
+          ],
+          "properties": {
+            "state": {
+              "type": "string",
+              "enum": [
+                "ready",
+                "degraded",
+                "recovery_required"
+              ]
+            },
+            "healthy": {
+              "type": "boolean"
+            },
+            "recovery_required": {
+              "type": "boolean"
+            },
+            "reason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "renewal": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "threshold_days",
+              "web_ca_threshold_days",
+              "due",
+              "last_maintenance"
+            ],
+            "properties": {
+              "threshold_days": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "web_ca_threshold_days": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "due": {
+                "type": "boolean"
+              },
+              "last_maintenance": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "sessionCookie": []
+    },
+    {
+      "bootstrapBearer": []
+    }
+  ]
+}

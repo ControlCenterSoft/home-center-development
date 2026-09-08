@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/releases/release-trust-policy.v1.schema.json",
+  "title": "Home Center offline release-signing trust policy v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "product", "channel", "payload_type", "threshold", "keys"],
+  "properties": {
+    "schema": {"const": "home-center.release-trust-policy.v1"},
+    "product": {"const": "home-center"},
+    "channel": {"const": "stable"},
+    "payload_type": {"const": "application/vnd.home-center.release-ledger.v1+json"},
+    "threshold": {"type": "integer", "minimum": 1, "maximum": 8},
+    "keys": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["keyid", "algorithm", "state", "public_key_pem"],
+        "properties": {
+          "keyid": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+          "algorithm": {"const": "ecdsa-p256-sha256"},
+          "state": {"enum": ["active", "retired", "revoked"]},
+          "public_key_pem": {"type": "string", "minLength": 100, "maxLength": 4096}
+        }
+      }
+    }
+  }
+}

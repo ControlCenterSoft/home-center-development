@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/auth/login-request.v1.schema.json",
+  "title": "Local Administrator Login Request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "username",
+    "password"
+  ],
+  "properties": {
+    "username": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64
+    },
+    "password": {
+      "type": "string",
+      "minLength": 12,
+      "maxLength": 256,
+      "writeOnly": true
+    }
+  }
+}

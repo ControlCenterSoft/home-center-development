@@ -3,6 +3,7 @@ name: Home Center CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -19,8 +20,21 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Compile source
-        run: python -m compileall -q product/control-plane/src
-      - name: Run unit tests
+        run: python -m compileall -q product/control-plane/src deploy/runtime
+      - name: Validate JSON contracts
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          for path in sorted(Path("contracts").rglob("*.json")):
+              with path.open(encoding="utf-8") as stream:
+                  json.load(stream)
+          for path in sorted(Path("product/control-plane/src/home_center").glob("*.json")):
+              with path.open(encoding="utf-8") as stream:
+                  json.load(stream)
+          print("JSON_CONTRACTS=PASS")
+          PY
+      - name: Run unit tests and import every module
         env:
           PYTHONPATH: product/control-plane/src
         run: python -m unittest discover -s tests -p 'test_*.py' -v

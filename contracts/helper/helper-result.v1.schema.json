@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/helper/helper-result.v1.schema.json",
+  "title": "Home Center bounded privileged helper result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "request_id", "action", "status", "reason", "exit_code", "stdout", "stderr", "caller_uid", "caller_name", "started_at", "completed_at", "request_sha256", "policy_sha256", "previous_evidence_sha256", "evidence_sha256"],
+  "properties": {
+    "schema": {"const": "home-center.helper.result.v1"},
+    "request_id": {"type": "string", "minLength": 8, "maxLength": 96, "pattern": "^[A-Za-z0-9._-]+$"},
+    "action": {"enum": ["helper.probe.v1", "tls.web.activate.v1"]},
+    "status": {"enum": ["succeeded", "rejected", "failed", "unknown"]},
+    "reason": {"type": ["string", "null"]},
+    "exit_code": {"type": ["integer", "null"]},
+    "stdout": {"type": "string", "maxLength": 16384},
+    "stderr": {"type": "string", "maxLength": 16384},
+    "caller_uid": {"type": "integer", "minimum": 0},
+    "caller_name": {"type": "string", "minLength": 1, "maxLength": 64},
+    "started_at": {"type": "string", "format": "date-time"},
+    "completed_at": {"type": "string", "format": "date-time"},
+    "request_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "previous_evidence_sha256": {"type": ["string", "null"]},
+    "evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}
