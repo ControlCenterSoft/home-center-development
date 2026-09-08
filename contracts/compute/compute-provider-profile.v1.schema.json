@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/compute/compute-provider-profile.v1.schema.json",
+  "title": "Home Center Compute Provider Profile v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "profile_id", "resource_kinds", "capabilities"],
+  "properties": {
+    "schema": {"const": "home-center.compute-provider-profile.v1"},
+    "profile_id": {"type": "string", "pattern": "^[a-z][a-z0-9.-]{1,126}\\.v[1-9][0-9]*$"},
+    "resource_kinds": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": {"enum": ["physical", "vm", "container", "lxc"]}
+    },
+    "capabilities": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[a-z][a-z0-9.-]{1,126}\\.v[1-9][0-9]*$"}
+    }
+  },
+  "examples": [
+    {
+      "schema": "home-center.compute-provider-profile.v1",
+      "profile_id": "proxmox.virtualization.v1",
+      "resource_kinds": ["container", "lxc", "vm"],
+      "capabilities": ["compute.capacity.v1", "compute.container.v1", "compute.ha.v1", "compute.lxc.v1", "compute.vm.v1"]
+    }
+  ]
+}

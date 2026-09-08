@@ -9,7 +9,22 @@ from .certificate_lifecycle import (
     CertificateStatus,
     classify_certificate,
 )
-from .compute_framework import ComputePlan, ComputePlanner, ComputeProviderDescriptor, ComputeProviderKind, ComputeResourceKind, ComputeResourceRequest
+from .compute_framework import (
+    ComputeCapacity,
+    ComputeCapacityPlan,
+    ComputeCapacityPlanningRequest,
+    ComputeCapacitySnapshot,
+    ComputeFrameworkError,
+    ComputePlan,
+    ComputePlanner,
+    ComputeProviderDescriptor,
+    ComputeProviderKind,
+    ComputeProviderProfile,
+    ComputeProviderState,
+    ComputeResourceKind,
+    ComputeResourceRequest,
+    proxmox_compute_profile,
+)
 from .home_lab import HomeLabPlan, HomeLabPlanner, HomeLabQuota, HomeLabTemplate, HomeLabUsage
 from .node_manager import NodeDescriptor, NodeManager, NodeState, NodeTransitionPlan
 
@@ -23,10 +38,18 @@ __all__ = [
     "classify_certificate",
     "ComputePlan",
     "ComputePlanner",
+    "ComputeCapacity",
+    "ComputeCapacityPlan",
+    "ComputeCapacityPlanningRequest",
+    "ComputeCapacitySnapshot",
+    "ComputeFrameworkError",
     "ComputeProviderDescriptor",
     "ComputeProviderKind",
+    "ComputeProviderProfile",
+    "ComputeProviderState",
     "ComputeResourceKind",
     "ComputeResourceRequest",
+    "proxmox_compute_profile",
     "HomeLabPlan",
     "HomeLabPlanner",
     "HomeLabQuota",

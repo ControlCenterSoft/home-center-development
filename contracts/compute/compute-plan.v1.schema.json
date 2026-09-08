@@ -14,7 +14,7 @@
       "required": ["resource_id", "kind", "vcpu", "memory_mib", "disk_gib", "high_availability"],
       "properties": {
         "resource_id": {"type": "string", "minLength": 2, "maxLength": 128},
-        "kind": {"enum": ["physical", "vm", "lxc"]},
+        "kind": {"enum": ["physical", "vm", "container", "lxc"]},
         "vcpu": {"type": "integer", "minimum": 1, "maximum": 256},
         "memory_mib": {"type": "integer", "minimum": 256, "maximum": 4194304},
         "disk_gib": {"type": "integer", "minimum": 1, "maximum": 1048576},
