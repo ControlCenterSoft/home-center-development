@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "home-center"
-version = "0.14.0"
-description = "Infrastructure-neutral Home Center development source"
+version = "0.18.0"
+description = "Infrastructure-neutral Home Center control plane"
 requires-python = ">=3.12"
 
 [tool.setuptools]
@@ -13,3 +13,6 @@ package-dir = {"" = "product/control-plane/src"}
 
 [tool.setuptools.packages.find]
 where = ["product/control-plane/src"]
+
+[tool.setuptools.package-data]
+home_center = ["*.json"]

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/core/plans/node-lifecycle-plan.v1.schema.json",
+  "title": "Node Lifecycle Plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "node_id", "action", "state", "blockers", "production_activation_enabled"],
+  "properties": {
+    "schema": {"const": "home-center.node-lifecycle-plan.v1"},
+    "node_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "action": {"const": "drain"},
+    "state": {"enum": ["planned", "blocked"]},
+    "blockers": {
+      "type": "array",
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {"enum": ["node_state_not_drainable", "quorum_not_safe", "mandatory_services_not_safe"]}
+    },
+    "production_activation_enabled": {"const": false}
+  }
+}

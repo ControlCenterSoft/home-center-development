@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any, Mapping
 
-from .compute_framework import ComputePlan, ComputePlanner, ComputeProviderDescriptor, ComputeProviderKind, ComputeResourceKind, ComputeResourceRequest
+from .compute_framework import ComputePlan, ComputePlanner, ComputePlanState, ComputeProviderDescriptor, ComputeProviderKind, ComputeResourceKind, ComputeResourceRequest
 
 SCHEMA = "home-center.proxmox-discovery.v1"
 ID = re.compile(r"^[a-z][a-z0-9_.:-]{1,127}$")
@@ -55,7 +55,7 @@ def _caps(v: object) -> tuple[str, ...]:
     return tuple(sorted(v))
 
 def _timestamp(v: object) -> str:
-    if not isinstance(v, str): raise ProxmoxProviderError("invalid_observed_at")
+    if not isinstance(v, str) or not 10 <= len(v) <= 40: raise ProxmoxProviderError("invalid_observed_at")
     try: parsed = datetime.fromisoformat(v.replace("Z", "+00:00"))
     except ValueError as exc: raise ProxmoxProviderError("invalid_observed_at") from exc
     if parsed.tzinfo is None: raise ProxmoxProviderError("invalid_observed_at")
@@ -93,8 +93,43 @@ class ProxmoxDiscovery:
     def descriptor(self) -> ComputeProviderDescriptor:
         return ComputeProviderDescriptor.create(provider_id=self.provider_id, kind=ComputeProviderKind.PROXMOX, healthy=self.healthy, capabilities=self.capabilities)
     def plan_create(self, request: ComputeResourceRequest) -> ComputePlan:
+        if not isinstance(request, ComputeResourceRequest):
+            raise ProxmoxProviderError("invalid_compute_request")
+        if request.kind is ComputeResourceKind.PHYSICAL:
+            return ComputePlan(
+                provider_id=self.provider_id,
+                request=request,
+                state=ComputePlanState.BLOCKED,
+                blockers=("provider_runtime_unsupported",),
+            )
         cpu, mem, disk = self.available_capacity
-        return ComputePlanner().plan_create(self.descriptor(), request, available_cpu=cpu, available_memory_mib=mem, available_storage_gib=disk)
+        plan = ComputePlanner().plan_create(self.descriptor(), request, available_cpu=cpu, available_memory_mib=mem, available_storage_gib=disk)
+        if plan.blockers:
+            return plan
+        runtime_capability = {
+            ComputeResourceKind.VM: "compute.vm.v1",
+            ComputeResourceKind.LXC: "compute.lxc.v1",
+            ComputeResourceKind.PHYSICAL: "compute.physical.v1",
+        }[request.kind]
+        eligible = tuple(
+            node
+            for node in self.nodes
+            if node.state is NodeState.ONLINE
+            and runtime_capability in node.capabilities
+            and (not request.high_availability or "compute.ha.v1" in node.capabilities)
+            and node.cpu_available >= request.vcpu
+            and node.memory_available_mib >= request.memory_mib
+            and node.storage_available_gib >= request.disk_gib
+        )
+        required_nodes = 2 if request.high_availability else 1
+        if len(eligible) >= required_nodes:
+            return plan
+        return ComputePlan(
+            provider_id=self.provider_id,
+            request=request,
+            state=ComputePlanState.BLOCKED,
+            blockers=("insufficient_ha_nodes" if request.high_availability else "no_eligible_node",),
+        )
 
 def normalize_proxmox_discovery(value: Mapping[str, Any]) -> ProxmoxDiscovery:
     d = _closed(value,{"schema","observed_at","source","provider","cluster","nodes","resources"},"invalid_discovery_shape")

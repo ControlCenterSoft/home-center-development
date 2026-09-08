@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/authorization/effective-access.v1.schema.json",
+  "title": "Home Center EffectiveAccess v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "subject", "scope_id", "permissions", "decision_source", "production_mutation_enabled"],
+  "properties": {
+    "schema": {"const": "home-center.effective-access.v1"},
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "subject_id"],
+      "properties": {
+        "provider": {"enum": ["local", "ad"]},
+        "subject_id": {"$ref": "#/$defs/id"}
+      }
+    },
+    "scope_id": {"$ref": "#/$defs/id"},
+    "permissions": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[a-z][a-z0-9.-]{1,126}\\.v[1-9][0-9]*$"}
+    },
+    "decision_source": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/id"}
+    },
+    "production_mutation_enabled": {"const": false}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:@-]{1,191}$"}
+  }
+}

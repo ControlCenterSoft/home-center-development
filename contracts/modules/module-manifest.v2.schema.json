@@ -1,0 +1,247 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/modules/module-manifest.v2.schema.json",
+  "title": "Home Center ModuleManifest v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "module",
+    "compatibility",
+    "dependencies",
+    "conflicts",
+    "capabilities",
+    "permissions",
+    "actions",
+    "network",
+    "storage",
+    "health",
+    "backup",
+    "lifecycle",
+    "artifact"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.module-manifest.v2"},
+    "module": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "name", "publisher"],
+      "properties": {
+        "id": {"$ref": "#/$defs/moduleId"},
+        "version": {"$ref": "#/$defs/semver"},
+        "name": {"type": "string", "minLength": 1, "maxLength": 256},
+        "publisher": {"$ref": "#/$defs/moduleId"}
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["home_center", "architectures", "operating_systems"],
+      "properties": {
+        "home_center": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["minimum", "maximum_exclusive"],
+          "properties": {
+            "minimum": {"$ref": "#/$defs/semver"},
+            "maximum_exclusive": {"$ref": "#/$defs/semver"}
+          }
+        },
+        "architectures": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/symbolicId"}
+        },
+        "operating_systems": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/symbolicId"}
+        }
+      }
+    },
+    "dependencies": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "minimum_version", "maximum_version_exclusive", "optional"],
+        "properties": {
+          "id": {"$ref": "#/$defs/moduleId"},
+          "minimum_version": {"$ref": "#/$defs/semver"},
+          "maximum_version_exclusive": {"$ref": "#/$defs/semver"},
+          "optional": {"type": "boolean"}
+        }
+      }
+    },
+    "conflicts": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/moduleId"}
+    },
+    "capabilities": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/symbolicId"}
+    },
+    "permissions": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/permission"}
+    },
+    "actions": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 128,
+      "items": {"$ref": "#/$defs/action"}
+    },
+    "network": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inbound", "outbound"],
+      "properties": {
+        "inbound": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/endpoint"}},
+        "outbound": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/endpoint"}}
+      }
+    },
+    "storage": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {"$ref": "#/$defs/storage"}
+    },
+    "health": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {"$ref": "#/$defs/health"}
+    },
+    "backup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "data_ids", "restore_required"],
+      "properties": {
+        "mode": {"enum": ["required", "not-required"]},
+        "data_ids": {
+          "type": "array",
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/symbolicId"}
+        },
+        "restore_required": {"type": "boolean"}
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["install", "upgrade", "remove"],
+      "properties": {
+        "install": {"$ref": "#/$defs/reversibleLifecycle"},
+        "upgrade": {"$ref": "#/$defs/reversibleLifecycle"},
+        "remove": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["action", "data_policy"],
+          "properties": {
+            "action": {"$ref": "#/$defs/symbolicId"},
+            "data_policy": {"const": "preserve"}
+          }
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "size_bytes", "media_type", "provenance"],
+      "properties": {
+        "sha256": {"$ref": "#/$defs/digest"},
+        "size_bytes": {"type": "integer", "minimum": 1, "maximum": 9223372036854775807},
+        "media_type": {"const": "application/vnd.home-center.module.v1+tar+gzip"},
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["statement_sha256", "signer_key_ids", "threshold"],
+          "properties": {
+            "statement_sha256": {"$ref": "#/$defs/digest"},
+            "signer_key_ids": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 16,
+              "uniqueItems": true,
+              "items": {"$ref": "#/$defs/keyId"}
+            },
+            "threshold": {"type": "integer", "minimum": 1, "maximum": 16}
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "semver": {"type": "string", "maxLength": 64, "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+    "moduleId": {"type": "string", "maxLength": 128, "pattern": "^[a-z0-9](?:[a-z0-9.-]{0,126}[a-z0-9])?$"},
+    "symbolicId": {"type": "string", "maxLength": 128, "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"},
+    "permission": {"type": "string", "maxLength": 128, "pattern": "^[a-z][a-z0-9.-]*\\.[a-z][a-z0-9.-]*$"},
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "keyId": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "permission", "risk", "timeout_seconds", "idempotent"],
+      "properties": {
+        "id": {"$ref": "#/$defs/symbolicId"},
+        "permission": {"$ref": "#/$defs/permission"},
+        "risk": {"enum": ["read-only", "mutation", "destructive"]},
+        "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 3600},
+        "idempotent": {"type": "boolean"}
+      }
+    },
+    "endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocol", "port", "scope", "purpose"],
+      "properties": {
+        "protocol": {"enum": ["tcp", "udp"]},
+        "port": {"type": "integer", "minimum": 1, "maximum": 65535},
+        "scope": {"enum": ["loopback", "node", "cluster"]},
+        "purpose": {"type": "string", "minLength": 1, "maxLength": 128}
+      }
+    },
+    "storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "minimum_bytes", "backup_required"],
+      "properties": {
+        "id": {"$ref": "#/$defs/symbolicId"},
+        "kind": {"enum": ["persistent", "cache"]},
+        "minimum_bytes": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807},
+        "backup_required": {"type": "boolean"}
+      }
+    },
+    "health": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "interval_seconds", "timeout_seconds"],
+      "properties": {
+        "id": {"$ref": "#/$defs/symbolicId"},
+        "kind": {"enum": ["readiness", "liveness"]},
+        "interval_seconds": {"type": "integer", "minimum": 5, "maximum": 3600},
+        "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 300}
+      }
+    },
+    "reversibleLifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "rollback_action"],
+      "properties": {
+        "action": {"$ref": "#/$defs/symbolicId"},
+        "rollback_action": {"$ref": "#/$defs/symbolicId"}
+      }
+    }
+  }
+}

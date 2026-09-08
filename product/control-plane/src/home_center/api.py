@@ -25,8 +25,10 @@ from .actions import (
 )
 from .ad_auth import AdAuthError
 from .auth import SessionManager
+from .automation_execution import AutomationPlanningError, action_catalog
 from .external_access import ExternalAccessRejected, ExternalRequestContext
 from .local_admin_auth import LocalAdminAuthError
+from .node_inventory_api import NodeInventoryError
 from .runtime import Runtime
 from .util import utc_now
 
@@ -228,10 +230,34 @@ class RuntimeRequestHandler(BaseHTTPRequestHandler):
             self._json(200, {"schema": "home-center.session.v1", "authenticated": True, "actor": actor})
         elif path in {"/api/v1/overview", "/api/v1/cluster"}:
             self._json(200, self.runtime.overview())
+        elif path == "/api/v1/infrastructure":
+            try:
+                inventory = self.runtime.node_inventory.snapshot()
+            except NodeInventoryError:
+                LOG.error("typed infrastructure inventory rejected inconsistent persisted facts")
+                self._error(
+                    HTTPStatus.SERVICE_UNAVAILABLE,
+                    "infrastructure_inventory_unavailable",
+                    "Инвентаризация инфраструктуры временно недоступна",
+                    correlation_id,
+                )
+                return
+            except Exception:
+                LOG.exception("typed infrastructure inventory unavailable")
+                self._error(
+                    HTTPStatus.SERVICE_UNAVAILABLE,
+                    "infrastructure_inventory_unavailable",
+                    "Инвентаризация инфраструктуры временно недоступна",
+                    correlation_id,
+                )
+                return
+            self._json(HTTPStatus.OK, inventory)
         elif path == "/api/v1/nodes":
             self._json(200, {"schema": "home-center.nodes.v1", "items": self.runtime.store.nodes()})
         elif path == "/api/v1/actions":
             self._json(200, self.runtime.actions.catalog())
+        elif path == "/api/v1/automation/actions":
+            self._json(200, action_catalog())
         elif path == "/api/v1/jobs":
             self._json(200, {"schema": "home-center.jobs.v1", "items": self.runtime.store.jobs(100)})
         elif path == "/api/v1/audit":
@@ -323,6 +349,64 @@ class RuntimeRequestHandler(BaseHTTPRequestHandler):
             return
         actor = self._require_actor(correlation_id)
         if not actor:
+            return
+        if path == "/api/v1/automation/runbooks/plan":
+            try:
+                body = self._read_json(max_bytes=32768)
+                plan = self.runtime.automation.plan(body)
+            except AutomationPlanningError as exc:
+                self.runtime.store.audit(
+                    actor=actor,
+                    action="automation.runbook.plan",
+                    target="automation-runbook",
+                    outcome="denied",
+                    correlation_id=correlation_id,
+                    details={"reason": exc.code},
+                )
+                self._error(
+                    HTTPStatus.BAD_REQUEST,
+                    exc.code,
+                    "Runbook не прошёл безопасную проверку",
+                    correlation_id,
+                )
+                return
+            except (ValueError, TypeError, json.JSONDecodeError):
+                self.runtime.store.audit(
+                    actor=actor,
+                    action="automation.runbook.plan",
+                    target="automation-runbook",
+                    outcome="denied",
+                    correlation_id=correlation_id,
+                    details={"reason": "invalid_runbook_request"},
+                )
+                self._error(
+                    HTTPStatus.BAD_REQUEST,
+                    "invalid_runbook_request",
+                    "Некорректный запрос планирования runbook",
+                    correlation_id,
+                )
+                return
+            except Exception:
+                LOG.exception("typed automation planning failed")
+                self._error(
+                    HTTPStatus.INTERNAL_SERVER_ERROR,
+                    "automation_planning_unavailable",
+                    "Планирование automation временно недоступно",
+                    correlation_id,
+                )
+                return
+            self.runtime.store.audit(
+                actor=actor,
+                action="automation.runbook.plan",
+                target=plan["runbook_id"],
+                outcome="accepted" if plan["planning_ready"] else "blocked",
+                correlation_id=correlation_id,
+                details={
+                    "plan_sha256": plan["plan_sha256"],
+                    "blocker_count": len(plan["blockers"]),
+                },
+            )
+            self._json(HTTPStatus.OK, plan)
             return
         if path.startswith("/api/v1/actions/"):
             action_id = path.removeprefix("/api/v1/actions/")

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/core/plans/node-transition-plan.v2.schema.json",
+  "title": "Home Center NodeTransitionPlan v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "node_id", "from_state", "to_state", "state", "blockers", "production_mutation_enabled"],
+  "properties": {
+    "schema": {"const": "home-center.node-transition-plan.v2"},
+    "node_id": {"type": "string", "minLength": 2, "maxLength": 128},
+    "from_state": {"enum": ["discovered", "preflighted", "trusted", "enrolled", "configuring", "ready", "degraded", "active", "maintenance", "draining", "decommissioned"]},
+    "to_state": {"enum": ["discovered", "preflighted", "trusted", "enrolled", "configuring", "ready", "degraded", "active", "maintenance", "draining", "decommissioned"]},
+    "state": {"enum": ["planned", "blocked"]},
+    "blockers": {"type": "array", "maxItems": 16, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9_:-]+$"}},
+    "production_mutation_enabled": {"const": false}
+  }
+}
