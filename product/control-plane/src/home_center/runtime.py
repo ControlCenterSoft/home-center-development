@@ -1,4 +1,4 @@
-"""Composition root for API, state, auth, inventory and cluster health."""
+"""Корень композиции API, состояния, аутентификации, inventory и здоровья кластера."""
 
 from __future__ import annotations
 
