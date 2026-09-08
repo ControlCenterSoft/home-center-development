@@ -1,8 +1,8 @@
-"""Optional fail-closed Active Directory authentication via bounded Kerberos tools.
+"""Опциональная аутентификация Active Directory по принципу fail-closed через ограниченные инструменты Kerberos.
 
-Passwords are sent only to kinit stdin, never argv, environment, logs, audit
-details, persisted configuration, or returned results. Group authorization is
-read-only and occurs only after successful Kerberos authentication.
+Пароли передаются только в stdin kinit и никогда не попадают в argv, окружение, журналы,
+детали аудита, сохраняемую конфигурацию или возвращаемые результаты. Авторизация по группам
+выполняется только на чтение и лишь после успешной аутентификации Kerberos.
 """
 
 from __future__ import annotations
