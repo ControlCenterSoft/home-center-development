@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/agent/enrollment.v1.schema.json",
+  "title": "NodeEnrollment v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "enrollment_id", "cluster_id", "requested_role", "node_identity", "expires_at", "state"],
+  "properties": {
+    "schema": {"const": "home-center.node-enrollment.v1"},
+    "enrollment_id": {"type": "string", "format": "uuid"},
+    "cluster_id": {"type": "string", "minLength": 3},
+    "requested_role": {"enum": ["first-node", "second-cluster-member", "additional-node"]},
+    "node_identity": {"type": "object", "additionalProperties": false, "required": ["name", "machine_identity_hash"], "properties": {"name": {"type": "string"}, "machine_identity_hash": {"type": "string", "pattern": "^[0-9a-f]{24,64}$"}}},
+    "expires_at": {"type": "string", "format": "date-time"},
+    "state": {"enum": ["discovered", "preflighted", "trusted", "enrolled", "capabilities_known", "dependencies_installed", "roles_planned", "replicating", "health_validated", "ready", "failed"]},
+    "failure": {"type": ["object", "null"]}
+  }
+}

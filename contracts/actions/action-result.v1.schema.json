@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/actions/action-result.v1.schema.json",
+  "title": "Action Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "idempotent_replay",
+    "job"
+  ],
+  "properties": {
+    "schema": {
+      "const": "home-center.action-result.v1"
+    },
+    "idempotent_replay": {
+      "type": "boolean"
+    },
+    "job": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "job_id",
+        "job_type",
+        "state",
+        "initiator",
+        "reason",
+        "idempotency_key",
+        "preflight",
+        "steps",
+        "result",
+        "evidence",
+        "recovery",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "schema": {
+          "const": "home-center.job.v1"
+        },
+        "job_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "job_type": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9.-]+\\.v[0-9]+$"
+        },
+        "state": {
+          "enum": [
+            "preflight",
+            "running",
+            "verifying",
+            "succeeded",
+            "failed"
+          ]
+        },
+        "initiator": {
+          "type": "string",
+          "minLength": 3
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 500
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128
+        },
+        "preflight": {
+          "type": "object"
+        },
+        "steps": {
+          "type": "array"
+        },
+        "result": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "evidence": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "recovery": {
+          "type": "object"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}

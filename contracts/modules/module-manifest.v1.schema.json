@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/modules/module-manifest.v1.schema.json",
+  "title": "ModuleManifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "module", "compatibility", "dependencies", "privileges", "network", "data", "health", "backup", "lifecycle", "artifact"],
+  "properties": {
+    "schema": {"const": "home-center.module-manifest.v1"},
+    "module": {"type": "object", "additionalProperties": false, "required": ["id", "version", "name"], "properties": {"id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9.-]+$"}, "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"}, "name": {"type": "string"}}},
+    "compatibility": {"type": "object"},
+    "dependencies": {"type": "array", "items": {"type": "object"}},
+    "privileges": {"type": "array", "items": {"type": "string"}},
+    "network": {"type": "object"},
+    "data": {"type": "object"},
+    "health": {"type": "object"},
+    "backup": {"type": "object"},
+    "lifecycle": {"type": "object"},
+    "artifact": {"type": "object", "additionalProperties": false, "required": ["sha256", "signature"], "properties": {"sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "signature": {"type": "object"}}}
+  }
+}

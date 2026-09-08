@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/actions/action-request.v1.schema.json",
+  "title": "Action Request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "idempotency_key",
+    "target_node_id",
+    "reason",
+    "input"
+  ],
+  "properties": {
+    "schema": {
+      "const": "home-center.action-request.v1"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "target_node_id": {
+      "type": "string",
+      "pattern": "^home-center-example-dc0[12]$"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 500
+    },
+    "input": {
+      "type": "object"
+    }
+  }
+}

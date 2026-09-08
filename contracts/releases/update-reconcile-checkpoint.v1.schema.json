@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.invalid/contracts/releases/update-reconcile-checkpoint.v1.schema.json",
+  "title": "Home Center persisted update reconcile checkpoint v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "transaction_id",
+    "phase",
+    "ledger_sequence",
+    "target_version",
+    "target_revision",
+    "target_artifact_sha256",
+    "stable_record_sha256",
+    "started_at",
+    "updated_at",
+    "node-b_complete",
+    "node-a_complete",
+    "quarantined_artifact_sha256",
+    "recovery_reason"
+  ],
+  "properties": {
+    "schema": {
+      "const": "home-center.update-reconcile-checkpoint.v1"
+    },
+    "transaction_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "phase": {
+      "enum": [
+        "discover",
+        "acquire",
+        "verify",
+        "admit",
+        "backup-node-b",
+        "update-node-b",
+        "canary-soak",
+        "backup-node-a",
+        "update-node-a",
+        "cluster-accept",
+        "checkpoint",
+        "succeeded",
+        "recovery_required"
+      ]
+    },
+    "ledger_sequence": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "target_version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "target_revision": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "target_artifact_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "stable_record_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "started_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "updated_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "node-b_complete": {
+      "type": "boolean"
+    },
+    "node-a_complete": {
+      "type": "boolean"
+    },
+    "quarantined_artifact_sha256": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      ]
+    },
+    "recovery_reason": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]{0,63}$"}
+      ]
+    }
+  }
+}

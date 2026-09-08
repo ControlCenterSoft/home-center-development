@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/cluster/drain.v1.schema.json",
+  "title": "DrainPlan/DrainResult v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "operation_id", "node_id", "state", "preflight", "relocations", "membership_cleanup", "destructive_wipe", "created_at", "updated_at"],
+  "properties": {
+    "schema": {"enum": ["home-center.drain-plan.v1", "home-center.drain-result.v1"]},
+    "operation_id": {"type": "string", "format": "uuid"},
+    "node_id": {"type": "string"},
+    "state": {"enum": ["maintenance_requested", "preflight", "blocked", "draining", "roles_relocated", "quorum_validated", "services_validated", "removed_from_cluster", "decommission_ready", "failed", "recovered"]},
+    "preflight": {"type": "object", "required": ["quorum_safe", "mandatory_services_safe", "replication_healthy"], "properties": {"quorum_safe": {"type": "boolean"}, "mandatory_services_safe": {"type": "boolean"}, "replication_healthy": {"type": "boolean"}, "block_reasons": {"type": "array", "items": {"type": "string"}}}},
+    "relocations": {"type": "array", "items": {"type": "object"}},
+    "membership_cleanup": {"type": "object"},
+    "destructive_wipe": {"const": false},
+    "result": {"type": ["object", "null"]},
+    "created_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time"}
+  }
+}

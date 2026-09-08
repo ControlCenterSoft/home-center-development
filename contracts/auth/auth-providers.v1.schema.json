@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/auth/auth-providers.v1.schema.json",
+  "title": "Home Center Authentication Provider Catalog v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "providers"
+  ],
+  "properties": {
+    "schema": {
+      "const": "home-center.auth-providers.v1"
+    },
+    "providers": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "prefixItems": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "enabled"
+          ],
+          "properties": {
+            "id": {
+              "const": "local"
+            },
+            "enabled": {
+              "const": true
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "enabled"
+          ],
+          "properties": {
+            "id": {
+              "const": "ad"
+            },
+            "enabled": {
+              "type": "boolean"
+            }
+          }
+        }
+      ],
+      "items": false
+    }
+  }
+}
