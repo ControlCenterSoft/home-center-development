@@ -1,0 +1,65 @@
+name: Infrastructure neutrality
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  neutrality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Reject deployment-specific bindings
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from __future__ import annotations
+
+          import ipaddress
+          import re
+          from pathlib import Path
+
+          root = Path('.')
+          skip = {
+              Path('.github/workflows/infrastructure-neutrality.yml'),
+              Path('.github/workflows/bootstrap-development.yml'),
+          }
+          suffixes = {'', '.css', '.html', '.ini', '.js', '.json', '.md', '.py', '.service', '.sh', '.toml', '.txt', '.xml', '.yaml', '.yml'}
+          fixed_node = re.compile(r'(?i)\bdc[0-9]{2}\b')
+          fixed_sid = re.compile(r'\bS-1-5-21-[0-9]+-[0-9]+-[0-9]+\b')
+          ipv4 = re.compile(r'(?<![0-9])(?:[0-9]{1,3}\.){3}[0-9]{1,3}(?![0-9])')
+          findings = []
+
+          for path in sorted(root.rglob('*')):
+              if not path.is_file() or '.git' in path.parts:
+                  continue
+              rel = path.relative_to(root)
+              if rel in skip or path.suffix.lower() not in suffixes:
+                  continue
+              try:
+                  text = path.read_text(encoding='utf-8')
+              except (UnicodeDecodeError, OSError):
+                  continue
+              if fixed_node.search(text):
+                  findings.append(f'{rel}: fixed dcNN node identity')
+              if fixed_sid.search(text):
+                  findings.append(f'{rel}: concrete directory SID')
+              for match in ipv4.finditer(text):
+                  try:
+                      address = ipaddress.ip_address(match.group(0))
+                  except ValueError:
+                      continue
+                  if address.is_private and not address.is_loopback:
+                      findings.append(f'{rel}: fixed private IPv4 address')
+                      break
+
+          if findings:
+              print('INFRASTRUCTURE_NEUTRALITY=FAIL')
+              for finding in findings:
+                  print(finding)
+              raise SystemExit(1)
+          print('INFRASTRUCTURE_NEUTRALITY=PASS')
+          PY
