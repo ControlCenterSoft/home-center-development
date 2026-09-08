@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/core/actions/service-start-plan-input.v1.schema.json",
+  "title": "Service Start Plan Input v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "service_id"],
+  "properties": {
+    "schema": {"const": "home-center.service-start-plan-input.v1"},
+    "service_id": {"type": "string", "minLength": 2, "maxLength": 128, "pattern": "^[a-z][a-z0-9_.@-]{1,127}$"}
+  }
+}

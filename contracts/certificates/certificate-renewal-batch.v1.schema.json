@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/certificates/certificate-renewal-batch.v1.schema.json",
+  "title": "Home Center CertificateRenewalBatch v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "batch_id", "state", "items", "blockers", "production_mutation_enabled"],
+  "properties": {
+    "schema": {"const": "home-center.certificate-renewal-batch.v1"},
+    "batch_id": {"$ref": "#/$defs/id"},
+    "state": {"enum": ["planned", "blocked"]},
+    "items": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {"$ref": "#/$defs/item"}
+    },
+    "blockers": {
+      "type": "array",
+      "maxItems": 4096,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^blocked:[a-z][a-z0-9_.:-]{1,127}$"}
+    },
+    "production_mutation_enabled": {"const": false}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["certificate_id", "service_id", "state", "action", "blockers"],
+      "properties": {
+        "certificate_id": {"$ref": "#/$defs/id"},
+        "service_id": {"$ref": "#/$defs/id"},
+        "state": {"enum": ["expiring", "expired", "invalid"]},
+        "action": {"const": "renew"},
+        "blockers": {
+          "type": "array",
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["certificate_not_renewable", "issuer_unavailable", "service_reload_unsupported", "certificate_identity_invalid"]
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/authorization/authorization-policy.v1.schema.json",
+  "title": "Home Center AuthorizationPolicy v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "policy_id", "roles", "bindings", "default_deny", "production_mutation_enabled"],
+  "properties": {
+    "schema": {"const": "home-center.authorization-policy.v1"},
+    "policy_id": {"$ref": "#/$defs/id"},
+    "roles": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/role"}
+    },
+    "bindings": {
+      "type": "array",
+      "maxItems": 4096,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/binding"}
+    },
+    "default_deny": {"const": true},
+    "production_mutation_enabled": {"const": false}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:@-]{1,191}$"},
+    "permission": {"type": "string", "pattern": "^[a-z][a-z0-9.-]{1,126}\\.v[1-9][0-9]*$"},
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "subject_id"],
+      "properties": {
+        "provider": {"enum": ["local", "ad"]},
+        "subject_id": {"$ref": "#/$defs/id"}
+      }
+    },
+    "role": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role_id", "permissions"],
+      "properties": {
+        "role_id": {"$ref": "#/$defs/id"},
+        "permissions": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/permission"}
+        }
+      }
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subject", "role_id", "scope_id"],
+      "properties": {
+        "subject": {"$ref": "#/$defs/subject"},
+        "role_id": {"$ref": "#/$defs/id"},
+        "scope_id": {"$ref": "#/$defs/id"}
+      }
+    }
+  }
+}

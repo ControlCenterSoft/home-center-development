@@ -1,0 +1,54 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Home Center 0.13 Authentication API",
+    "version": "0.13.0-development",
+    "description": "Local and optional AD login plus authenticated node-local administrator password rotation. Secret helper requests are never durable evidence."
+  },
+  "paths": {
+    "/api/v1/session": {
+      "get": {
+        "operationId": "getSessionV2",
+        "security": [{"sessionCookie": []}],
+        "responses": {"200": {"description": "Current authenticated administrator session"}, "401": {"description": "Authentication required"}}
+      },
+      "post": {
+        "operationId": "createAdministratorSession",
+        "security": [],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "../auth/login-request.v2.schema.json"}}}},
+        "responses": {"200": {"description": "Secure administrator session created"}, "401": {"description": "Invalid credentials"}, "403": {"description": "Cross-origin request rejected"}, "429": {"description": "Rate limit exceeded"}, "503": {"description": "Authentication backend unavailable"}}
+      }
+    },
+    "/api/v1/session/logout": {
+      "post": {
+        "operationId": "deleteAdministratorSession",
+        "security": [{"sessionCookie": []}],
+        "responses": {"200": {"description": "Browser session cookie expired"}, "401": {"description": "Authentication required"}, "403": {"description": "Cross-origin request rejected"}}
+      }
+    },
+    "/api/v1/auth/providers": {
+      "get": {
+        "operationId": "getAuthenticationProviders",
+        "security": [],
+        "responses": {"200": {"description": "Secret-free authentication provider availability", "content": {"application/json": {"schema": {"$ref": "../auth/auth-providers.v1.schema.json"}}}}}
+      }
+    },
+    "/api/v1/auth/local-admin/password/change": {
+      "post": {
+        "operationId": "changeLocalAdministratorPassword",
+        "security": [{"sessionCookie": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "../auth/local-admin-password-change.v1.schema.json"}}}},
+        "responses": {
+          "200": {"description": "Node-local verifier atomically changed", "content": {"application/json": {"schema": {"$ref": "../auth/local-admin-password-change-result.v1.schema.json"}}}},
+          "400": {"description": "Invalid request or new-password policy rejection"},
+          "401": {"description": "Authentication required"},
+          "403": {"description": "Local-admin session/current-password/origin requirement failed"},
+          "503": {"description": "Privileged credential rotation unavailable"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {"sessionCookie": {"type": "apiKey", "in": "cookie", "name": "hc_session"}}
+  }
+}

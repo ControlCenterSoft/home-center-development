@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/certificates/certificate-inventory.v1.schema.json",
+  "title": "Home Center CertificateInventory v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "observed_at", "records", "production_mutation_enabled"],
+  "properties": {
+    "schema": {"const": "home-center.certificate-inventory.v1"},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "records": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {"$ref": "#/$defs/record"}
+    },
+    "production_mutation_enabled": {"const": false}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["certificate_id", "service_id", "issuer_id", "fingerprint_sha256", "not_before", "not_after", "chain_valid", "name_valid", "renewable"],
+      "properties": {
+        "certificate_id": {"$ref": "#/$defs/id"},
+        "service_id": {"$ref": "#/$defs/id"},
+        "issuer_id": {"$ref": "#/$defs/id"},
+        "fingerprint_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "not_before": {"type": "string", "format": "date-time"},
+        "not_after": {"type": "string", "format": "date-time"},
+        "chain_valid": {"type": "boolean"},
+        "name_valid": {"type": "boolean"},
+        "renewable": {"type": "boolean"}
+      }
+    }
+  }
+}

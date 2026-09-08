@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/compute/compute-plan.v1.schema.json",
+  "title": "Home Center ComputePlan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "provider_id", "request", "state", "blockers", "production_mutation_enabled"],
+  "properties": {
+    "schema": {"const": "home-center.compute-plan.v1"},
+    "provider_id": {"type": "string", "minLength": 2, "maxLength": 128},
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resource_id", "kind", "vcpu", "memory_mib", "disk_gib", "high_availability"],
+      "properties": {
+        "resource_id": {"type": "string", "minLength": 2, "maxLength": 128},
+        "kind": {"enum": ["physical", "vm", "lxc"]},
+        "vcpu": {"type": "integer", "minimum": 1, "maximum": 256},
+        "memory_mib": {"type": "integer", "minimum": 256, "maximum": 4194304},
+        "disk_gib": {"type": "integer", "minimum": 1, "maximum": 1048576},
+        "high_availability": {"type": "boolean"}
+      }
+    },
+    "state": {"enum": ["planned", "blocked"]},
+    "blockers": {"type": "array", "maxItems": 16, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9_:-]+$"}},
+    "production_mutation_enabled": {"const": false}
+  }
+}
