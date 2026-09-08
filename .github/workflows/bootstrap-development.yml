@@ -24,13 +24,13 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
+          archive="$RUNNER_TEMP/source.tar.gz"
           source="$RUNNER_TEMP/source"
-          auth_header="$(git config --local --get http.https://github.com/.extraheader || true)"
-          git config --local --unset-all http.https://github.com/.extraheader || true
-          git clone --depth 1 https://github.com/ControlCenterSoft/home-center-free.git "$source"
-          if test -n "$auth_header"; then
-            git config --local http.https://github.com/.extraheader "$auth_header"
-          fi
+          curl --fail --location --silent --show-error \
+            "https://codeload.github.com/ControlCenterSoft/home-center-free/tar.gz/refs/heads/main" \
+            -o "$archive"
+          mkdir -p "$source"
+          tar -xzf "$archive" -C "$source" --strip-components=1
           rsync -a --delete \
             --exclude='.git' \
             --exclude='.github/workflows' \
