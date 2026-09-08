@@ -1,4 +1,4 @@
-"""Side-effect-free compute provider planning for Home Center."""
+"""Планирование compute providers для Home Center без побочных эффектов."""
 
 from __future__ import annotations
 
