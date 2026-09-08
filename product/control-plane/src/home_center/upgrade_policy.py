@@ -1,8 +1,8 @@
-# Reusable Home Center semantic-version upgrade policy.
+# Переиспользуемая политика обновления Home Center на основе semantic version.
 #
-# Version compatibility is deliberately separate from artifact integrity.
-# Deployment still verifies release paths, revisions, target artifact digests,
-# backups, rollback, PKI, replication and protected-service sentinels.
+# Совместимость версий намеренно отделена от целостности артефактов.
+# Deployment по-прежнему проверяет пути релиза, revisions, digest целевого артефакта,
+# резервные копии, rollback, PKI, репликацию и sentinel-проверки защищённых сервисов.
 
 from __future__ import annotations
 
@@ -25,8 +25,8 @@ def parse_version(value: str) -> tuple[int, int, int]:
 
 
 def is_upgrade_allowed(source_version: str, target_version: str) -> bool:
-    # X.0.0 bridges every older semantic version. Other releases accept every
-    # older version in their own major line.
+    # Переход на X.0.0 разрешён с любой более старой semantic version. Остальные
+    # релизы принимают любую более старую версию в пределах своей major-линейки.
     try:
         source = parse_version(source_version)
         target = parse_version(target_version)
