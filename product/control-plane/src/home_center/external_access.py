@@ -1,9 +1,9 @@
-"""Fail-closed trusted reverse-proxy boundary for optional external access.
+"""Граница доверенного reverse-proxy по принципу fail-closed для опционального внешнего доступа.
 
-The Home Center listeners remain bound to their configured management address.
-This module only classifies requests that have already arrived through an
-explicitly trusted HTTPS gateway. It never opens ports, configures NAT/DDNS,
-or grants authority to ambient forwarding headers.
+Слушатели Home Center остаются привязаны к настроенному адресу управления.
+Этот модуль только классифицирует запросы, уже поступившие через явно доверенный
+HTTPS-шлюз. Он никогда не открывает порты, не настраивает NAT/DDNS и не предоставляет
+полномочия на основании произвольных forwarding-заголовков.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ class HeaderValues(Protocol):
 
 
 class ExternalAccessRejected(ValueError):
-    """A proxy-shaped request did not satisfy the configured trust boundary."""
+    """Запрос, похожий на проксированный, не удовлетворил настроенной границе доверия."""
 
     def __init__(self, code: str) -> None:
         super().__init__(code)
@@ -35,7 +35,7 @@ class ExternalAccessRejected(ValueError):
 
 
 def _trusted_proxy_scope(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-    """Accept only non-routable/operator-local proxy addresses without fixed CIDRs."""
+    """Принимает только немаршрутизируемые или локальные для оператора адреса прокси без фиксированных CIDR."""
 
     if address.is_unspecified or address.is_multicast:
         return False
@@ -43,7 +43,7 @@ def _trusted_proxy_scope(address: ipaddress.IPv4Address | ipaddress.IPv6Address)
 
 
 def normalize_public_hostname(value: str) -> str:
-    """Return a canonical, port-free ASCII FQDN for exact comparisons."""
+    """Возвращает каноническое ASCII FQDN без порта для точного сравнения."""
 
     if not isinstance(value, str) or value != value.strip() or not 1 <= len(value) <= 253:
         raise ValueError("external_public_hostname_rejected")
@@ -65,7 +65,7 @@ def normalize_public_hostname(value: str) -> str:
 
 
 def normalize_trusted_proxy_addresses(values: tuple[str, ...] | list[str]) -> tuple[str, ...]:
-    """Validate an exact bounded allowlist of operator-local gateway IPs."""
+    """Проверяет точный ограниченный allowlist локальных IP-адресов шлюзов оператора."""
 
     if not isinstance(values, (tuple, list)) or len(values) > 16:
         raise ValueError("external_trusted_proxy_addresses_rejected")
@@ -212,7 +212,7 @@ class ExternalAccessPolicy:
 
 
 class ExternalRequestRateLimiter:
-    """Two-level in-memory limiter that also bounds a misconfigured proxy."""
+    """Двухуровневый внутрипроцессный ограничитель, который также ограничивает ошибочно настроенный прокси."""
 
     def __init__(self, *, client_requests: int = 240, proxy_requests: int = 1200, window_seconds: int = 60) -> None:
         if min(client_requests, proxy_requests, window_seconds) < 1 or client_requests > proxy_requests:
