@@ -1,0 +1,44 @@
+[Unit]
+Description=Home Center control plane and node inventory
+Documentation=https://github.com/ControlCenterSoft/home-center-development
+After=network-online.target time-sync.target
+Wants=network-online.target time-sync.target
+
+[Service]
+Type=simple
+User=home-center
+Group=home-center
+Environment=PYTHONUNBUFFERED=1
+Environment=HOME_CENTER_CONFIG=/etc/home-center/config.json
+ExecStart=/usr/bin/python3 -I /opt/home-center/current/run.py
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=30s
+TimeoutStopSec=20s
+UMask=0027
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=false
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadWritePaths=/var/lib/home-center /var/backups/home-center
+ReadOnlyPaths=/etc/home-center /opt/home-center
+
+[Install]
+WantedBy=multi-user.target
