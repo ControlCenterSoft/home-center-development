@@ -1,4 +1,4 @@
-"""Trusted read-only cluster capacity snapshots for Home Center 0.13."""
+"""Доверенные снимки ёмкости кластера только на чтение для Home Center 0.13."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ MAX_BYTES = 2**63 - 1
 
 
 class ResourceSnapshotError(ValueError):
-    """A stable rejection code for malformed or inconsistent resource facts."""
+    """Стабильный код отказа для повреждённых или несогласованных фактов о ресурсах."""
 
     def __init__(self, code: str) -> None:
         super().__init__(code)
@@ -123,7 +123,7 @@ def build_resource_snapshot(
     expected_nodes: int,
     nodes: Iterable[Mapping[str, Any]],
 ) -> dict[str, Any]:
-    """Build a deterministic, secret-free snapshot from persisted capabilities."""
+    """Формирует детерминированный снимок без секретов из сохранённых capabilities."""
 
     if not isinstance(cluster_id, str) or not 3 <= len(cluster_id) <= 128:
         raise ResourceSnapshotError("invalid_cluster_id")
