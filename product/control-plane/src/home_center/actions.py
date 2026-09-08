@@ -1,4 +1,4 @@
-"""Fail-closed typed action registry and bounded local executors."""
+"""Реестр типизированных действий с принципом fail-closed и ограниченные локальные исполнители."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ AD_ADMIN_ACTOR = re.compile(r"^ad-admin:[a-z0-9][a-z0-9._-]{0,63}@[A-Z0-9][A-Z0-
 SYSTEMCTL = "/usr/bin/systemctl"
 SUPPORTED_ACTION = "service.state.read.v1"
 LOCAL_ADMIN_PERMISSIONS = frozenset({"service.read"})
-# Frozen 0.7 security-gate compatibility marker only; it is not executable policy:
+# Только зафиксированный маркер совместимости security-gate 0.7; это не исполняемая политика:
 # "bootstrap-admin": frozenset({"service.read"})
 
 
@@ -58,7 +58,7 @@ def _actor_permissions(actor: str) -> frozenset[str]:
 
 
 class ActionRegistry:
-    """Expose immutable definitions and execute only explicitly implemented actions."""
+    """Предоставляет неизменяемые определения и выполняет только явно реализованные действия."""
 
     def __init__(
         self,
@@ -192,7 +192,7 @@ class ActionRegistry:
                 ),
                 False,
             )
-        except Exception as exc:  # executor failures are persisted and never returned raw
+        except Exception as exc:  # Ошибки исполнителя сохраняются и никогда не возвращаются напрямую
             LOG.warning("typed action failed action=%s class=%s", action_id, type(exc).__name__)
             error_code = "action_timeout" if isinstance(exc, subprocess.TimeoutExpired) else "action_execution_failed"
             failed_steps = deepcopy(running_steps)
