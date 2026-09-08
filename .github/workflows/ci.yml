@@ -34,6 +34,16 @@ jobs:
                   json.load(stream)
           print("JSON_CONTRACTS=PASS")
           PY
+      - name: Set reproducible artifact timestamp
+        run: git log -1 --format=SOURCE_DATE_EPOCH=%ct >> "$GITHUB_ENV"
+      - name: Build and qualify release artifact
+        run: |
+          mkdir -p dist/first dist/second
+          python -m pip wheel --no-deps --wheel-dir dist/first .
+          python -m pip wheel --no-deps --wheel-dir dist/second .
+          python scripts/qualify_release_artifact.py \
+            --wheel-dir dist/first \
+            --compare-wheel-dir dist/second
       - name: Run unit tests and import every module
         env:
           PYTHONPATH: product/control-plane/src

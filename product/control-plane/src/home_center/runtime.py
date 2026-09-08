@@ -11,10 +11,12 @@ from typing import Any
 from . import __version__
 from .actions import ActionRegistry
 from .ad_auth import AdAuthenticator
+from .automation_execution import AutomationPlanningService
 from .auth import LoginRateLimiter, SessionManager
 from .config import Config
 from .external_access import ExternalAccessPolicy, ExternalRequestRateLimiter
 from .local_admin_auth import LocalAdminCredentialStore
+from .node_inventory_api import NodeInventoryService
 from .reconcile import Reconciler
 from .store import StateStore
 from .util import sha256_file, utc_now
@@ -45,6 +47,8 @@ class Runtime:
         )
         self.external_request_limiter = ExternalRequestRateLimiter()
         self.actions = ActionRegistry(config.node_id, self.store)
+        self.node_inventory = NodeInventoryService(self.store, product_version=__version__)
+        self.automation = AutomationPlanningService(self.store.nodes)
         self.reconciler = Reconciler(config, self.store)
 
     def start(self) -> None:
@@ -85,7 +89,8 @@ class Runtime:
 
     def overview(self) -> dict[str, Any]:
         nodes = self.store.nodes()
-        expected_nodes = len(self.profile["spec"]["nodes"])
+        profile_name, profile_version, profile_nodes = self._profile_details(self.profile)
+        expected_nodes = len(profile_nodes)
         ready_nodes = sum(node["status"] == "ready" for node in nodes)
         status = "healthy" if ready_nodes == expected_nodes and len(nodes) == expected_nodes else "degraded"
         return {
@@ -95,8 +100,8 @@ class Runtime:
             "cluster": {
                 "id": self.config.cluster_id,
                 "status": status,
-                "profile": self.profile["metadata"]["name"],
-                "profile_version": self.profile["metadata"]["version"],
+                "profile": profile_name,
+                "profile_version": profile_version,
                 "local_role": self.config.role,
                 "ready_nodes": ready_nodes,
                 "expected_nodes": expected_nodes,
@@ -124,9 +129,36 @@ class Runtime:
     @staticmethod
     def _load_profile(path: Path) -> dict[str, Any]:
         value = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(value, dict):
+            raise ValueError("deployment profile must be an object")
         if value.get("schema") not in {"home-center.deployment-profile.v1", "home-center.deployment-profile.v2"}:
             raise ValueError("unsupported deployment profile")
-        nodes = value.get("spec", {}).get("nodes", [])
+        Runtime._profile_details(value)
+        return value
+
+    @staticmethod
+    def _profile_details(value: dict[str, Any]) -> tuple[str, str | int, list[dict[str, Any]]]:
+        """Return the common runtime view for legacy v1 and portable v2 profiles."""
+
+        if value.get("schema") == "home-center.deployment-profile.v2":
+            profile_name = value.get("profile_id")
+            profile_version: str | int = 2
+            nodes = value.get("nodes")
+        else:
+            metadata = value.get("metadata")
+            specification = value.get("spec")
+            if not isinstance(metadata, dict) or not isinstance(specification, dict):
+                raise ValueError("invalid v1 deployment profile shape")
+            profile_name = metadata.get("name")
+            profile_version = metadata.get("version")
+            nodes = specification.get("nodes")
+
+        if not isinstance(profile_name, str) or not profile_name.strip():
+            raise ValueError("deployment profile name is required")
+        if isinstance(profile_version, bool) or not isinstance(profile_version, (str, int)):
+            raise ValueError("deployment profile version is required")
         if not isinstance(nodes, list) or not 1 <= len(nodes) <= 64:
             raise ValueError("deployment profile node count must be between 1 and 64")
-        return value
+        if any(not isinstance(node, dict) for node in nodes):
+            raise ValueError("deployment profile nodes must be objects")
+        return profile_name, profile_version, nodes
