@@ -1,4 +1,4 @@
-"""Secret-free certificate lifecycle inventory and renewal planning."""
+"""Инвентаризация жизненного цикла сертификатов без секретов и планирование продления."""
 
 from __future__ import annotations
 

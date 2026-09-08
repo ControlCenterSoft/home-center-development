@@ -1,4 +1,4 @@
-"""Home Center module admission: structural validation plus product-scope policy."""
+"""Допуск модулей Home Center: структурная валидация и политика границ продукта."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ class AdmittedModule:
 
 
 def validate_module_admission(value: dict[str, Any]) -> AdmittedModule:
-    """Validate the manifest and reject development-only namespaces fail-closed."""
+    """Проверяет манифест и по принципу fail-closed отклоняет пространства имён только для разработки."""
 
     identity = validate_manifest(value)
     dependencies = tuple(item["id"] for item in value["dependencies"])

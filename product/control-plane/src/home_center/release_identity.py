@@ -1,4 +1,4 @@
-"""Read-only identity of the installed Home Center release."""
+"""Идентичность установленного релиза Home Center только на чтение."""
 
 from __future__ import annotations
 
@@ -44,17 +44,17 @@ def _read_identity_file(path: Path, pattern: re.Pattern[str], code: str) -> str:
 
 
 def release_root() -> Path:
-    """Return the artifact root when the package is installed from a release."""
+    """Возвращает корень артефакта, когда пакет установлен из релиза."""
 
     return Path(__file__).resolve().parent.parent
 
 
 def current_release_identity(root: Path | None = None) -> dict[str, Any]:
-    """Return bounded, non-secret release identity.
+    """Возвращает ограниченную идентичность релиза без секретов.
 
-    A source-tree execution has no VERSION/REVISION pair and is reported as
-    ``source``. If one identity file is present without the other, or either is
-    malformed, the function fails closed rather than inventing a revision.
+    При запуске из дерева исходников пара VERSION/REVISION отсутствует, и состояние
+    отмечается как ``source``. Если присутствует только один файл идентичности или любой
+    из них повреждён, функция отказывает по принципу fail-closed, а не выдумывает revision.
     """
 
     base = Path(root) if root is not None else release_root()

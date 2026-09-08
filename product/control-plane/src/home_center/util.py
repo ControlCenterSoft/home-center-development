@@ -1,4 +1,4 @@
-"""Small security-oriented helpers shared by the runtime."""
+"""Небольшие security-oriented helpers, общие для runtime."""
 
 from __future__ import annotations
 
@@ -54,7 +54,7 @@ def utc_now() -> str:
 
 
 def secure_file(path: Path, *, allow_group_read: bool = False) -> None:
-    """Fail closed if a secret/private file has unsafe ownership or mode."""
+    """Отказывает по принципу fail-closed, если секретный/закрытый файл имеет небезопасного владельца или режим."""
 
     stat = path.stat()
     forbidden = 0o007 | (0 if allow_group_read else 0o070)

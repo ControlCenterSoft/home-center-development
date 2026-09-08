@@ -1,4 +1,4 @@
-"""Deterministic service dependency planning with no process-control surface."""
+"""Детерминированное планирование зависимостей сервисов без поверхности управления процессами."""
 
 from __future__ import annotations
 

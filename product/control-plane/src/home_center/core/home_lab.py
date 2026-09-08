@@ -1,4 +1,4 @@
-"""Plan-only Home Lab environments backed by the compute framework."""
+"""Plan-only окружения Home Lab на основе compute framework."""
 
 from __future__ import annotations
 

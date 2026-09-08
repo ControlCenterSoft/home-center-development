@@ -1,4 +1,4 @@
-"""Closed runtime representations for the Home Center Core API v1 boundary."""
+"""Закрытые runtime-представления для границы Home Center Core API v1."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ IDEMPOTENCY_KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$")
 
 
 class CoreContractError(ValueError):
-    """A bounded public rejection code, never an internal exception string."""
+    """Ограниченный публичный код отказа, но никогда не внутренняя строка исключения."""
 
     def __init__(self, code: str) -> None:
         super().__init__(code)
@@ -88,7 +88,7 @@ def _thaw_json(value: Any) -> Any:
 
 @dataclass(frozen=True, slots=True)
 class CoreCommand:
-    """Validated plan-only command envelope for the stable ``/api/v1`` surface."""
+    """Проверенный конверт команды plan-only для стабильной поверхности ``/api/v1``."""
 
     operation_id: str
     idempotency_key: str

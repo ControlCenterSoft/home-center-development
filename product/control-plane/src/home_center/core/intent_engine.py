@@ -1,4 +1,4 @@
-"""Deterministic, side-effect-free intent planning for Home Center 0.13."""
+"""Детерминированное планирование intents для Home Center 0.13 без побочных эффектов."""
 
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ FORBIDDEN_PARAMETER_KEYS = frozenset(
 
 
 class IntentEngineError(ValueError):
-    """A stable, bounded rejection code for intent-planning failures."""
+    """Стабильный ограниченный код отказа для ошибок планирования intents."""
 
     def __init__(self, code: str) -> None:
         super().__init__(code)
@@ -296,7 +296,7 @@ class IntentPlan:
 
 
 class IntentEngine:
-    """Compile bounded infrastructure goals into deterministic plan-only steps."""
+    """Компилирует ограниченные инфраструктурные цели в детерминированные plan-only шаги."""
 
     def __init__(self, policy_engine: PolicyEngine) -> None:
         self._policy_engine = policy_engine

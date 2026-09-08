@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Provision the Home Center local administrator without exposing its password."""
+"""Создаёт локального администратора Home Center без раскрытия его пароля."""
 
 from __future__ import annotations
 

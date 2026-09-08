@@ -46,8 +46,8 @@ class Action:
     timeout_requires_recovery: bool = False
 
 
-# P2.2 intentionally admits no production mutation. The table is compile-time fixed;
-# policy may enable/disable entries but cannot supply executable paths or argv.
+# P2.2 намеренно не допускает изменений в production. Таблица зафиксирована на этапе компиляции;
+# политика может включать и отключать записи, но не может задавать пути исполняемых файлов или argv.
 ACTIONS: dict[str, Action] = {
     "helper.probe.v1": Action(
         permission="helper.probe",
@@ -198,9 +198,9 @@ def _validate_secret_request(request: dict[str, Any]) -> None:
             encoded = value.encode("utf-8", errors="strict")
         except UnicodeEncodeError as exc:
             raise HelperError("invalid_secret_password") from exc
-        # JSON contracts bound character count. Keep the transport bound large
-        # enough for 256 UTF-8 characters and let the credential layer enforce
-        # its stricter byte policy with a typed, non-secret rejection.
+        # Контракты JSON ограничивают количество символов. Транспортный предел оставляем достаточно большим
+        # для 256 символов UTF-8, а более строгую байтовую политику применяет слой учётных данных
+        # с типизированным отказом, не раскрывающим секреты.
         if not 1 <= len(encoded) <= 1024:
             raise HelperError("invalid_secret_password")
 
@@ -223,7 +223,7 @@ def _execute_secret_request(
     caller_name: str,
     policy: dict[str, Any],
 ) -> dict[str, Any]:
-    """Execute a credential mutation without durable request hashing or capture."""
+    """Выполняет изменение учётных данных без долговременного хеширования или сохранения запроса."""
 
     _validate_secret_request(request)
     action = request["action"]
@@ -273,7 +273,7 @@ def _bounded_text(value: bytes | str | None) -> str:
 
 
 def _classify_bounded_action_failure(action_id: str, stdout: str) -> tuple[str, str]:
-    """Map only fixed, non-secret activation outcomes into helper evidence."""
+    """Преобразует только фиксированные результаты активации без секретов в свидетельство helper."""
     if action_id != "tls.web.activate.v1":
         return "failed", "action_exit_nonzero"
     try:
@@ -660,8 +660,8 @@ def _peer_identity(conn: socket.socket) -> tuple[int, str]:
 
 
 def _protocol_rejection(reason: str) -> dict[str, Any]:
-    # Protocol-level failures happen before a valid request id exists and are not
-    # entered into the evidence chain. They intentionally disclose no exception text.
+    # Ошибки уровня протокола возникают до появления корректного request id и не
+    # добавляются в цепочку свидетельств. Текст исключения намеренно не раскрывается.
     return {
         "schema": "home-center.helper.protocol-error.v1",
         "status": "rejected",
@@ -670,7 +670,7 @@ def _protocol_rejection(reason: str) -> dict[str, Any]:
 
 
 def _receive_request(conn: socket.socket, timeout_seconds: float = CLIENT_IO_TIMEOUT_SECONDS) -> bytes:
-    """Read one bounded newline-delimited request without blocking the singleton server."""
+    """Читает один ограниченный запрос, завершаемый переводом строки, не блокируя однопоточный сервер."""
     deadline = time.monotonic() + timeout_seconds
     data = bytearray()
     while len(data) <= MAX_REQUEST_BYTES:

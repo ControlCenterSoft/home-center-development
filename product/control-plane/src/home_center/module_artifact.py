@@ -1,8 +1,8 @@
-"""Offline verification and content-addressed staging for module artifacts.
+"""Офлайн-проверка и content-addressed staging артефактов модулей.
 
-This module deliberately has no network client, archive extractor, lifecycle
-executor, service control, or private-key support.  Callers provide bounded
-bytes; only a cryptographically verified archive can enter the object store.
+В этом модуле намеренно отсутствуют сетевой клиент, распаковщик архивов, исполнитель lifecycle,
+управление сервисами и поддержка закрытых ключей. Вызывающая сторона передаёт ограниченный
+объём байтов; в object store может попасть только криптографически проверенный архив.
 """
 
 from __future__ import annotations
@@ -50,7 +50,7 @@ WORKFLOW = re.compile(r"^\.github/workflows/[A-Za-z0-9_.-]+\.ya?ml$")
 
 
 class ModuleArtifactError(ValueError):
-    """A stable, non-secret rejection reason suitable for audit output."""
+    """Стабильная причина отказа без секретов, пригодная для вывода в аудит."""
 
     def __init__(self, code: str) -> None:
         super().__init__(code)
@@ -159,7 +159,7 @@ def _b64(value: Any, code: str, *, maximum: int) -> bytes:
 
 
 def manifest_binding_sha256(manifest: dict[str, Any]) -> str:
-    """Hash a manifest with its statement digest zeroed to break the hash cycle."""
+    """Хеширует манифест с обнулённым digest statement, разрывая цикл хеширования."""
 
     normalized = copy.deepcopy(manifest)
     try:
@@ -401,7 +401,7 @@ def verify_module_artifact(
     trust_policy_bytes: bytes,
     artifact_bytes: bytes,
 ) -> VerifiedModuleArtifact:
-    """Verify manifest, provenance signatures, and archive identity without staging."""
+    """Проверяет манифест, подписи provenance и идентичность архива без staging."""
 
     try:
         manifest = load_manifest(manifest_bytes)
@@ -574,7 +574,7 @@ def stage_module_artifact(
     *,
     object_store_root: Path,
 ) -> StagedModuleArtifact:
-    """Verify first, then atomically and idempotently stage exact archive bytes."""
+    """Сначала проверяет, затем атомарно и идемпотентно размещает точные байты архива."""
 
     verified = verify_module_artifact(manifest_bytes, envelope_bytes, trust_policy_bytes, artifact_bytes)
     created = _stage_verified_bytes(object_store_root, verified, artifact_bytes)

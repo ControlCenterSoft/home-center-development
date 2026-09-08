@@ -1,4 +1,4 @@
-"""Infrastructure-neutral Home Center core planning foundation."""
+"""Инфраструктурно-нейтральная основа планирования ядра Home Center."""
 
 from .certificate_lifecycle import CertificateLifecyclePlanner, CertificateRecord, CertificateRenewalPlan, CertificateStatus
 from .compute_framework import ComputePlan, ComputePlanner, ComputeProviderDescriptor, ComputeProviderKind, ComputeResourceKind, ComputeResourceRequest

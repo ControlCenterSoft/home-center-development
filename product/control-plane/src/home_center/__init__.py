@@ -1,4 +1,4 @@
-"""Home Center infrastructure-neutral control-plane package."""
+"""Инфраструктурно-нейтральный пакет control-plane Home Center."""
 
 from __future__ import annotations
 

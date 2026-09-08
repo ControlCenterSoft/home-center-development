@@ -1,9 +1,8 @@
-"""Crash-safe rotation of the node-local administrator verifier.
+"""Устойчивая к сбоям ротация verifier локального администратора узла.
 
-Only the fixed credential path and fixed transaction files are touched. The
-new password exists in memory for the duration of the request and is never
-placed in logs, audit metadata, environment variables, command arguments, or
-the state database.
+Затрагиваются только фиксированный путь учётных данных и фиксированные транзакционные файлы.
+Новый пароль существует в памяти только на время запроса и никогда не попадает в журналы,
+метаданные аудита, переменные окружения, аргументы команд или базу состояния.
 """
 
 from __future__ import annotations
@@ -32,7 +31,7 @@ class LocalAdminRotationError(ValueError):
 
 
 class LocalAdminCredentialRotator:
-    """Serialize, recover and atomically commit one node-local credential."""
+    """Сериализует, восстанавливает и атомарно фиксирует одни локальные учётные данные узла."""
 
     def __init__(
         self,
@@ -215,7 +214,7 @@ class LocalAdminCredentialRotator:
         self._store()
 
     def recover(self) -> LocalAdminCredentialStore:
-        """Resolve an interrupted local transaction without accepting caller paths."""
+        """Завершает прерванную локальную транзакцию, не принимая пути от вызывающей стороны."""
 
         with self._thread_lock:
             directory_fd = self._open_directory()
@@ -265,8 +264,8 @@ class LocalAdminCredentialRotator:
                 if next_store.authenticate(current_store.username, new_password) is None:
                     raise LocalAdminRotationError("credential_rotation_validation_failed")
                 self._write_regular(directory_fd, ROLLBACK_NAME, old_data)
-                # Make the rollback directory entry durable before the target
-                # credential can be switched to the new verifier.
+                # Запись rollback в каталоге делаем устойчивой до того, как целевые
+                # учётные данные смогут переключиться на новый verifier.
                 os.fsync(directory_fd)
                 os.replace(NEXT_NAME, self.path.name, src_dir_fd=directory_fd, dst_dir_fd=directory_fd)
                 replaced = True
@@ -282,10 +281,10 @@ class LocalAdminCredentialRotator:
                     except Exception as exc:
                         raise LocalAdminRotationError("credential_commit_hook_failed") from exc
                 committed = True
-                # The credential switch and optional external evidence are now
-                # committed. Cleanup failure cannot be reported as rotation
-                # failure because the new password is already authoritative;
-                # the next recovery pass safely removes a retained rollback.
+                # Переключение учётных данных и необязательное внешнее свидетельство уже
+                # зафиксированы. Сбой очистки нельзя сообщать как ошибку ротации, поскольку
+                # новый пароль уже является авторитетным; следующий проход recovery
+                # безопасно удалит сохранённый rollback.
                 try:
                     self._unlink_regular(directory_fd, ROLLBACK_NAME)
                     os.fsync(directory_fd)
@@ -327,7 +326,7 @@ class LocalAdminCredentialRotator:
                 os.close(directory_fd)
 
     def rotate(self, username: str, current_password: str, new_password: str) -> LocalAdminCredentialStore:
-        """Atomically replace a verifier after checking the current password."""
+        """Атомарно заменяет verifier после проверки текущего пароля."""
 
         return self._change(
             new_password,
@@ -342,10 +341,10 @@ class LocalAdminCredentialRotator:
         *,
         commit_hook: Callable[[], None] | None = None,
     ) -> LocalAdminCredentialStore:
-        """Reset a verifier for an already authorized local-console recovery.
+        """Сбрасывает verifier для уже авторизованного восстановления через локальную консоль.
 
-        This primitive deliberately implements no authorization surface. Only
-        the packaged root/local-console recovery entry point may invoke it.
+        Этот примитив намеренно не реализует собственную поверхность авторизации. Вызывать
+        его может только поставляемая точка входа восстановления root/local-console.
         """
 
         return self._change(

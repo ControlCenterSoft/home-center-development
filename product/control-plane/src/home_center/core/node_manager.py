@@ -1,4 +1,4 @@
-"""Infrastructure-neutral node identity and lifecycle planning."""
+"""Инфраструктурно-нейтральная идентичность узлов и планирование их жизненного цикла."""
 
 from __future__ import annotations
 

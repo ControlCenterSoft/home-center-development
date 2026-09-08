@@ -1,4 +1,4 @@
-"""Bounded local capability discovery with no privileged shell interface."""
+"""Ограниченное обнаружение локальных возможностей без привилегированного shell-интерфейса."""
 
 from __future__ import annotations
 

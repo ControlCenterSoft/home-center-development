@@ -1,4 +1,4 @@
-"""Authenticated, side-effect-free intent planning service for Home Center 0.13."""
+"""Аутентифицированный сервис планирования intents без побочных эффектов для Home Center 0.13."""
 
 from __future__ import annotations
 
@@ -50,7 +50,7 @@ def _default_policy_engine() -> PolicyEngine:
 
 
 class IntentPlanningService:
-    """Bind administrator identities and trusted resource facts to plan-only intents."""
+    """Связывает личности администраторов и доверенные данные о ресурсах с intents режима plan-only."""
 
     def __init__(
         self,

@@ -1,4 +1,4 @@
-"""Default-deny authorization decisions for 0.10 core planners."""
+"""Решения авторизации default-deny для планировщиков Core 0.10."""
 
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ class PolicyDecision:
 
 
 class PolicyEngine:
-    """Evaluate exact rules; wildcard or ambient administrator access is absent."""
+    """Проверяет точные правила; wildcard-доступ и неявный доступ администратора отсутствуют."""
 
     def __init__(self, rules: Iterable[PolicyRule] = ()) -> None:
         self._rules = tuple(rules)

@@ -1,8 +1,8 @@
-"""Fail-closed product-scope admission for Home Center runtime extensions.
+"""Допуск в границы продукта Home Center по принципу fail-closed для расширений runtime.
 
-The validator operates only on already-validated symbolic identifiers. It
-prevents module manifests from introducing namespaces that do not belong to
-Home Center's user-infrastructure product surface.
+Валидатор работает только с уже проверенными символьными идентификаторами. Он не позволяет
+манифестам модулей вводить пространства имён, не относящиеся к пользовательской
+инфраструктурной поверхности продукта Home Center.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from typing import Iterable
 
 
 class ProductBoundaryError(ValueError):
-    """Stable, input-free rejection code for out-of-scope identifiers."""
+    """Стабильный код отказа без входных данных для идентификаторов вне границ продукта."""
 
     def __init__(self, code: str) -> None:
         super().__init__(code)
@@ -73,7 +73,7 @@ def evaluate_product_scope(
     permissions: Iterable[str] = (),
     actions: Iterable[str] = (),
 ) -> ProductBoundaryDecision:
-    """Return a deterministic decision without executing or mutating anything."""
+    """Возвращает детерминированное решение без выполнения или изменения чего-либо."""
 
     categories = {
         "module": (module_id,),

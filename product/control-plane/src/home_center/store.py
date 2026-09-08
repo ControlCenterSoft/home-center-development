@@ -1,4 +1,4 @@
-"""SQLite state store with migrations and a keyed append-only audit chain."""
+"""Хранилище состояния SQLite с миграциями и keyed append-only цепочкой аудита."""
 
 from __future__ import annotations
 
@@ -90,7 +90,7 @@ MIGRATIONS: tuple[tuple[int, str], ...] = (
 
 
 class IdempotencyConflict(ValueError):
-    """The same idempotency key was reused with different request material."""
+    """Один idempotency key повторно использован с отличающимся содержимым запроса."""
 
 
 class StateStore:

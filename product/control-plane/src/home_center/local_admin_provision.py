@@ -1,7 +1,7 @@
-"""Privileged local-administrator credential provisioning primitives.
+"""Примитивы привилегированного provisioning учётных данных локального администратора.
 
-This module creates only a salted scrypt verifier. It never logs, returns, or
-persists the plaintext password and never overwrites an existing credential.
+Этот модуль создаёт только salted verifier scrypt. Он никогда не журналирует, не возвращает
+и не сохраняет пароль в открытом виде и никогда не перезаписывает существующие учётные данные.
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ class LocalAdminProvisionError(ValueError):
 
 
 def credential_document(username: str, password: str, *, salt: bytes | None = None) -> dict[str, Any]:
-    """Build a verifier document without retaining plaintext password material."""
+    """Формирует документ verifier без сохранения материала пароля в открытом виде."""
 
     canonical_username = normalize_username(username)
     password_bytes = _password_bytes(password)
@@ -79,12 +79,11 @@ def provision_credential_file(
     file_gid: int,
     file_mode: int = 0o640,
 ) -> str:
-    """Create a credential exactly once using a no-follow, no-overwrite publication.
+    """Однократно создаёт учётные данные с публикацией без follow и без перезаписи.
 
-    The parent directory must already exist with the exact expected ownership and
-    mode. A hard-link publication is used instead of rename so an attacker cannot
-    win a destination-replacement race by creating the target between validation
-    and publication.
+    Родительский каталог должен уже существовать с точно ожидаемыми владельцем и режимом.
+    Вместо rename используется публикация через hard link, чтобы атакующий не мог выиграть
+    гонку замены назначения, создав целевой файл между проверкой и публикацией.
     """
 
     target = Path(path)

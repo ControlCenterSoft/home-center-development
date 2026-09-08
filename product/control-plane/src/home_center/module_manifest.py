@@ -1,4 +1,4 @@
-"""Fail-closed validation for production-inert Home Center module manifests."""
+"""Валидация по принципу fail-closed для неактивных в production манифестов модулей Home Center."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ KEY_ID = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 
 class ModuleManifestError(ValueError):
-    """A bounded validation failure that never includes untrusted input."""
+    """Ограниченная ошибка валидации, которая никогда не включает недоверенные входные данные."""
 
     def __init__(self, code: str) -> None:
         super().__init__(code)
@@ -53,7 +53,7 @@ def _reject_constant(_: str) -> None:
 
 
 def load_manifest(payload: bytes) -> dict[str, Any]:
-    """Decode a bounded JSON manifest while rejecting duplicate object keys."""
+    """Декодирует ограниченный JSON-манифест, отклоняя повторяющиеся ключи объектов."""
 
     if not isinstance(payload, bytes) or not 0 < len(payload) <= MAX_MANIFEST_BYTES:
         raise ModuleManifestError("manifest_size_rejected")
@@ -130,7 +130,7 @@ def _unique_strings(value: Any, pattern: re.Pattern[str], code: str, *, maximum_
 
 
 def validate_manifest(value: dict[str, Any]) -> ModuleManifestIdentity:
-    """Validate schema-shape and cross-field semantics without executing a module."""
+    """Проверяет форму схемы и межполевую семантику без выполнения модуля."""
 
     root = _object(
         value,

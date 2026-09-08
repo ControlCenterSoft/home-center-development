@@ -1,4 +1,4 @@
-"""Root-controlled, secret-free evidence for local administrator recovery."""
+"""Управляемое root и не содержащее секретов свидетельство восстановления локального администратора."""
 
 from __future__ import annotations
 
@@ -101,7 +101,7 @@ def _write_all(descriptor: int, payload: bytes) -> None:
 
 
 class RecoveryEvidenceLog:
-    """Append and verify a bounded hash chain containing safe metadata only."""
+    """Добавляет и проверяет ограниченную хеш-цепочку, содержащую только безопасные метаданные."""
 
     def __init__(
         self,

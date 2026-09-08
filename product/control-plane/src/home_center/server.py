@@ -1,4 +1,4 @@
-"""TLS server bootstrap and process lifecycle."""
+"""Инициализация TLS-серверов и жизненный цикл процесса."""
 
 from __future__ import annotations
 
