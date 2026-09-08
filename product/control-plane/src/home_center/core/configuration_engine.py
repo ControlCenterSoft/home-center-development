@@ -1,4 +1,4 @@
-"""Desired-state and configuration-lock planning primitives."""
+"""Примитивы планирования desired state и блокировок конфигурации."""
 
 from __future__ import annotations
 
