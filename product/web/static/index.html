@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Home Center</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <header><strong>Home Center</strong><span id="version">development</span></header>
+  <main>
+    <section>
+      <h1>Инфраструктура</h1>
+      <p>Узлы и роли отображаются из фактического состояния Home Center. Интерфейс не предполагает фиксированное количество серверов.</p>
+      <div id="nodes" class="node-grid" aria-live="polite"></div>
+    </section>
+    <section>
+      <h2>Возможности</h2>
+      <div id="capabilities"></div>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
