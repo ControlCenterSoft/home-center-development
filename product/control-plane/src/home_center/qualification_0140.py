@@ -1,8 +1,7 @@
-"""Closed, deterministic release qualification for Home Center 0.14.0.
+"""Закрытая детерминированная квалификация релиза Home Center 0.14.0.
 
-The qualifier consumes bounded, non-secret observations and returns an immutable
-plan-only report.  It grants no deployment, execution, or production mutation
-authority.
+Квалификатор принимает ограниченные наблюдения без секретов и возвращает неизменяемый
+отчёт plan-only. Он не предоставляет полномочий на deployment, выполнение или изменения production.
 """
 
 from __future__ import annotations
@@ -36,7 +35,7 @@ _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
 
 class Qualification0140Error(ValueError):
-    """Stable fail-closed code for rejected qualification evidence."""
+    """Стабильный fail-closed код для отклонённого свидетельства квалификации."""
 
     def __init__(self, code: str) -> None:
         super().__init__(code)
@@ -80,7 +79,7 @@ def _duplicate_reject(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 
 
 def load_qualification_evidence(raw: bytes) -> Mapping[str, Any]:
-    """Load a bounded strict-JSON evidence document without accepting duplicate keys."""
+    """Загружает ограниченный документ свидетельств strict-JSON без принятия повторяющихся ключей."""
 
     if not isinstance(raw, bytes) or not raw or len(raw) > MAX_EVIDENCE_BYTES:
         _reject("qualification_document_size_rejected")
@@ -123,7 +122,7 @@ class Qualification0140Report:
 
 
 def qualify_release_0140(evidence: Mapping[str, Any]) -> Qualification0140Report:
-    """Qualify exact 0.14.0 observations or reject without side effects."""
+    """Квалифицирует точные наблюдения 0.14.0 или отклоняет их без побочных эффектов."""
 
     root = _object(
         evidence,
