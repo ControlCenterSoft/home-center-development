@@ -1,4 +1,4 @@
-"""Consistent local backup, retention and independent verification."""
+"""Согласованное локальное резервное копирование, политика хранения и независимая проверка."""
 
 from __future__ import annotations
 
