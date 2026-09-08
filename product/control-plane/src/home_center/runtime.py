@@ -15,6 +15,7 @@ from .auth import LoginRateLimiter, SessionManager
 from .config import Config
 from .external_access import ExternalAccessPolicy, ExternalRequestRateLimiter
 from .local_admin_auth import LocalAdminCredentialStore
+from .node_inventory_api import NodeInventoryService
 from .reconcile import Reconciler
 from .store import StateStore
 from .util import sha256_file, utc_now
@@ -45,6 +46,7 @@ class Runtime:
         )
         self.external_request_limiter = ExternalRequestRateLimiter()
         self.actions = ActionRegistry(config.node_id, self.store)
+        self.node_inventory = NodeInventoryService(self.store, product_version=__version__)
         self.reconciler = Reconciler(config, self.store)
 
     def start(self) -> None:
