@@ -1,4 +1,4 @@
-"""Short-lived signed browser sessions and fail-closed login rate limiting."""
+"""Короткоживущие подписанные браузерные сессии и ограничение частоты входа по принципу fail-closed."""
 
 from __future__ import annotations
 
@@ -80,7 +80,7 @@ class SessionManager:
 
 
 class LoginRateLimiter:
-    """Small in-memory fail-closed limiter for interactive authentication."""
+    """Небольшой внутрипроцессный ограничитель по принципу fail-closed для интерактивной аутентификации."""
 
     def __init__(self, attempts: int = 5, window_seconds: int = 60) -> None:
         self._attempts = attempts
