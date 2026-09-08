@@ -1,4 +1,4 @@
-"""Infrastructure-neutral TLS status for the public distribution."""
+"""Инфраструктурно-нейтральный статус TLS для публичной поставки."""
 from __future__ import annotations
 
 import hashlib
