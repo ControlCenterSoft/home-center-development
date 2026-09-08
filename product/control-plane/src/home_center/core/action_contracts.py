@@ -1,4 +1,4 @@
-"""Typed, closed inputs for the five admitted 0.10 Core planning actions."""
+"""Типизированные закрытые входные данные для пяти допущенных planning-actions Core 0.10."""
 
 from __future__ import annotations
 
