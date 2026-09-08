@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/core/plans/policy-decision.v1.schema.json",
+  "title": "Policy Decision v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "allowed", "code"],
+  "properties": {
+    "schema": {"const": "home-center.policy-decision.v1"},
+    "allowed": {"type": "boolean"},
+    "code": {
+      "enum": ["allowed_by_exact_rule", "default_deny", "production_mutation_not_certified"]
+    }
+  }
+}

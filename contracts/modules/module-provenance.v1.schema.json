@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/modules/module-provenance.v1.schema.json",
+  "title": "Home Center module provenance statement v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "module", "manifest", "artifact", "source"],
+  "properties": {
+    "schema": {"const": "home-center.module-provenance.v1"},
+    "module": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "publisher"],
+      "properties": {
+        "id": {"$ref": "#/$defs/moduleId"},
+        "version": {"$ref": "#/$defs/semver"},
+        "publisher": {"$ref": "#/$defs/moduleId"}
+      }
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "binding_algorithm", "sha256"],
+      "properties": {
+        "schema": {"const": "home-center.module-manifest.v2"},
+        "binding_algorithm": {"const": "home-center-canonical-json-zero-statement-v1"},
+        "sha256": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "size_bytes", "media_type"],
+      "properties": {
+        "sha256": {"$ref": "#/$defs/digest"},
+        "size_bytes": {"type": "integer", "minimum": 1, "maximum": 268435456},
+        "media_type": {"const": "application/vnd.home-center.module.v1+tar+gzip"}
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "revision", "ref", "workflow", "run_id", "run_attempt"],
+      "properties": {
+        "repository": {"type": "string", "maxLength": 256, "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+        "revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "ref": {"type": "string", "maxLength": 256, "pattern": "^refs/(heads|tags)/[A-Za-z0-9._/-]{1,240}$"},
+        "workflow": {"type": "string", "maxLength": 256, "pattern": "^\\.github/workflows/[A-Za-z0-9_.-]+\\.ya?ml$"},
+        "run_id": {"type": "integer", "minimum": 1, "maximum": 9223372036854775807},
+        "run_attempt": {"type": "integer", "minimum": 1, "maximum": 1024}
+      }
+    }
+  },
+  "$defs": {
+    "moduleId": {"type": "string", "maxLength": 128, "pattern": "^[a-z0-9](?:[a-z0-9.-]{0,126}[a-z0-9])?$"},
+    "semver": {"type": "string", "maxLength": 64, "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

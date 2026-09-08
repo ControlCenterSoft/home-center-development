@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/homelab/home-lab-plan.v1.schema.json",
+  "title": "Home Center HomeLabPlan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "lab_id", "template_id", "state", "blockers", "compute_plan", "production_mutation_enabled"],
+  "properties": {
+    "schema": {"const": "home-center.home-lab-plan.v1"},
+    "lab_id": {"type": "string", "minLength": 2, "maxLength": 128},
+    "template_id": {"type": "string", "minLength": 2, "maxLength": 128},
+    "state": {"enum": ["planned", "blocked"]},
+    "blockers": {"type": "array", "maxItems": 16, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9_:-]+$"}},
+    "compute_plan": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "../compute/compute-plan.v1.schema.json"}
+      ]
+    },
+    "production_mutation_enabled": {"const": false}
+  }
+}
