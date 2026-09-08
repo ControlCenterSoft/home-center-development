@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/compute/vm-lifecycle-plan.v1.schema.json",
+  "title": "Home Center VmLifecyclePlan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "operation_id", "vm_id", "action", "state", "provider_id", "steps", "blockers", "production_mutation_enabled"],
+  "properties": {
+    "schema": {"const": "home-center.vm-lifecycle-plan.v1"},
+    "operation_id": {"$ref": "#/$defs/id"},
+    "vm_id": {"$ref": "#/$defs/id"},
+    "action": {"enum": ["create", "start", "stop", "suspend", "delete"]},
+    "state": {"enum": ["planned", "blocked"]},
+    "provider_id": {"oneOf": [{"$ref": "#/$defs/id"}, {"type": "null"}]},
+    "steps": {"$ref": "#/$defs/steps"},
+    "blockers": {"$ref": "#/$defs/blockers"},
+    "production_mutation_enabled": {"const": false}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "steps": {"type": "array", "maxItems": 8, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9-]+$"}},
+    "blockers": {"type": "array", "maxItems": 16, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9_:-]+$"}}
+  }
+}

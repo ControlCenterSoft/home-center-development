@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/compute/resource-placement-plan.v1.schema.json",
+  "title": "Home Center ResourcePlacementPlan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "request_id", "state", "provider_id", "score", "blockers", "production_mutation_enabled"],
+  "properties": {
+    "schema": {"const": "home-center.resource-placement-plan.v1"},
+    "request_id": {"$ref": "#/$defs/id"},
+    "state": {"enum": ["planned", "blocked"]},
+    "provider_id": {"oneOf": [{"$ref": "#/$defs/id"}, {"type": "null"}]},
+    "score": {"type": ["integer", "null"]},
+    "blockers": {"$ref": "#/$defs/blockers"},
+    "production_mutation_enabled": {"const": false}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "blockers": {"type": "array", "maxItems": 16, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9_:-]+$"}}
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/core/actions/node-drain-plan-input.v1.schema.json",
+  "title": "Node Drain Plan Input v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "quorum_safe", "mandatory_services_safe"],
+  "properties": {
+    "schema": {"const": "home-center.node-drain-plan-input.v1"},
+    "quorum_safe": {"type": "boolean"},
+    "mandatory_services_safe": {"type": "boolean"}
+  }
+}

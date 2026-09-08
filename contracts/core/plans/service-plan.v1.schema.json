@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/core/plans/service-plan.v1.schema.json",
+  "title": "Service Plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "service_id", "action", "ordered_services", "production_activation_enabled"],
+  "properties": {
+    "schema": {"const": "home-center.service-plan.v1"},
+    "service_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.@-]{1,127}$"},
+    "action": {"const": "start"},
+    "ordered_services": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[a-z][a-z0-9_.@-]{1,127}$"}
+    },
+    "production_activation_enabled": {"const": false}
+  }
+}

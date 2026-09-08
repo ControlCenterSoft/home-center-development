@@ -1,0 +1,33 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Home Center 0.15 Infrastructure Inventory API",
+    "version": "0.15.0-development",
+    "description": "Authenticated, read-only and infrastructure-neutral inventory derived from validated node capability facts. Machine identity fingerprints are not exposed."
+  },
+  "paths": {
+    "/api/v1/infrastructure": {
+      "get": {
+        "operationId": "getInfrastructureInventory",
+        "security": [{"sessionCookie": []}],
+        "responses": {
+          "200": {
+            "description": "Deterministic typed node and infrastructure inventory",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../inventory/infrastructure-inventory-list.v1.schema.json"}
+              }
+            }
+          },
+          "401": {"description": "Authentication required"},
+          "503": {"description": "Persisted inventory facts are unavailable or inconsistent"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {"type": "apiKey", "in": "cookie", "name": "hc_session"}
+    }
+  }
+}

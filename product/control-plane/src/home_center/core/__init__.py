@@ -1,17 +1,64 @@
 """Infrastructure-neutral Home Center core planning foundation."""
 
 from .certificate_lifecycle import CertificateLifecyclePlanner, CertificateRecord, CertificateRenewalPlan, CertificateStatus
-from .compute_framework import ComputePlan, ComputePlanner, ComputeProviderDescriptor, ComputeProviderKind, ComputeResourceKind, ComputeResourceRequest
+from .compute_framework import (
+    ComputeFrameworkError,
+    ComputePlan,
+    ComputePlanner,
+    ComputePlanState,
+    ComputeProviderDescriptor,
+    ComputeProviderKind,
+    ComputeResourceKind,
+    ComputeResourceRequest,
+)
 from .home_lab import HomeLabPlan, HomeLabPlanner, HomeLabQuota, HomeLabTemplate, HomeLabUsage
+from .lxc_lifecycle import (
+    LxcAction,
+    LxcLifecycleError,
+    LxcLifecyclePlan,
+    LxcLifecyclePlanner,
+    LxcLifecycleRequest,
+    LxcSnapshot,
+    LxcState,
+)
 from .node_manager import NodeDescriptor, NodeManager, NodeState, NodeTransitionPlan
+from .proxmox_provider import (
+    AuthState as ProxmoxAuthState,
+    Health as ProxmoxHealth,
+    Node as ProxmoxNode,
+    NodeState as ProxmoxNodeState,
+    ProxmoxDiscovery,
+    ProxmoxProviderError,
+    Resource as ProxmoxResource,
+    ResourceState as ProxmoxResourceState,
+    normalize_proxmox_discovery,
+)
+from .resource_scheduler import (
+    PlacementPlan,
+    PlacementRequest,
+    ProviderCapacity,
+    ResourceScheduler,
+    ResourceSchedulerError,
+)
+from .vm_lifecycle import (
+    VmAction,
+    VmLifecycleError,
+    VmLifecyclePlan,
+    VmLifecyclePlanner,
+    VmLifecycleRequest,
+    VmSnapshot,
+    VmState,
+)
 
 __all__ = [
     "CertificateLifecyclePlanner",
     "CertificateRecord",
     "CertificateRenewalPlan",
     "CertificateStatus",
+    "ComputeFrameworkError",
     "ComputePlan",
     "ComputePlanner",
+    "ComputePlanState",
     "ComputeProviderDescriptor",
     "ComputeProviderKind",
     "ComputeResourceKind",
@@ -21,8 +68,36 @@ __all__ = [
     "HomeLabQuota",
     "HomeLabTemplate",
     "HomeLabUsage",
+    "LxcAction",
+    "LxcLifecycleError",
+    "LxcLifecyclePlan",
+    "LxcLifecyclePlanner",
+    "LxcLifecycleRequest",
+    "LxcSnapshot",
+    "LxcState",
     "NodeDescriptor",
     "NodeManager",
     "NodeState",
     "NodeTransitionPlan",
+    "PlacementPlan",
+    "PlacementRequest",
+    "ProviderCapacity",
+    "ProxmoxAuthState",
+    "ProxmoxDiscovery",
+    "ProxmoxHealth",
+    "ProxmoxNode",
+    "ProxmoxNodeState",
+    "ProxmoxProviderError",
+    "ProxmoxResource",
+    "ProxmoxResourceState",
+    "ResourceScheduler",
+    "ResourceSchedulerError",
+    "VmAction",
+    "VmLifecycleError",
+    "VmLifecyclePlan",
+    "VmLifecyclePlanner",
+    "VmLifecycleRequest",
+    "VmSnapshot",
+    "VmState",
+    "normalize_proxmox_discovery",
 ]

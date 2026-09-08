@@ -5,10 +5,13 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from enum import StrEnum
+from itertools import islice
 from typing import Iterable
 
 IDENTIFIER = re.compile(r"^[a-z][a-z0-9_.:-]{1,127}$")
 CAPABILITY = re.compile(r"^[a-z][a-z0-9.-]{1,126}\.v[1-9][0-9]*$")
+BLOCKER = re.compile(r"^[a-z0-9_:-]+$")
+MAX_CAPABILITIES = 128
 
 class ComputeFrameworkError(ValueError):
     def __init__(self, code: str) -> None:
@@ -28,6 +31,20 @@ class ComputePlanState(StrEnum):
     PLANNED = "planned"
     BLOCKED = "blocked"
 
+
+def _normalize_capabilities(capabilities: Iterable[str]) -> tuple[str, ...]:
+    if isinstance(capabilities, (str, bytes)):
+        raise ComputeFrameworkError("invalid_provider_capability")
+    try:
+        values = tuple(islice(iter(capabilities), MAX_CAPABILITIES + 1))
+    except (TypeError, ValueError) as exc:
+        raise ComputeFrameworkError("invalid_provider_capability") from exc
+    if len(values) > MAX_CAPABILITIES or any(
+        not isinstance(item, str) or CAPABILITY.fullmatch(item) is None for item in values
+    ):
+        raise ComputeFrameworkError("invalid_provider_capability")
+    return tuple(sorted(set(values)))
+
 @dataclass(frozen=True, slots=True)
 class ComputeProviderDescriptor:
     provider_id: str
@@ -35,16 +52,21 @@ class ComputeProviderDescriptor:
     healthy: bool
     capabilities: tuple[str, ...]
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.provider_id, str) or IDENTIFIER.fullmatch(self.provider_id) is None:
+            raise ComputeFrameworkError("invalid_provider_id")
+        if not isinstance(self.kind, ComputeProviderKind) or type(self.healthy) is not bool:
+            raise ComputeFrameworkError("invalid_provider")
+        object.__setattr__(self, "capabilities", _normalize_capabilities(self.capabilities))
+
     @classmethod
     def create(cls, *, provider_id: str, kind: ComputeProviderKind, healthy: bool, capabilities: Iterable[str]) -> "ComputeProviderDescriptor":
-        if IDENTIFIER.fullmatch(provider_id) is None:
-            raise ComputeFrameworkError("invalid_provider_id")
-        if not isinstance(kind, ComputeProviderKind) or not isinstance(healthy, bool):
-            raise ComputeFrameworkError("invalid_provider")
-        normalized = tuple(sorted(set(capabilities)))
-        if any(CAPABILITY.fullmatch(item) is None for item in normalized):
-            raise ComputeFrameworkError("invalid_provider_capability")
-        return cls(provider_id=provider_id, kind=kind, healthy=healthy, capabilities=normalized)
+        return cls(
+            provider_id=provider_id,
+            kind=kind,
+            healthy=healthy,
+            capabilities=_normalize_capabilities(capabilities),
+        )
 
 @dataclass(frozen=True, slots=True)
 class ComputeResourceRequest:
@@ -56,7 +78,11 @@ class ComputeResourceRequest:
     high_availability: bool = False
 
     def __post_init__(self) -> None:
-        if IDENTIFIER.fullmatch(self.resource_id) is None or not isinstance(self.kind, ComputeResourceKind):
+        if (
+            not isinstance(self.resource_id, str)
+            or IDENTIFIER.fullmatch(self.resource_id) is None
+            or not isinstance(self.kind, ComputeResourceKind)
+        ):
             raise ComputeFrameworkError("invalid_compute_request")
         if not isinstance(self.vcpu, int) or isinstance(self.vcpu, bool) or not 1 <= self.vcpu <= 256:
             raise ComputeFrameworkError("invalid_vcpu")
@@ -79,6 +105,32 @@ class ComputePlan:
     production_mutation_enabled: bool = False
     schema: str = field(default="home-center.compute-plan.v1", init=False)
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.provider_id, str) or IDENTIFIER.fullmatch(self.provider_id) is None:
+            raise ComputeFrameworkError("invalid_provider_id")
+        if not isinstance(self.request, ComputeResourceRequest):
+            raise ComputeFrameworkError("invalid_compute_request")
+        if not isinstance(self.state, ComputePlanState):
+            raise ComputeFrameworkError("invalid_compute_plan_state")
+        if (
+            not isinstance(self.blockers, tuple)
+            or len(self.blockers) > 16
+            or len(self.blockers) != len(set(self.blockers))
+            or any(
+                not isinstance(item, str) or BLOCKER.fullmatch(item) is None
+                for item in self.blockers
+            )
+        ):
+            raise ComputeFrameworkError("invalid_compute_plan_blockers")
+        if (
+            self.state is ComputePlanState.PLANNED and self.blockers
+        ) or (
+            self.state is ComputePlanState.BLOCKED and not self.blockers
+        ):
+            raise ComputeFrameworkError("inconsistent_compute_plan")
+        if self.production_mutation_enabled is not False:
+            raise ComputeFrameworkError("production_mutation_forbidden")
+
     def to_dict(self) -> dict[str, object]:
         return {"schema": self.schema, "provider_id": self.provider_id, "request": self.request.to_dict(), "state": self.state.value, "blockers": list(self.blockers), "production_mutation_enabled": self.production_mutation_enabled}
 
@@ -90,6 +142,10 @@ class ComputePlanner:
     }
 
     def plan_create(self, provider: ComputeProviderDescriptor, request: ComputeResourceRequest, *, available_cpu: int, available_memory_mib: int, available_storage_gib: int) -> ComputePlan:
+        if not isinstance(provider, ComputeProviderDescriptor):
+            raise ComputeFrameworkError("invalid_provider")
+        if not isinstance(request, ComputeResourceRequest):
+            raise ComputeFrameworkError("invalid_compute_request")
         for value, code in ((available_cpu, "invalid_available_cpu"), (available_memory_mib, "invalid_available_memory"), (available_storage_gib, "invalid_available_storage")):
             if not isinstance(value, int) or isinstance(value, bool) or value < 0:
                 raise ComputeFrameworkError(code)
