@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/inventory/infrastructure-inventory-list.v1.schema.json",
+  "title": "Home Center Infrastructure Inventory List v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "version", "generated_at", "state", "production_mutation_enabled",
+    "summary", "capabilities", "nodes"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.infrastructure-inventory-list.v1"},
+    "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "state": {"enum": ["empty", "healthy", "degraded"]},
+    "production_mutation_enabled": {"const": false},
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total_nodes", "ready_nodes", "unreachable_nodes"],
+      "properties": {
+        "total_nodes": {"type": "integer", "minimum": 0, "maximum": 64},
+        "ready_nodes": {"type": "integer", "minimum": 0, "maximum": 64},
+        "unreachable_nodes": {"type": "integer", "minimum": 0, "maximum": 64}
+      }
+    },
+    "capabilities": {"$ref": "#/$defs/capabilities"},
+    "nodes": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {"$ref": "#/$defs/node"}
+    }
+  },
+  "$defs": {
+    "capabilities": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9.-]+\\.v[0-9]+$"}
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "name", "role", "status", "management_address", "observed_at",
+        "operating_system", "hardware", "storage", "services", "capabilities"
+      ],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9.-]{2,63}$"},
+        "name": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9.-]{0,62}$"},
+        "role": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$"},
+        "status": {"enum": ["ready", "unreachable"]},
+        "management_address": {
+          "type": "string",
+          "anyOf": [{"format": "ipv4"}, {"format": "ipv6"}]
+        },
+        "observed_at": {"type": "string", "format": "date-time"},
+        "operating_system": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "version", "kernel", "architecture"],
+          "properties": {
+            "id": {"type": "string", "minLength": 1, "maxLength": 128},
+            "version": {"type": "string", "minLength": 1, "maxLength": 128},
+            "kernel": {"type": "string", "minLength": 1, "maxLength": 256},
+            "architecture": {"type": "string", "minLength": 1, "maxLength": 64}
+          }
+        },
+        "hardware": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cpu_count", "memory_bytes"],
+          "properties": {
+            "cpu_count": {"type": "integer", "minimum": 1, "maximum": 4096},
+            "memory_bytes": {"type": "integer", "minimum": 1, "maximum": 9223372036854775807}
+          }
+        },
+        "storage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["root"],
+          "properties": {"root": {"$ref": "#/$defs/storageUsage"}}
+        },
+        "services": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "state"],
+            "properties": {
+              "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9@_.:-]{0,127}$"},
+              "state": {"enum": ["active", "inactive", "failed", "activating", "deactivating", "unknown"]}
+            }
+          }
+        },
+        "capabilities": {"$ref": "#/$defs/capabilities"}
+      }
+    },
+    "storageUsage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total_bytes", "used_bytes", "free_bytes"],
+      "properties": {
+        "total_bytes": {"type": "integer", "minimum": 1, "maximum": 9223372036854775807},
+        "used_bytes": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807},
+        "free_bytes": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807}
+      }
+    }
+  }
+}
