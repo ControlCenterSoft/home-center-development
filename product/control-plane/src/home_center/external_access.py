@@ -20,10 +20,6 @@ from typing import Protocol
 FORWARDED_HEADERS = ("Forwarded", "X-Forwarded-For", "X-Forwarded-Proto", "X-Forwarded-Host")
 X_FORWARDED_HEADERS = ("X-Forwarded-For", "X-Forwarded-Proto", "X-Forwarded-Host")
 DNS_LABEL = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
-TRUSTED_IPV4_NETWORKS = tuple(
-    ipaddress.ip_network(value) for value in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8")
-)
-TRUSTED_IPV6_NETWORKS = tuple(ipaddress.ip_network(value) for value in ("fc00::/7", "::1/128"))
 
 
 class HeaderValues(Protocol):
@@ -36,6 +32,14 @@ class ExternalAccessRejected(ValueError):
     def __init__(self, code: str) -> None:
         super().__init__(code)
         self.code = code
+
+
+def _trusted_proxy_scope(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """Accept only non-routable/operator-local proxy addresses without fixed CIDRs."""
+
+    if address.is_unspecified or address.is_multicast:
+        return False
+    return bool(address.is_private or address.is_loopback or address.is_link_local)
 
 
 def normalize_public_hostname(value: str) -> str:
@@ -61,7 +65,7 @@ def normalize_public_hostname(value: str) -> str:
 
 
 def normalize_trusted_proxy_addresses(values: tuple[str, ...] | list[str]) -> tuple[str, ...]:
-    """Validate an exact bounded allowlist of private/loopback gateway IPs."""
+    """Validate an exact bounded allowlist of operator-local gateway IPs."""
 
     if not isinstance(values, (tuple, list)) or len(values) > 16:
         raise ValueError("external_trusted_proxy_addresses_rejected")
@@ -73,8 +77,7 @@ def normalize_trusted_proxy_addresses(values: tuple[str, ...] | list[str]) -> tu
             address = ipaddress.ip_address(value)
         except ValueError as exc:
             raise ValueError("external_trusted_proxy_address_rejected") from exc
-        networks = TRUSTED_IPV4_NETWORKS if address.version == 4 else TRUSTED_IPV6_NETWORKS
-        if not any(address in network for network in networks):
+        if not _trusted_proxy_scope(address):
             raise ValueError("external_trusted_proxy_address_rejected")
         canonical = str(address)
         if canonical in normalized:
