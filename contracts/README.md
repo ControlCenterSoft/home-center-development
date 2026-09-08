@@ -10,6 +10,7 @@ contracts/
 ├── auth/                     # authentication credentials and login envelopes
 ├── agent/                    # Control Plane ↔ Node Agent protocol
 ├── capabilities/             # node capability schemas
+├── inventory/                # authenticated node/infrastructure read models
 ├── actions/                  # typed action registry/request/result
 ├── desired-state/            # desired/actual state schemas
 ├── jobs/                     # Change/Job/action/result schemas
@@ -72,6 +73,7 @@ P2.1 admits only `service.state.read.v1` for Home Center-owned allowlisted units
 ## P2.4 signed release-channel contracts
 
 - `releases/release-record.v1.schema.json` — immutable source/artifact/provenance/acceptance identity;
+- `releases/release-artifact-qualification.v1.schema.json` — deterministic wheel identity, content and reproducibility qualification result;
 - `releases/release-ledger.v1.schema.json` — full append-only state snapshot and atomic transitions;
 - `releases/dsse-envelope.v1.schema.json` — exact DSSE payload/signature envelope;
 - `releases/release-trust-policy.v1.schema.json` — dedicated public P-256 keys and threshold;
@@ -103,3 +105,10 @@ These contracts grant no router, NAT, DDNS, firewall, arbitrary listener or ambi
 - `releases/release-candidate-verification.v1.schema.json` — bounded non-secret verifier decision.
 
 The acceptance document records observations and is not release authority. A separately verified threshold-signed stable-channel record remains mandatory before deployment.
+
+## Home Center 0.15 inventory contracts
+
+- `inventory/infrastructure-inventory-list.v1.schema.json` — closed, authenticated node and infrastructure inventory view over persisted capability facts;
+- `openapi/home-center-inventory.v1.openapi.json` — read-only `/api/v1/infrastructure` endpoint.
+
+The API omits the internal machine-identity fingerprint, rejects inconsistent node identity or capacity facts fail-closed, and grants no infrastructure mutation authority.
