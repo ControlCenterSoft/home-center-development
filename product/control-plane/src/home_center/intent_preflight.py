@@ -1,4 +1,4 @@
-"""Trusted resource preflight for plan-only Home Center 0.13 intents."""
+"""Доверенная предварительная проверка ресурсов для plan-only intents Home Center 0.13."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ MAX_NODES = 64
 
 
 class IntentPreflightError(ValueError):
-    """The trusted resource snapshot is malformed or semantically inconsistent."""
+    """Доверенный снимок ресурсов имеет некорректную структуру или семантически несогласован."""
 
     def __init__(self, code: str) -> None:
         super().__init__(code)
@@ -63,7 +63,7 @@ def _capacity(node: Mapping[str, Any]) -> tuple[int, int, int]:
 
 
 def resource_preflight(request: IntentRequest, snapshot: Mapping[str, Any]) -> tuple[str, ...]:
-    """Return deterministic blockers using trusted cluster resource facts only."""
+    """Возвращает детерминированные блокирующие причины, используя только доверенные факты о ресурсах кластера."""
 
     if request.kind not in {
         IntentKind.STORAGE_SHARE_CREATE,
