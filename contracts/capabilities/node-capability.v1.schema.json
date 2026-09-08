@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/capabilities/node-capability.v1.schema.json",
+  "title": "NodeCapability v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "observed_at", "node", "operating_system", "hardware", "storage", "services", "capabilities"],
+  "properties": {
+    "schema": {"const": "home-center.node-capability.v1"},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "role", "address", "machine_identity_hash"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9.-]{2,63}$"},
+        "name": {"type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9.-]{0,62}$"},
+        "role": {"enum": ["leader", "standby"]},
+        "address": {"type": "string", "format": "ipv4"},
+        "machine_identity_hash": {"type": "string", "pattern": "^[0-9a-f]{24}$"}
+      }
+    },
+    "operating_system": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "version", "kernel", "architecture"],
+      "properties": {"id": {"type": "string"}, "version": {"type": "string"}, "kernel": {"type": "string"}, "architecture": {"type": "string"}}
+    },
+    "hardware": {
+      "type": "object", "additionalProperties": false,
+      "required": ["cpu_count", "memory_bytes"],
+      "properties": {"cpu_count": {"type": "integer", "minimum": 1}, "memory_bytes": {"type": "integer", "minimum": 1}}
+    },
+    "storage": {
+      "type": "object", "additionalProperties": false, "required": ["root"],
+      "properties": {"root": {"$ref": "#/$defs/storageUsage"}}
+    },
+    "services": {"type": "object", "additionalProperties": {"enum": ["active", "inactive", "failed", "activating", "deactivating", "unknown"]}},
+    "capabilities": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9.-]+\\.v[0-9]+$"}}
+  },
+  "$defs": {
+    "storageUsage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["total_bytes", "used_bytes", "free_bytes"],
+      "properties": {"total_bytes": {"type": "integer", "minimum": 1}, "used_bytes": {"type": "integer", "minimum": 0}, "free_bytes": {"type": "integer", "minimum": 0}}
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/helper/helper-request.v1.schema.json",
+  "title": "Home Center bounded privileged helper request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "request_id", "action", "params", "nonce"],
+  "properties": {
+    "schema": {"const": "home-center.helper.request.v1"},
+    "request_id": {"type": "string", "minLength": 8, "maxLength": 96, "pattern": "^[A-Za-z0-9._-]+$"},
+    "action": {"enum": ["helper.probe.v1", "tls.web.activate.v1"]},
+    "params": {"type": "object", "additionalProperties": false},
+    "nonce": {"type": "string", "pattern": "^[0-9a-f]{32}$"}
+  }
+}

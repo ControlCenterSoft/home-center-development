@@ -1,0 +1,192 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/actions/action-registry.v1.schema.json",
+  "title": "Action Registry v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "actions"
+  ],
+  "properties": {
+    "schema": {
+      "const": "home-center.action-registry.v1"
+    },
+    "version": {
+      "const": 1
+    },
+    "actions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/action"
+      }
+    }
+  },
+  "$defs": {
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "permission",
+        "risk",
+        "target_capabilities",
+        "timeout_seconds",
+        "idempotency",
+        "input",
+        "output",
+        "preconditions",
+        "postconditions",
+        "recovery"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9.-]+\\.v[0-9]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 120
+        },
+        "permission": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9.-]+$"
+        },
+        "risk": {
+          "enum": [
+            "read-only",
+            "bounded-change",
+            "destructive"
+          ]
+        },
+        "target_capabilities": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9.-]+$"
+          }
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "idempotency": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode",
+            "scope",
+            "conflict"
+          ],
+          "properties": {
+            "mode": {
+              "enum": [
+                "result-replay",
+                "at-most-once"
+              ]
+            },
+            "scope": {
+              "enum": [
+                "actor-action-target"
+              ]
+            },
+            "conflict": {
+              "const": "reject"
+            }
+          }
+        },
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema",
+            "required",
+            "additional_properties",
+            "properties"
+          ],
+          "properties": {
+            "schema": {
+              "type": "string",
+              "pattern": "^home-center\\.action-input\\.[a-z0-9.-]+\\.v[0-9]+$"
+            },
+            "required": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string"
+              }
+            },
+            "additional_properties": {
+              "const": false
+            },
+            "properties": {
+              "type": "object"
+            }
+          }
+        },
+        "output": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema",
+            "fields"
+          ],
+          "properties": {
+            "schema": {
+              "type": "string",
+              "pattern": "^home-center\\.action-output\\.[a-z0-9.-]+\\.v[0-9]+$"
+            },
+            "fields": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "preconditions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "postconditions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "recovery": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "strategy"
+          ],
+          "properties": {
+            "strategy": {
+              "enum": [
+                "none-read-only",
+                "rollback",
+                "forward-recovery"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/jobs/job.v1.schema.json",
+  "title": "Change Job v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "job_id", "job_type", "state", "initiator", "reason", "idempotency_key", "preflight", "steps", "recovery", "created_at", "updated_at"],
+  "properties": {
+    "schema": {"const": "home-center.job.v1"},
+    "job_id": {"type": "string", "format": "uuid"},
+    "job_type": {"type": "string", "pattern": "^[a-z][a-z0-9.-]+\\.v[0-9]+$"},
+    "state": {"enum": ["requested", "preflight", "blocked", "queued", "running", "verifying", "succeeded", "failed", "recovering", "recovered", "cancelled"]},
+    "initiator": {"type": "string", "minLength": 3},
+    "reason": {"type": "string", "minLength": 3, "maxLength": 1000},
+    "idempotency_key": {"type": "string", "minLength": 8, "maxLength": 200},
+    "preflight": {"type": "object", "required": ["passed", "checks"], "properties": {"passed": {"type": "boolean"}, "checks": {"type": "array", "items": {"$ref": "#/$defs/check"}}}},
+    "steps": {"type": "array", "items": {"$ref": "#/$defs/step"}},
+    "result": {"type": ["object", "null"]},
+    "evidence": {"type": ["object", "null"]},
+    "recovery": {"type": "object", "required": ["strategy", "checkpoint"], "properties": {"strategy": {"enum": ["rollback", "forward-recovery", "none-read-only"]}, "checkpoint": {"type": ["string", "null"]}}},
+    "created_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time"}
+  },
+  "$defs": {
+    "check": {"type": "object", "additionalProperties": false, "required": ["id", "status"], "properties": {"id": {"type": "string"}, "status": {"enum": ["pass", "fail", "blocked", "not_applicable"]}, "reason": {"type": ["string", "null"]}}},
+    "step": {"type": "object", "additionalProperties": false, "required": ["id", "action", "state"], "properties": {"id": {"type": "string"}, "action": {"type": "string"}, "state": {"enum": ["pending", "running", "succeeded", "failed", "skipped"]}, "postconditions": {"type": "array", "items": {"$ref": "#/$defs/check"}}}}
+  }
+}

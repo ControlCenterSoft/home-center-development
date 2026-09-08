@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/helper/helper-policy.v1.schema.json",
+  "title": "Home Center bounded privileged helper policy v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "callers", "enabled_actions"],
+  "properties": {
+    "schema": {"const": "home-center.helper.policy.v1"},
+    "callers": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {"enum": ["helper.probe", "tls.web.rotate"]}
+      }
+    },
+    "enabled_actions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"enum": ["helper.probe.v1", "tls.web.activate.v1"]}
+    }
+  }
+}

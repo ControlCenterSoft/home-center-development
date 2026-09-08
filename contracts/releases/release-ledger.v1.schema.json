@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/releases/release-ledger.v1.schema.json",
+  "title": "Home Center signed stable-channel ledger payload v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "product", "channel", "generation", "ledger_sequence", "issued_at", "expires_at", "events", "stable_artifact_sha256"],
+  "properties": {
+    "schema": {"const": "home-center.release-ledger.v1"},
+    "product": {"const": "home-center"},
+    "channel": {"const": "stable"},
+    "generation": {"type": "integer", "minimum": 1},
+    "ledger_sequence": {"type": "integer", "minimum": 0, "maximum": 4096},
+    "issued_at": {"type": "string", "format": "date-time"},
+    "expires_at": {"type": "string", "format": "date-time"},
+    "events": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {"$ref": "#/$defs/event"}
+    },
+    "stable_artifact_sha256": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      ]
+    }
+  },
+  "$defs": {
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sequence", "previous_event_sha256", "recorded_at", "changes", "resulting_stable_artifact_sha256"],
+      "properties": {
+        "sequence": {"type": "integer", "minimum": 1, "maximum": 4096},
+        "previous_event_sha256": {
+          "oneOf": [
+            {"type": "null"},
+            {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          ]
+        },
+        "recorded_at": {"type": "string", "format": "date-time"},
+        "changes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "items": {"$ref": "#/$defs/change"}
+        },
+        "resulting_stable_artifact_sha256": {
+          "oneOf": [
+            {"type": "null"},
+            {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          ]
+        }
+      }
+    },
+    "change": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["release_record_sha256", "record", "from", "to", "reason_code", "evidence_sha256"],
+      "properties": {
+        "release_record_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "record": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "release-record.v1.schema.json"}
+          ]
+        },
+        "from": {"enum": ["unlisted", "stable", "superseded"]},
+        "to": {"enum": ["stable", "superseded", "quarantined"]},
+        "reason_code": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]{0,63}$"},
+        "evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

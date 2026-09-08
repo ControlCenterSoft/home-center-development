@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/releases/release-channel-checkpoint.v1.schema.json",
+  "title": "Home Center local release-channel anti-replay checkpoint v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "product", "channel", "generation", "ledger_sequence", "payload_sha256", "events_sha256", "last_event_sha256", "stable_artifact_sha256", "verified_at"],
+  "properties": {
+    "schema": {"const": "home-center.release-channel-checkpoint.v1"},
+    "product": {"const": "home-center"},
+    "channel": {"const": "stable"},
+    "generation": {"type": "integer", "minimum": 1},
+    "ledger_sequence": {"type": "integer", "minimum": 0, "maximum": 4096},
+    "payload_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "events_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "last_event_sha256": {"oneOf": [{"type": "null"}, {"type": "string", "pattern": "^[0-9a-f]{64}$"}]},
+    "stable_artifact_sha256": {"oneOf": [{"type": "null"}, {"type": "string", "pattern": "^[0-9a-f]{64}$"}]},
+    "verified_at": {"type": "string", "format": "date-time"}
+  }
+}

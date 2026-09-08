@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/health/health-status.v1.schema.json",
+  "title": "HealthStatus v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "resource_key", "status", "readiness", "liveness", "drift", "observed_at"],
+  "properties": {
+    "schema": {"const": "home-center.health-status.v1"},
+    "resource_key": {"type": "string"},
+    "status": {"enum": ["healthy", "degraded", "unhealthy", "unknown"]},
+    "readiness": {"enum": ["ready", "not_ready", "unknown"]},
+    "liveness": {"enum": ["live", "not_live", "unknown"]},
+    "drift": {"enum": ["none", "detected", "unknown"]},
+    "reason_code": {"type": ["string", "null"]},
+    "dependencies": {"type": "array", "items": {"type": "object"}},
+    "last_successful_reconcile": {"type": ["string", "null"], "format": "date-time"},
+    "observed_at": {"type": "string", "format": "date-time"}
+  }
+}

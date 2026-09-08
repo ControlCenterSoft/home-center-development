@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/external-access/external-access-status.v1.schema.json",
+  "title": "Home Center external access status v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "configured_enabled",
+    "effective_enabled",
+    "mode",
+    "public_hostname",
+    "trusted_proxy_count",
+    "gateway_configuration",
+    "health_path",
+    "blockers"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.external-access-status.v1"},
+    "configured_enabled": {"type": "boolean"},
+    "effective_enabled": {"type": "boolean"},
+    "mode": {"const": "trusted-reverse-proxy"},
+    "public_hostname": {
+      "type": ["string", "null"],
+      "maxLength": 253,
+      "pattern": "^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"
+    },
+    "trusted_proxy_count": {"type": "integer", "minimum": 0, "maximum": 16},
+    "gateway_configuration": {"const": "operator-managed"},
+    "health_path": {"const": "/external/healthz"},
+    "blockers": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "disabled_by_configuration",
+          "public_hostname_missing",
+          "trusted_proxy_missing",
+          "authentication_not_ready"
+        ]
+      }
+    }
+  }
+}

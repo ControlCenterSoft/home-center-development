@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/external-access/external-health.v1.schema.json",
+  "title": "Home Center external health v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "status"],
+  "properties": {
+    "schema": {"const": "home-center.external-health.v1"},
+    "status": {"enum": ["ok", "unavailable"]}
+  }
+}

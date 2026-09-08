@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/backup/backup-manifest.v1.schema.json",
+  "title": "BackupManifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "created_at", "cluster_id", "node_id", "runtime_version", "database_sha256", "database_bytes", "audit_head", "verification"],
+  "properties": {
+    "schema": {"const": "home-center.backup-manifest.v1"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "cluster_id": {"type": "string"},
+    "node_id": {"type": "string"},
+    "runtime_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "database_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "database_bytes": {"type": "integer", "minimum": 1},
+    "audit_head": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "verification": {"type": "object", "additionalProperties": false, "required": ["sqlite_integrity", "audit_chain"], "properties": {"sqlite_integrity": {"const": "ok"}, "audit_chain": {"const": "ok"}}},
+    "archive_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "archive_bytes": {"type": "integer", "minimum": 1}
+  }
+}
