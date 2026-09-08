@@ -1,0 +1,38 @@
+name: Bootstrap development source
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/bootstrap-development.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+      - name: Import infrastructure-neutral public source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git clone --depth 1 https://github.com/ControlCenterSoft/home-center-free.git "$RUNNER_TEMP/source"
+          cp .github/workflows/bootstrap-development.yml "$RUNNER_TEMP/bootstrap-development.yml"
+          rsync -a --delete --exclude='.git' "$RUNNER_TEMP/source/" ./
+          install -D -m 0644 "$RUNNER_TEMP/bootstrap-development.yml" .github/workflows/bootstrap-development.yml
+          rm -f .github/workflows/publish-free-0.11.0-to-0.14.0.yml
+          rm -f PUBLIC_SOURCE.json PUBLIC_EXPORT_MANIFEST.sha256 PUBLIC_EXPORT_POLICY.md RELEASES.json
+      - name: Commit imported source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git config user.name "ControlCenterSoft"
+          git config user.email "40738562+ControlCenterSoft@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m "migration: import infrastructure-neutral Home Center baseline"
+          git push origin HEAD:main
