@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/core/actions/upgrade-release-plan-input.v1.schema.json",
+  "title": "Upgrade Release Plan Input v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "current", "target"],
+  "properties": {
+    "schema": {"const": "home-center.upgrade-release-plan-input.v1"},
+    "current": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "revision", "artifact_sha256"],
+      "properties": {
+        "version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+        "revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "revision", "artifact_sha256"],
+      "properties": {
+        "version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+        "revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

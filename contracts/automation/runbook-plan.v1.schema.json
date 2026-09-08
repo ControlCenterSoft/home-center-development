@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/automation/runbook-plan.v1.schema.json",
+  "title": "Automation Runbook Plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "runbook_id",
+    "state",
+    "planning_ready",
+    "production_mutation_enabled",
+    "execution_authorized",
+    "arbitrary_commands_allowed",
+    "plan_sha256",
+    "blockers",
+    "steps"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.automation-runbook-plan.v1"},
+    "runbook_id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$"},
+    "state": {"enum": ["planned", "blocked"]},
+    "planning_ready": {"type": "boolean"},
+    "production_mutation_enabled": {"const": false},
+    "execution_authorized": {"const": false},
+    "arbitrary_commands_allowed": {"const": false},
+    "plan_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "blockers": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {"$ref": "#/$defs/blocker"}
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {"$ref": "#/$defs/step"}
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"state": {"const": "planned"}}},
+      "then": {
+        "properties": {
+          "planning_ready": {"const": true},
+          "blockers": {"maxItems": 0}
+        }
+      },
+      "else": {
+        "properties": {
+          "planning_ready": {"const": false},
+          "blockers": {"minItems": 1}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "blocker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "step_id", "target_node_id", "required_capability"],
+      "properties": {
+        "code": {
+          "enum": [
+            "target_not_found",
+            "target_not_ready",
+            "target_capabilities_unknown",
+            "target_capability_unavailable"
+          ]
+        },
+        "step_id": {"type": "string"},
+        "target_node_id": {"type": "string"},
+        "required_capability": {"type": "string"}
+      }
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sequence",
+        "step_id",
+        "action_id",
+        "target_node_id",
+        "depends_on",
+        "input",
+        "required_capability",
+        "risk",
+        "target_check"
+      ],
+      "properties": {
+        "sequence": {"type": "integer", "minimum": 1, "maximum": 64},
+        "step_id": {"type": "string"},
+        "action_id": {"type": "string"},
+        "target_node_id": {"type": "string"},
+        "depends_on": {"type": "array", "items": {"type": "string"}},
+        "input": {"type": "object"},
+        "required_capability": {"type": "string"},
+        "risk": {"enum": ["read-only", "bounded-change"]},
+        "target_check": {"enum": ["pass", "fail"]}
+      }
+    }
+  }
+}

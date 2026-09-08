@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/modules/product-boundary-decision.v1.schema.json",
+  "title": "Home Center ProductBoundaryDecision v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "allowed", "code", "violations"],
+  "properties": {
+    "schema": {"const": "home-center.product-boundary-decision.v1"},
+    "allowed": {"type": "boolean"},
+    "code": {"enum": ["product_scope_allowed", "product_scope_rejected"]},
+    "violations": {
+      "type": "array",
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": {"enum": ["module", "dependency", "capability", "permission", "action"]}
+    }
+  }
+}

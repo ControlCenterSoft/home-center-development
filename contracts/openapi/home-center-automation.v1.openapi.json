@@ -1,0 +1,59 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Home Center 0.17 Automation Planning API",
+    "version": "0.17.0-development",
+    "description": "Authenticated, deterministic planning for dependency-aware typed runbooks. This boundary never accepts shell commands and never authorizes execution."
+  },
+  "paths": {
+    "/api/v1/automation/actions": {
+      "get": {
+        "operationId": "listAutomationActions",
+        "security": [{"sessionCookie": []}],
+        "responses": {
+          "200": {
+            "description": "Allowlisted semantic automation actions",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../automation/action-catalog.v1.schema.json"}
+              }
+            }
+          },
+          "401": {"description": "Authentication required"}
+        }
+      }
+    },
+    "/api/v1/automation/runbooks/plan": {
+      "post": {
+        "operationId": "planAutomationRunbook",
+        "security": [{"sessionCookie": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "../automation/runbook-plan-request.v1.schema.json"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Deterministic plan or capability-blocked plan",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../automation/runbook-plan.v1.schema.json"}
+              }
+            }
+          },
+          "400": {"description": "Malformed, unregistered, command-shaped or dependency-invalid runbook"},
+          "401": {"description": "Authentication required"},
+          "500": {"description": "Trusted target inventory is temporarily unavailable"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {"type": "apiKey", "in": "cookie", "name": "hc_session"}
+    }
+  }
+}
