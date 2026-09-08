@@ -1,4 +1,4 @@
-"""Exact-identity upgrade planning without download or installation authority."""
+"""Планирование обновления по точной идентичности без полномочий на загрузку или установку."""
 
 from __future__ import annotations
 
