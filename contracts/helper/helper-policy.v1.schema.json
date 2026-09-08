@@ -12,13 +12,13 @@
       "additionalProperties": {
         "type": "array",
         "uniqueItems": true,
-        "items": {"enum": ["helper.probe", "tls.web.rotate"]}
+        "items": {"enum": ["helper.probe", "tls.web.rotate", "local-admin.password.rotate"]}
       }
     },
     "enabled_actions": {
       "type": "array",
       "uniqueItems": true,
-      "items": {"enum": ["helper.probe.v1", "tls.web.activate.v1"]}
+      "items": {"enum": ["helper.probe.v1", "tls.web.activate.v1", "local-admin.password.rotate.v1"]}
     }
   }
 }

@@ -1,0 +1,13 @@
+{
+  "callers": {
+    "home-center": [
+      "helper.probe",
+      "local-admin.password.rotate"
+    ]
+  },
+  "enabled_actions": [
+    "helper.probe.v1",
+    "local-admin.password.rotate.v1"
+  ],
+  "schema": "home-center.helper.policy.v1"
+}

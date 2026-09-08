@@ -85,10 +85,13 @@ Schema validation is necessary but not sufficient: canonical-byte equality, DSSE
 ## Home Center 0.8 authentication contracts
 
 - `auth/local-admin-credential.v1.schema.json` — persisted local administrator verifier envelope; it contains no plaintext or reversible password material and fixes the admitted scrypt parameters;
+- `auth/local-admin-credential.v2.schema.json` — backward-compatible verifier state with an explicit one-time password-change requirement; clean installs create `admin`/`admin`, while an existing verifier is preserved byte-for-byte during upgrades;
 - `auth/login-request.v1.schema.json` — frozen local-only login envelope from the first 0.8 increment;
 - `auth/login-request.v2.schema.json` — closed provider/local-or-AD login envelope with a write-only password;
 - `auth/ad-provider-config.v1.schema.json` — disabled-by-default Kerberos endpoints, bounded timeout and explicit AD administrator-group mapping; it contains no password or write authority;
 - `openapi/home-center-auth.v2.openapi.json` — 0.8 authentication-surface OpenAPI contract using only the signed session cookie after login.
+
+The bootstrap credential may authenticate only to the session, logout and password-change surfaces. All ordinary authenticated product operations fail closed until the local administrator sets a policy-compliant replacement password.
 
 `openapi/home-center.v1.openapi.json` retains its published v1 identity for compatibility. It is not evidence that bootstrap Bearer authentication is accepted by the 0.8/0.9 runtime.
 
