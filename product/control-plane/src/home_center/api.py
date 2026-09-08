@@ -26,6 +26,12 @@ from .actions import (
 from .ad_auth import AdAuthError
 from .auth import SessionManager
 from .automation_execution import AutomationPlanningError, action_catalog
+from .certificate_api import (
+    CertificateApiError,
+    CertificateInventoryUnavailable,
+    CertificateNotFound,
+    CertificateRenewalPolicy,
+)
 from .external_access import ExternalAccessRejected, ExternalRequestContext
 from .local_admin_auth import LocalAdminAuthError
 from .node_inventory_api import NodeInventoryError
@@ -275,6 +281,17 @@ class RuntimeRequestHandler(BaseHTTPRequestHandler):
             self._json(200, {"schema": "home-center.backup-list.v1", "items": self.runtime.backup_inventory()})
         elif path == "/api/v1/external-access":
             self._json(200, self.runtime.external_access.status())
+        elif path == "/api/v1/certificates":
+            try:
+                self._json(HTTPStatus.OK, self.runtime.certificates.inventory())
+            except (CertificateApiError, CertificateInventoryUnavailable):
+                LOG.exception("certificate inventory failed")
+                self._error(
+                    HTTPStatus.SERVICE_UNAVAILABLE,
+                    "certificate_inventory_unavailable",
+                    "Инвентаризация сертификатов временно недоступна",
+                    correlation_id,
+                )
         else:
             self._error(404, "not_found", "Ресурс не найден", correlation_id)
 
@@ -407,6 +424,53 @@ class RuntimeRequestHandler(BaseHTTPRequestHandler):
                 },
             )
             self._json(HTTPStatus.OK, plan)
+            return
+        if path == "/api/v1/certificates/renewal-plan":
+            safe_target = "certificate"
+            try:
+                body = self._read_json(max_bytes=4096)
+                policy = CertificateRenewalPolicy.from_mapping(body)
+                safe_target = policy.certificate_id
+                plan = self.runtime.certificates.plan(policy)
+            except CertificateNotFound as exc:
+                status, code, message = HTTPStatus.NOT_FOUND, exc.code, "Сертификат не найден"
+            except (CertificateApiError, ValueError, TypeError, json.JSONDecodeError) as exc:
+                status = HTTPStatus.BAD_REQUEST
+                code = exc.code if isinstance(exc, CertificateApiError) else "invalid_certificate_policy"
+                message = "Некорректная политика обновления сертификата"
+            except CertificateInventoryUnavailable:
+                status = HTTPStatus.SERVICE_UNAVAILABLE
+                code = "certificate_inventory_unavailable"
+                message = "Инвентаризация сертификатов временно недоступна"
+            except Exception:
+                LOG.exception("certificate renewal planning failed")
+                self._error(
+                    HTTPStatus.INTERNAL_SERVER_ERROR,
+                    "certificate_planning_unavailable",
+                    "Планирование обновления сертификата временно недоступно",
+                    correlation_id,
+                )
+                return
+            else:
+                self.runtime.store.audit(
+                    actor=actor,
+                    action="certificate.renewal.plan",
+                    target=safe_target,
+                    outcome="accepted",
+                    correlation_id=correlation_id,
+                    details={"plan_id": plan["plan_id"], "state": plan["state"], "status": plan["status"]},
+                )
+                self._json(HTTPStatus.OK, plan)
+                return
+            self.runtime.store.audit(
+                actor=actor,
+                action="certificate.renewal.plan",
+                target=safe_target,
+                outcome="denied",
+                correlation_id=correlation_id,
+                details={"reason": code},
+            )
+            self._error(status, code, message, correlation_id)
             return
         if path.startswith("/api/v1/actions/"):
             action_id = path.removeprefix("/api/v1/actions/")

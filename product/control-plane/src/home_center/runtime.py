@@ -13,6 +13,7 @@ from .actions import ActionRegistry
 from .ad_auth import AdAuthenticator
 from .automation_execution import AutomationPlanningService
 from .auth import LoginRateLimiter, SessionManager
+from .certificate_api import CertificateLifecycleApi, runtime_certificate_records
 from .config import Config
 from .external_access import ExternalAccessPolicy, ExternalRequestRateLimiter
 from .local_admin_auth import LocalAdminCredentialStore
@@ -46,6 +47,7 @@ class Runtime:
             authentication_ready=True,
         )
         self.external_request_limiter = ExternalRequestRateLimiter()
+        self.certificates = CertificateLifecycleApi(lambda: runtime_certificate_records(self.config))
         self.actions = ActionRegistry(config.node_id, self.store)
         self.node_inventory = NodeInventoryService(self.store, product_version=__version__)
         self.automation = AutomationPlanningService(self.store.nodes)
