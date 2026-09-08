@@ -18,6 +18,7 @@ from .config import Config
 from .external_access import ExternalAccessPolicy, ExternalRequestRateLimiter
 from .local_admin_auth import LocalAdminCredentialStore
 from .node_inventory_api import NodeInventoryService
+from .local_admin_change import LocalAdminPasswordChangeClient
 from .reconcile import Reconciler
 from .store import StateStore
 from .util import sha256_file, utc_now
@@ -27,16 +28,25 @@ LOG = logging.getLogger("home_center.runtime")
 
 
 class Runtime:
-    def __init__(self, config: Config, *, local_admin_expected_uid: int = 0) -> None:
+    def __init__(
+        self,
+        config: Config,
+        *,
+        local_admin_expected_uid: int = 0,
+        local_admin_password_changer: LocalAdminPasswordChangeClient | None = None,
+    ) -> None:
         self.config = config
         self.profile = self._load_profile(config.deployment_profile)
         self.store = StateStore(config.state_db, config.audit_key_file.read_bytes(), config.cluster_id)
+        self._local_admin_expected_uid = local_admin_expected_uid
+        self._local_admin_expected_gid = os.getegid()
         self.local_admin = LocalAdminCredentialStore(
             config.local_admin_credentials_file,
             expected_uid=local_admin_expected_uid,
-            expected_gid=os.getegid(),
+            expected_gid=self._local_admin_expected_gid,
             expected_mode=0o640,
         )
+        self.local_admin_password_changer = local_admin_password_changer or LocalAdminPasswordChangeClient()
         self.sessions = SessionManager(config.session_key_file)
         self.login_limiter = LoginRateLimiter()
         self.ad_auth = AdAuthenticator(config.ad_auth)
@@ -52,6 +62,23 @@ class Runtime:
         self.node_inventory = NodeInventoryService(self.store, product_version=__version__)
         self.automation = AutomationPlanningService(self.store.nodes)
         self.reconciler = Reconciler(config, self.store)
+
+    def actor_requires_password_change(self, actor: str) -> bool:
+        return (
+            actor == f"local-admin:{self.local_admin.username}"
+            and self.local_admin.password_change_required
+        )
+
+    def change_local_admin_password(self, username: str, current_password: str, new_password: str) -> None:
+        """Rotate through the root helper and reload the committed verifier."""
+
+        self.local_admin_password_changer.change(username, current_password, new_password)
+        self.local_admin = LocalAdminCredentialStore(
+            self.config.local_admin_credentials_file,
+            expected_uid=self._local_admin_expected_uid,
+            expected_gid=self._local_admin_expected_gid,
+            expected_mode=0o640,
+        )
 
     def start(self) -> None:
         self.store.audit(

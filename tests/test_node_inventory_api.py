@@ -192,6 +192,10 @@ class _Runtime:
         self.external_request_limiter = _Limiter()
         self.node_inventory = inventory
 
+    @staticmethod
+    def actor_requires_password_change(_actor: str) -> bool:
+        return False
+
 
 class NodeInventoryEndpointTests(unittest.TestCase):
     def _request(self, runtime: _Runtime, *, cookie: str | None) -> tuple[int, dict[str, Any]]:
