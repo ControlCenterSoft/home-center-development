@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/core/plans/upgrade-plan.v1.schema.json",
+  "title": "Upgrade Plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "current", "target", "state", "steps", "production_activation_enabled"],
+  "properties": {
+    "schema": {"const": "home-center.upgrade-plan.v1"},
+    "current": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "revision", "artifact_sha256"],
+      "properties": {
+        "version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+        "revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "revision", "artifact_sha256"],
+      "properties": {
+        "version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+        "revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "state": {"const": "planned"},
+    "steps": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "uniqueItems": true,
+      "items": {"enum": ["preflight", "backup", "verify", "canary-secondary", "soak", "primary", "accept"]}
+    },
+    "production_activation_enabled": {"const": false}
+  }
+}

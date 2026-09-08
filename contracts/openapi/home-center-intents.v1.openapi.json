@@ -1,0 +1,43 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Home Center 0.13 Intent Planning API",
+    "version": "0.13.0-development",
+    "description": "Authenticated plan-only API for deterministic infrastructure intents. This surface does not execute infrastructure mutations."
+  },
+  "paths": {
+    "/api/v1/intents/plan": {
+      "post": {
+        "operationId": "planInfrastructureIntent",
+        "security": [{"sessionCookie": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "../intents/intent-request.v1.schema.json"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Deterministic planned or blocked intent",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../intents/intent-plan.v1.schema.json"}
+              }
+            }
+          },
+          "400": {"description": "Invalid or non-plan intent request"},
+          "401": {"description": "Authentication required"},
+          "403": {"description": "Same-origin or administrator authorization requirement failed"},
+          "500": {"description": "Intent planning temporarily unavailable"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {"type": "apiKey", "in": "cookie", "name": "hc_session"}
+    }
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/compute/proxmox-discovery.v1.schema.json",
+  "title": "Home Center ProxmoxDiscovery v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "observed_at", "source", "provider", "cluster", "nodes", "resources"],
+  "properties": {
+    "schema": {"const": "home-center.proxmox-discovery.v1"},
+    "observed_at": {"type": "string", "format": "date-time", "minLength": 10, "maxLength": 40},
+    "source": {"const": "proxmox-trusted"},
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider_id", "profile_id", "reported_health", "auth_state"],
+      "properties": {
+        "provider_id": {"$ref": "#/$defs/id"},
+        "profile_id": {"$ref": "#/$defs/id"},
+        "reported_health": {"enum": ["healthy", "degraded", "unavailable"]},
+        "auth_state": {"enum": ["available", "unavailable"]}
+      }
+    },
+    "cluster": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cluster_id", "quorate"],
+      "properties": {
+        "cluster_id": {"$ref": "#/$defs/id"},
+        "quorate": {"type": "boolean"}
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1024,
+      "items": {"$ref": "#/$defs/node"}
+    },
+    "resources": {
+      "type": "array",
+      "maxItems": 1024,
+      "items": {"$ref": "#/$defs/resource"}
+    }
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "capability": {"type": "string", "pattern": "^[a-z][a-z0-9.-]{1,126}\\.v[1-9][0-9]*$"},
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node_id", "state", "cpu_total", "cpu_available", "memory_total_mib", "memory_available_mib", "storage_total_gib", "storage_available_gib", "capabilities"],
+      "properties": {
+        "node_id": {"$ref": "#/$defs/id"},
+        "state": {"enum": ["online", "degraded", "offline"]},
+        "cpu_total": {"type": "integer", "minimum": 1, "maximum": 4096},
+        "cpu_available": {"type": "integer", "minimum": 0, "maximum": 4096},
+        "memory_total_mib": {"type": "integer", "minimum": 256, "maximum": 4194304},
+        "memory_available_mib": {"type": "integer", "minimum": 0, "maximum": 4194304},
+        "storage_total_gib": {"type": "integer", "minimum": 1, "maximum": 1048576},
+        "storage_available_gib": {"type": "integer", "minimum": 0, "maximum": 1048576},
+        "capabilities": {"type": "array", "maxItems": 64, "uniqueItems": true, "items": {"$ref": "#/$defs/capability"}}
+      }
+    },
+    "resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resource_id", "node_id", "kind", "state", "vcpu", "memory_mib", "disk_gib"],
+      "properties": {
+        "resource_id": {"$ref": "#/$defs/id"},
+        "node_id": {"$ref": "#/$defs/id"},
+        "kind": {"enum": ["vm", "lxc"]},
+        "state": {"enum": ["running", "stopped", "suspended", "unknown"]},
+        "vcpu": {"type": "integer", "minimum": 1, "maximum": 256},
+        "memory_mib": {"type": "integer", "minimum": 256, "maximum": 4194304},
+        "disk_gib": {"type": "integer", "minimum": 1, "maximum": 1048576}
+      }
+    }
+  }
+}
