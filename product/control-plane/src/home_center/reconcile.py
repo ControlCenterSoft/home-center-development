@@ -1,4 +1,4 @@
-"""Read-only node reconciliation for an arbitrary configured peer set."""
+"""Сверка узлов только на чтение для произвольного настроенного набора peers."""
 from __future__ import annotations
 import json, logging, ssl, threading, urllib.error, urllib.request
 from typing import Any
