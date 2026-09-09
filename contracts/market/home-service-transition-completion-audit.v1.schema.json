@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://controlcentersoft.example/contracts/market/home-service-transition-completion-audit.v1.schema.json",
+  "title": "Home Service Transition Completion Audit v1",
+  "description": "Hash-chained evidence that a bound transition apply receipt received read-back verification. This record cannot authorize another service-state mutation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "audit_event_id",
+    "preapply_audit_event_id",
+    "verification_id",
+    "receipt_id",
+    "instance_id",
+    "status",
+    "mismatch_codes",
+    "service_state_mutation_authorized",
+    "further_mutation_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.home-service-transition-completion-audit.v1"},
+    "audit_event_id": {"type": "string", "minLength": 2, "maxLength": 128},
+    "preapply_audit_event_id": {"type": "string", "minLength": 2, "maxLength": 128},
+    "verification_id": {"type": "string", "pattern": "^hstv-[a-f0-9]{24}$"},
+    "receipt_id": {"type": "string", "pattern": "^hstr-[a-f0-9]{24}$"},
+    "instance_id": {"type": "string", "minLength": 2, "maxLength": 128},
+    "status": {"enum": ["verified", "drifted"]},
+    "mismatch_codes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "instance_not_found",
+          "state_mismatch",
+          "generation_mismatch",
+          "resource_version_mismatch"
+        ]
+      }
+    },
+    "service_state_mutation_authorized": {"const": false},
+    "further_mutation_authorized": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "verified"}}, "required": ["status"]},
+      "then": {"properties": {"mismatch_codes": {"maxItems": 0}}},
+      "else": {"properties": {"mismatch_codes": {"minItems": 1}}}
+    }
+  ]
+}
