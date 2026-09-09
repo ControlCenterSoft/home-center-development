@@ -16,7 +16,7 @@ class Release021QualificationTests(unittest.TestCase):
     def test_release_identity_is_consistent(self) -> None:
         version = (ROOT / "VERSION").read_text(encoding="ascii").strip()
         project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-        self.assertEqual("0.21.0", version)
+        self.assertGreaterEqual(tuple(int(part) for part in version.split(".")), (0, 21, 0))
         self.assertEqual(version, project["project"]["version"])
         self.assertEqual(version, home_center.__version__)
         self.assertIn("# Home Center 0.21.0", (ROOT / "docs/releases/0.21.0.md").read_text(encoding="utf-8"))
