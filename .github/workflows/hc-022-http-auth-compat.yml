@@ -1,0 +1,51 @@
+name: HC 0.22 HTTP and auth compatibility
+
+on:
+  push:
+    branches:
+      - fix/hc-022-main-compat
+
+permissions:
+  contents: write
+
+jobs:
+  integrate-http-auth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout compatibility branch
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          fetch-depth: 0
+      - name: Restore typed HTTP and first-login boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main:refs/remotes/origin/main
+
+          git checkout origin/main -- \
+            product/control-plane/src/home_center/api.py \
+            contracts/auth/local-admin-password-change.v1.schema.json \
+            contracts/certificates/certificate-inventory.v1.schema.json \
+            contracts/certificates/certificate-renewal-plan.v1.schema.json \
+            contracts/helper/helper-policy.v1.schema.json \
+            contracts/openapi/home-center-auth.v3.openapi.json \
+            deploy/runtime/provision-local-admin.py
+
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("product/control-plane/src/home_center/privileged_helper.py")
+          text = path.read_text(encoding="utf-8")
+          old = 'SECRET_ACTIONS: dict[str, str] = {}\nPERMISSIONS = frozenset(action.permission for action in ACTIONS.values())'
+          new = 'SECRET_ACTIONS: dict[str, str] = {\n    "local-admin.password.rotate.v1": "local-admin.password.rotate",\n}\nPERMISSIONS = frozenset(action.permission for action in ACTIONS.values()) | frozenset(SECRET_ACTIONS.values())'
+          if old not in text:
+              raise SystemExit("expected privileged-helper compatibility boundary not found")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
+
+          git rm .github/workflows/hc-022-http-auth-compat.yml
+          git add -A
+          git commit -m "HC 0.22: restore typed HTTP and first-login boundaries"
+          git push origin HEAD:fix/hc-022-main-compat
