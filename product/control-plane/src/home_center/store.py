@@ -86,11 +86,39 @@ MIGRATIONS: tuple[tuple[int, str], ...] = (
         );
         """,
     ),
+    (
+        3,
+        """
+        CREATE TABLE IF NOT EXISTS home_service_instances (
+            instance_id TEXT PRIMARY KEY,
+            service_id TEXT NOT NULL,
+            target_node_id TEXT NOT NULL,
+            state TEXT NOT NULL,
+            generation INTEGER NOT NULL CHECK(generation >= 1),
+            resource_version TEXT NOT NULL,
+            configuration_revision_id TEXT,
+            external_publication_enabled INTEGER NOT NULL CHECK(external_publication_enabled IN (0,1)),
+            updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS home_service_instance_transitions (
+            instance_id TEXT NOT NULL REFERENCES home_service_instances(instance_id) ON DELETE CASCADE,
+            idempotency_key TEXT NOT NULL,
+            request_hash TEXT NOT NULL,
+            result_json TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY(instance_id, idempotency_key)
+        );
+        """,
+    ),
 )
 
 
 class IdempotencyConflict(ValueError):
     """The same idempotency key was reused with different request material."""
+
+
+class StatePreconditionFailed(RuntimeError):
+    """A home-service instance changed after the caller observed it."""
 
 
 class StateStore:
@@ -192,6 +220,110 @@ class StateStore:
             }
             for row in rows
         ]
+
+    @staticmethod
+    def _decode_home_service_instance(row: sqlite3.Row) -> dict[str, Any]:
+        return {
+            "schema": "home-center.home-service-instance.v1",
+            "instance_id": row["instance_id"],
+            "service_id": row["service_id"],
+            "target_node_id": row["target_node_id"],
+            "state": row["state"],
+            "generation": row["generation"],
+            "resource_version": row["resource_version"],
+            "configuration_revision_id": row["configuration_revision_id"],
+            "external_publication_enabled": bool(row["external_publication_enabled"]),
+            "updated_at": row["updated_at"],
+        }
+
+    def create_home_service_instance(self, record: dict[str, Any]) -> dict[str, Any]:
+        with self._lock, self._connection:
+            self._connection.execute(
+                """INSERT INTO home_service_instances(
+                instance_id,service_id,target_node_id,state,generation,resource_version,
+                configuration_revision_id,external_publication_enabled,updated_at
+                ) VALUES(?,?,?,?,?,?,?,?,?)""",
+                (
+                    record["instance_id"], record["service_id"], record["target_node_id"],
+                    record["state"], record["generation"], record["resource_version"],
+                    record.get("configuration_revision_id"),
+                    1 if record.get("external_publication_enabled") else 0,
+                    record["updated_at"],
+                ),
+            )
+        value = self.home_service_instance(record["instance_id"])
+        if value is None:
+            raise RuntimeError("home-service instance persistence failed")
+        return value
+
+    def home_service_instance(self, instance_id: str) -> dict[str, Any] | None:
+        with self._lock:
+            row = self._connection.execute(
+                "SELECT * FROM home_service_instances WHERE instance_id=?", (instance_id,)
+            ).fetchone()
+        return self._decode_home_service_instance(row) if row else None
+
+    def transition_home_service_instance(
+        self,
+        *,
+        instance_id: str,
+        expected_generation: int,
+        expected_resource_version: str,
+        idempotency_key: str,
+        request_hash: str,
+        target_state: str,
+        generation: int,
+        resource_version: str,
+        configuration_revision_id: str | None,
+        external_publication_enabled: bool,
+        updated_at: str,
+    ) -> tuple[dict[str, Any], bool]:
+        with self._lock:
+            self._connection.execute("BEGIN IMMEDIATE")
+            try:
+                replay = self._connection.execute(
+                    """SELECT request_hash,result_json FROM home_service_instance_transitions
+                    WHERE instance_id=? AND idempotency_key=?""",
+                    (instance_id, idempotency_key),
+                ).fetchone()
+                if replay:
+                    if replay["request_hash"] != request_hash:
+                        raise IdempotencyConflict(idempotency_key)
+                    self._connection.commit()
+                    return json.loads(replay["result_json"]), False
+                row = self._connection.execute(
+                    "SELECT * FROM home_service_instances WHERE instance_id=?", (instance_id,)
+                ).fetchone()
+                if row is None:
+                    raise KeyError(instance_id)
+                if row["generation"] != expected_generation or row["resource_version"] != expected_resource_version:
+                    raise StatePreconditionFailed(instance_id)
+                self._connection.execute(
+                    """UPDATE home_service_instances SET state=?,generation=?,resource_version=?,
+                    configuration_revision_id=?,external_publication_enabled=?,updated_at=?
+                    WHERE instance_id=?""",
+                    (
+                        target_state, generation, resource_version, configuration_revision_id,
+                        1 if external_publication_enabled else 0, updated_at, instance_id,
+                    ),
+                )
+                result_row = self._connection.execute(
+                    "SELECT * FROM home_service_instances WHERE instance_id=?", (instance_id,)
+                ).fetchone()
+                if result_row is None:
+                    raise RuntimeError("home-service instance transition failed")
+                result = self._decode_home_service_instance(result_row)
+                self._connection.execute(
+                    """INSERT INTO home_service_instance_transitions(
+                    instance_id,idempotency_key,request_hash,result_json,created_at
+                    ) VALUES(?,?,?,?,?)""",
+                    (instance_id, idempotency_key, request_hash, canonical_json(result), updated_at),
+                )
+                self._connection.commit()
+                return result, True
+            except Exception:
+                self._connection.rollback()
+                raise
 
     def audit(
         self,
