@@ -2,23 +2,134 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#f5f7fb">
   <title>Home Center</title>
-  <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
-  <header><strong>Home Center</strong><span id="version">development</span></header>
-  <main>
-    <section>
-      <h1>Инфраструктура</h1>
-      <p>Узлы и роли отображаются из фактического состояния Home Center. Интерфейс не предполагает фиксированное количество серверов.</p>
-      <div id="nodes" class="node-grid" aria-live="polite"></div>
-    </section>
-    <section>
-      <h2>Возможности</h2>
-      <div id="capabilities"></div>
-    </section>
-  </main>
-  <script src="app.js"></script>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand" aria-label="Home Center">
+        <span class="brand-mark" aria-hidden="true">HC</span>
+        <span class="brand-copy">
+          <strong>Home Center</strong>
+          <small id="version">загрузка…</small>
+        </span>
+      </div>
+      <div class="topbar-actions">
+        <span id="service-state" class="status-badge neutral">Проверка</span>
+        <button id="logout-button" class="button ghost compact" type="button" hidden>Выйти</button>
+      </div>
+    </header>
+
+    <main class="content">
+      <section id="loading-view" class="center-card" aria-live="polite">
+        <div class="spinner" aria-hidden="true"></div>
+        <h1>Подключаемся к Home Center</h1>
+        <p>Проверяем состояние сервиса и текущую сессию.</p>
+      </section>
+
+      <section id="login-view" class="center-card" hidden>
+        <div class="eyebrow">Управление домом</div>
+        <h1>Вход в Home Center</h1>
+        <p>Используйте локальную учётную запись администратора или доменную учётную запись, если она подключена.</p>
+        <form id="login-form" class="form-stack" autocomplete="on">
+          <label>
+            <span>Способ входа</span>
+            <select id="provider" name="provider" autocomplete="off">
+              <option value="local">Локальный администратор</option>
+            </select>
+          </label>
+          <label>
+            <span>Имя пользователя</span>
+            <input id="username" name="username" type="text" value="admin" autocomplete="username" required>
+          </label>
+          <label>
+            <span>Пароль</span>
+            <input id="password" name="password" type="password" autocomplete="current-password" required>
+          </label>
+          <button class="button primary" type="submit">Войти</button>
+          <p id="login-message" class="form-message" role="status"></p>
+        </form>
+      </section>
+
+      <section id="password-view" class="center-card" hidden>
+        <div class="eyebrow">Первый вход</div>
+        <h1>Смените пароль администратора</h1>
+        <p>До смены стандартного пароля обычная работа Home Center заблокирована.</p>
+        <form id="password-form" class="form-stack" autocomplete="off">
+          <label>
+            <span>Текущий пароль</span>
+            <input id="current-password" type="password" autocomplete="current-password" required>
+          </label>
+          <label>
+            <span>Новый пароль</span>
+            <input id="new-password" type="password" autocomplete="new-password" required>
+          </label>
+          <label>
+            <span>Повторите новый пароль</span>
+            <input id="confirm-password" type="password" autocomplete="new-password" required>
+          </label>
+          <button class="button primary" type="submit">Сохранить новый пароль</button>
+          <p id="password-message" class="form-message" role="status"></p>
+        </form>
+      </section>
+
+      <section id="dashboard-view" hidden>
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow">Полный интерфейс</div>
+            <h1>Инфраструктура</h1>
+            <p>Фактическое состояние узлов Home Center. Количество серверов определяется текущей конфигурацией.</p>
+          </div>
+          <button id="refresh-button" class="button secondary" type="button">Обновить</button>
+        </div>
+
+        <div class="summary-grid" aria-label="Сводка инфраструктуры">
+          <article class="summary-card">
+            <span>Всего узлов</span>
+            <strong id="total-nodes">—</strong>
+          </article>
+          <article class="summary-card">
+            <span>Готовы</span>
+            <strong id="ready-nodes">—</strong>
+          </article>
+          <article class="summary-card">
+            <span>Недоступны</span>
+            <strong id="unreachable-nodes">—</strong>
+          </article>
+          <article class="summary-card">
+            <span>Состояние</span>
+            <strong id="cluster-state">—</strong>
+          </article>
+        </div>
+
+        <section class="section-block">
+          <div class="section-heading">
+            <div>
+              <h2>Узлы</h2>
+              <p>Роль, адрес, ресурсы и состояние каждого сервера.</p>
+            </div>
+          </div>
+          <div id="nodes" class="node-grid" aria-live="polite"></div>
+        </section>
+
+        <section class="section-block">
+          <div class="section-heading">
+            <div>
+              <h2>Возможности</h2>
+              <p>Функции, которые фактически доступны в текущей инфраструктуре.</p>
+            </div>
+          </div>
+          <div id="capabilities" class="capability-list" aria-live="polite"></div>
+        </section>
+
+        <p id="dashboard-message" class="inline-message" role="status"></p>
+      </section>
+    </main>
+  </div>
+  <script src="/static/app.js"></script>
 </body>
 </html>

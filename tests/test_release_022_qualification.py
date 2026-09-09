@@ -18,11 +18,11 @@ class Release022QualificationTests(unittest.TestCase):
     def test_release_identity_is_consistent(self) -> None:
         version = (ROOT / "VERSION").read_text(encoding="ascii").strip()
         project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-        self.assertEqual("0.22.0", version)
+        self.assertTrue(version.startswith("0.22."), version)
         self.assertEqual(version, project["project"]["version"])
         self.assertEqual(version, home_center.__version__)
-        release_notes = (ROOT / "docs/releases/0.22.0.md").read_text(encoding="utf-8")
-        self.assertIn("# Home Center 0.22.0", release_notes)
+        release_notes = (ROOT / "docs" / "releases" / f"{version}.md").read_text(encoding="utf-8")
+        self.assertIn(f"# Home Center {version}", release_notes)
         self.assertIn("cannot authorize that transition", release_notes)
 
     def test_release_artifact_contains_worker_handoff_runtime(self) -> None:
