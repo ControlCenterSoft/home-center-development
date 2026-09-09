@@ -1,0 +1,93 @@
+name: Promote Home Center v0.22.0 deployment artifact once
+
+on:
+  push:
+    branches:
+      - ops/promote-v0.22.0-test-20260909
+
+permissions:
+  contents: write
+
+concurrency:
+  group: home-center-deployment-artifact-v0.22.0
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact stable tag
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: v0.22.0
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+          cache: ""
+
+      - name: Verify stable release identity
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          tag_commit=$(git rev-list -n1 v0.22.0)
+          test "$tag_commit" = "$(git rev-parse HEAD)"
+          release_json=$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/v0.22.0")
+          python3 - "$release_json" <<'PY'
+          import json, sys
+          data=json.loads(sys.argv[1])
+          assert data.get('tag_name') == 'v0.22.0'
+          assert data.get('draft') is False
+          assert data.get('prerelease') is False
+          PY
+
+      - name: Run release qualification
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m compileall -q product/control-plane/src deploy/runtime
+          python -m unittest discover -s tests -p 'test_*.py' -v
+          for script in deploy/scripts/*.sh; do bash -n "$script"; done
+
+      - name: Build deployment artifact
+        shell: bash
+        env:
+          HOME_CENTER_RELEASE_BUILD: "1"
+        run: |
+          set -Eeuo pipefail
+          bash deploy/scripts/build-deployment-artifact.sh "$RUNNER_TEMP/deployment-dist"
+
+      - name: Validate artifact
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          artifact="$RUNNER_TEMP/deployment-dist/home-center-0.22.0-linux-amd64.tar.gz"
+          sidecar="$artifact.sha256"
+          test -f "$artifact" -a -f "$sidecar"
+          (cd "$RUNNER_TEMP/deployment-dist" && sha256sum -c "$(basename "$sidecar")")
+          for entry in ./DEPLOYMENT-ARTIFACT.json ./VERSION ./REVISION ./MANIFEST.sha256 ./deploy/bootstrap-two-node.sh ./deploy/install-node.sh ./deploy/rollback-node.sh; do
+            tar -tzf "$artifact" | grep -Fxq "$entry"
+          done
+          ! tar -tzf "$artifact" | grep -Eq 'current-environment|private-overlays|production-overlays'
+          test "$(tar -xOf "$artifact" ./VERSION | tr -d '\r\n')" = "0.22.0"
+
+      - name: Publish immutable assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          artifact="$RUNNER_TEMP/deployment-dist/home-center-0.22.0-linux-amd64.tar.gz"
+          existing=$(gh release view v0.22.0 --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+          if grep -Fxq 'home-center-0.22.0-linux-amd64.tar.gz' <<<"$existing" || grep -Fxq 'home-center-0.22.0-linux-amd64.tar.gz.sha256' <<<"$existing"; then
+            echo 'deployment assets already exist; refusing replacement' >&2
+            exit 66
+          fi
+          gh release upload v0.22.0 "$artifact" "$artifact.sha256" --repo "$GITHUB_REPOSITORY"
+          echo 'DEPLOYMENT_ARTIFACT_PUBLISHED=PASS'
