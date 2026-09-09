@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://controlcentersoft.example/contracts/jobs/operation-job-record.v1.schema.json",
+  "title": "Home Center Operation Job Record v1",
+  "description": "Durable CAS record for one bounded typed operation command plan.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "job_id",
+    "action_id",
+    "state",
+    "state_version",
+    "initiator",
+    "reason",
+    "plan_id",
+    "request_sha256",
+    "plan_sha256",
+    "snapshot_sha256",
+    "authorization_id",
+    "idempotency_key",
+    "target_node_id",
+    "service",
+    "correlation_id",
+    "plan",
+    "result",
+    "evidence",
+    "recovery",
+    "mutation_may_have_occurred",
+    "recovery_required",
+    "last_audit_event_id",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "schema": {
+      "const": "home-center.operation-job-record.v1"
+    },
+    "job_id": {
+      "type": "string",
+      "pattern": "^opjob-[a-f0-9]{24}$"
+    },
+    "action_id": {
+      "const": "service.restart.v1"
+    },
+    "state": {
+      "enum": [
+        "prepared",
+        "running",
+        "verifying",
+        "succeeded",
+        "rolling_back",
+        "rolled_back",
+        "failed"
+      ]
+    },
+    "state_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "initiator": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 500
+    },
+    "plan_id": {
+      "type": "string",
+      "pattern": "^opcmd-[a-f0-9]{24}$"
+    },
+    "request_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "plan_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "snapshot_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "authorization_id": {
+      "type": "string",
+      "pattern": "^opauth-[a-f0-9]{24}$"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128
+    },
+    "target_node_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64
+    },
+    "service": {
+      "const": "home-center.service"
+    },
+    "correlation_id": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128
+    },
+    "plan": {
+      "type": "object"
+    },
+    "result": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "evidence": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "recovery": {
+      "type": "object"
+    },
+    "mutation_may_have_occurred": {
+      "type": "boolean"
+    },
+    "recovery_required": {
+      "type": "boolean"
+    },
+    "last_audit_event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
