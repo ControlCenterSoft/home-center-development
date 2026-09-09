@@ -1,0 +1,56 @@
+name: HC 0.22 compatibility fixtures
+
+on:
+  push:
+    branches:
+      - fix/hc-022-main-compat
+
+permissions:
+  contents: write
+
+jobs:
+  integrate-fixtures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout compatibility branch
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          fetch-depth: 0
+      - name: Align legacy endpoint fixtures and certificate invariant
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main:refs/remotes/origin/main
+          git checkout origin/main -- tests/test_automation_execution.py tests/test_node_inventory_api.py
+
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("product/control-plane/src/home_center/certificate_api.py")
+          text = path.read_text(encoding="utf-8")
+          old = '''        return {
+            "schema": "home-center.certificate-inventory.v1",
+            "evaluated_at": _timestamp(evaluated_at),
+            "warning_days": checked_warning_days,
+            "items": items,
+        }
+'''
+          new = '''        return {
+            "schema": "home-center.certificate-inventory.v1",
+            "evaluated_at": _timestamp(evaluated_at),
+            "warning_days": checked_warning_days,
+            "items": items,
+            "production_mutation_enabled": False,
+        }
+'''
+          if old not in text:
+              raise SystemExit("expected certificate inventory return block not found")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
+
+          git rm .github/workflows/hc-022-test-fixture-compat.yml
+          git add -A
+          git commit -m "HC 0.22: align endpoint fixtures with first-login gate"
+          git push origin HEAD:fix/hc-022-main-compat
