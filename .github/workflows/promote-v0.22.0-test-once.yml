@@ -57,15 +57,16 @@ jobs:
           python -m unittest discover -s tests -p 'test_*.py' -v
           for script in deploy/scripts/*.sh; do bash -n "$script"; done
 
-      - name: Restore clean release worktree
+      - name: Restore exact clean release tree
         shell: bash
         run: |
           set -Eeuo pipefail
-          git diff --quiet
-          git diff --cached --quiet
+          tag_commit=$(git rev-list -n1 v0.22.0)
+          test "$(git rev-parse HEAD)" = "$tag_commit"
+          git reset --hard "$tag_commit"
           git clean -fdx
+          test "$(git rev-parse HEAD)" = "$tag_commit"
           test -z "$(git status --porcelain --untracked-files=all)"
-          test "$(git rev-parse HEAD)" = "$(git rev-list -n1 v0.22.0)"
 
       - name: Build deployment artifact
         shell: bash
