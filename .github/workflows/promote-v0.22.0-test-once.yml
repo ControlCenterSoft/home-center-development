@@ -49,6 +49,8 @@ jobs:
 
       - name: Run release qualification
         shell: bash
+        env:
+          PYTHONPATH: product/control-plane/src
         run: |
           set -Eeuo pipefail
           python -m compileall -q product/control-plane/src deploy/runtime
