@@ -1,15 +1,30 @@
 """Infrastructure-neutral Home Center core planning foundation."""
 
-from .certificate_lifecycle import CertificateLifecyclePlanner, CertificateRecord, CertificateRenewalPlan, CertificateStatus
+from .certificate_lifecycle import (
+    CertificateLifecycleError,
+    CertificateLifecyclePlanner,
+    CertificatePlanState,
+    CertificateRecord,
+    CertificateRenewalPlan,
+    CertificateStatus,
+    classify_certificate,
+)
 from .compute_framework import (
+    ComputeCapacity,
+    ComputeCapacityPlan,
+    ComputeCapacityPlanningRequest,
+    ComputeCapacitySnapshot,
     ComputeFrameworkError,
     ComputePlan,
     ComputePlanner,
     ComputePlanState,
     ComputeProviderDescriptor,
     ComputeProviderKind,
+    ComputeProviderProfile,
+    ComputeProviderState,
     ComputeResourceKind,
     ComputeResourceRequest,
+    proxmox_compute_profile,
 )
 from .home_lab import HomeLabPlan, HomeLabPlanner, HomeLabQuota, HomeLabTemplate, HomeLabUsage
 from .lxc_lifecycle import (
@@ -51,18 +66,28 @@ from .vm_lifecycle import (
 )
 
 __all__ = [
+    "CertificateLifecycleError",
     "CertificateLifecyclePlanner",
+    "CertificatePlanState",
     "CertificateRecord",
     "CertificateRenewalPlan",
     "CertificateStatus",
+    "classify_certificate",
+    "ComputeCapacity",
+    "ComputeCapacityPlan",
+    "ComputeCapacityPlanningRequest",
+    "ComputeCapacitySnapshot",
     "ComputeFrameworkError",
     "ComputePlan",
     "ComputePlanner",
     "ComputePlanState",
     "ComputeProviderDescriptor",
     "ComputeProviderKind",
+    "ComputeProviderProfile",
+    "ComputeProviderState",
     "ComputeResourceKind",
     "ComputeResourceRequest",
+    "proxmox_compute_profile",
     "HomeLabPlan",
     "HomeLabPlanner",
     "HomeLabQuota",
