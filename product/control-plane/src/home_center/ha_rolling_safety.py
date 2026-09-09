@@ -99,7 +99,10 @@ class RollingSafetyRequest:
                 raise HASafetyError("invalid_predecessor_node_id")
             if self.required_predecessor_node_id == self.target_node_id:
                 raise HASafetyError("target_cannot_be_predecessor")
-            if self.required_predecessor_revision is None or REVISION.fullmatch(self.required_predecessor_revision) is None:
+            if (
+                self.required_predecessor_revision is None
+                or REVISION.fullmatch(self.required_predecessor_revision) is None
+            ):
                 raise HASafetyError("invalid_predecessor_revision")
         if len(self.observations) == 1:
             if self.minimum_ready_nodes != 0:
