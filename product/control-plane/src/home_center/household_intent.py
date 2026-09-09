@@ -27,6 +27,7 @@ class HouseholdIntent:
     kind: HouseholdIntentKind
     target_id: str
     requested_role: HouseholdRole | None = None
+    subject_member_id: str | None = None
     schema: str = field(default=HOUSEHOLD_INTENT_SCHEMA, init=False)
 
     def __post_init__(self) -> None:
@@ -42,8 +43,16 @@ class HouseholdIntent:
         if self.kind is HouseholdIntentKind.ONBOARD_MEMBER:
             if not isinstance(self.requested_role, HouseholdRole):
                 raise HomeServiceCatalogError("household_intent_role_required")
-        elif self.requested_role is not None:
-            raise HomeServiceCatalogError("household_intent_role_not_allowed")
+            if self.subject_member_id is not None:
+                raise HomeServiceCatalogError("household_intent_subject_not_allowed")
+        else:
+            if self.requested_role is not None:
+                raise HomeServiceCatalogError("household_intent_role_not_allowed")
+            object.__setattr__(
+                self,
+                "subject_member_id",
+                _identifier(self.subject_member_id, "household_intent_subject_required"),
+            )
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -53,6 +62,7 @@ class HouseholdIntent:
             "kind": self.kind.value,
             "target_id": self.target_id,
             "requested_role": self.requested_role.value if self.requested_role is not None else None,
+            "subject_member_id": self.subject_member_id,
         }
 
 
@@ -60,6 +70,7 @@ class HouseholdIntent:
 class RecommendedAction:
     action_type: str
     target_id: str
+    subject_member_id: str
     requires_confirmation: bool
     risk: str
 
@@ -67,6 +78,7 @@ class RecommendedAction:
         return {
             "action_type": self.action_type,
             "target_id": self.target_id,
+            "subject_member_id": self.subject_member_id,
             "requires_confirmation": self.requires_confirmation,
             "risk": self.risk,
         }
@@ -124,12 +136,14 @@ def plan_household_intent(household: Household, intent: HouseholdIntent) -> Hous
             RecommendedAction(
                 action_type="household.member.create",
                 target_id=intent.target_id,
+                subject_member_id=intent.target_id,
                 requires_confirmation=True,
                 risk="low" if role is not HouseholdRole.PARENT else "elevated",
             ),
             RecommendedAction(
                 action_type="household.policy.compose",
                 target_id=intent.target_id,
+                subject_member_id=intent.target_id,
                 requires_confirmation=True,
                 risk="low" if role is not HouseholdRole.PARENT else "elevated",
             ),
@@ -137,16 +151,23 @@ def plan_household_intent(household: Household, intent: HouseholdIntent) -> Hous
     else:
         if intent.target_id in device_ids:
             raise HomeServiceCatalogError("household_intent_target_exists")
+        subject_member_id = intent.subject_member_id
+        assert subject_member_id is not None
+        subject = household.member(subject_member_id)
+        if not subject.enabled:
+            raise HomeServiceCatalogError("household_intent_subject_disabled")
         actions = (
             RecommendedAction(
                 action_type="household.device.enroll",
                 target_id=intent.target_id,
+                subject_member_id=subject.member_id,
                 requires_confirmation=True,
                 risk="low",
             ),
             RecommendedAction(
                 action_type="household.device.apply-effective-policy",
                 target_id=intent.target_id,
+                subject_member_id=subject.member_id,
                 requires_confirmation=True,
                 risk="low",
             ),
