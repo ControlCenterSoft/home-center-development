@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://controlcentersoft.example/contracts/market/home-service-transition-apply-receipt.v1.schema.json",
+  "title": "Home Service Transition Apply Receipt v1",
+  "description": "Evidence that an explicitly authorized prepared transition was applied or safely replayed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "receipt_id",
+    "authorization_id",
+    "commit_id",
+    "decision_id",
+    "instance_id",
+    "target_state",
+    "generation",
+    "resource_version",
+    "applied",
+    "idempotent_replay",
+    "further_mutation_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.home-service-transition-apply-receipt.v1"},
+    "receipt_id": {"type": "string", "pattern": "^hstr-[a-f0-9]{24}$"},
+    "authorization_id": {"type": "string", "minLength": 2, "maxLength": 128},
+    "commit_id": {"type": "string", "pattern": "^hstc-[a-f0-9]{24}$"},
+    "decision_id": {"type": "string", "pattern": "^hstd-[a-f0-9]{24}$"},
+    "instance_id": {"type": "string", "minLength": 2, "maxLength": 128},
+    "target_state": {"enum": ["planned", "installed", "configured", "ready", "degraded", "removed"]},
+    "generation": {"type": "integer", "minimum": 2},
+    "resource_version": {"type": "string", "pattern": "^rv:instance:[a-f0-9]{24}$"},
+    "applied": {"type": "boolean"},
+    "idempotent_replay": {"type": "boolean"},
+    "further_mutation_authorized": {"const": false}
+  }
+}
