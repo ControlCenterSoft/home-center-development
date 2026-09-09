@@ -32,6 +32,7 @@ REQUIRED_MEMBERS = frozenset(
         "home_center/home_service_execution_result.py",
         "home_center/home_service_state_transition.py",
         "home_center/home_service_transition_apply.py",
+        "home_center/home_service_transition_audit.py",
         "home_center/home_service_transition_verify.py",
         "home_center/node_discovery.py",
         "home_center/node_drain_preflight.py",
@@ -175,7 +176,7 @@ def main() -> int:
     try:
         wheel = _single_wheel(args.wheel_dir)
         report = qualify(wheel, repository_root=args.repository_root.resolve())
-        comparison = _single_wheel(args.compare_wheel_dir)
+        comparison = _single_wheel(args.compare-wheel-dir)
         if wheel.name != comparison.name or _sha256(wheel) != _sha256(comparison):
             raise QualificationError("artifact_reproducibility_mismatch")
         report["checks"]["reproducible_build"] = True
