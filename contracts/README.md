@@ -7,6 +7,11 @@ secret-free catalog surface for the accepted home-service families. Catalog
 records declare requirements and lifecycle coverage only. They neither
 authorize installation nor enable external publication.
 
+`market/home-service-deployment-plan.v1.schema.json` defines the fail-closed
+deployment preflight. Approval and execution authority remain separate, and
+external publication requires both an explicit request and a matching node
+capability.
+
 `contracts/` — canonical source для machine-readable границ Home Center. После допуска к разработке generated code может создаваться из contracts, но не должен становиться альтернативным источником истины.
 
 ## Планируемая структура

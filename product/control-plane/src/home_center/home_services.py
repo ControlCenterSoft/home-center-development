@@ -13,6 +13,8 @@ SCHEMA = "home-center.home-service-catalog.v1"
 IDENTIFIER = re.compile(r"^[a-z][a-z0-9_.:-]{1,127}$")
 CAPABILITY = re.compile(r"^[a-z][a-z0-9.-]{1,126}\.v[1-9][0-9]*$")
 MAX_CAPABILITIES = 128
+BLOCKER = re.compile(r"^[a-z0-9][a-z0-9_.:-]{1,191}$")
+MAX_BLOCKERS = 128
 
 
 class HomeServiceCatalogError(ValueError):
@@ -39,6 +41,11 @@ class BackupPolicy(StrEnum):
     NONE = "none"
     CONFIGURATION = "configuration"
     STATE = "state"
+
+
+class DeploymentPlanState(StrEnum):
+    PLANNED = "planned"
+    BLOCKED = "blocked"
 
 
 REQUIRED_LIFECYCLE = (
@@ -247,3 +254,126 @@ BUILTIN_HOME_SERVICES = HomeServiceCatalog(
 HOME_SERVICE_BY_ID: Mapping[str, HomeServiceProfile] = MappingProxyType(
     {profile.service_id: profile for profile in BUILTIN_HOME_SERVICES.profiles}
 )
+
+
+@dataclass(frozen=True, slots=True)
+class NodeCapabilitySnapshot:
+    node_id: str
+    capabilities: tuple[str, ...]
+    free_storage_gib: int
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "node_id", _identifier(self.node_id, "invalid_node_id"))
+        object.__setattr__(
+            self,
+            "capabilities",
+            _capabilities(self.capabilities, "invalid_node_capabilities"),
+        )
+        if (
+            not isinstance(self.free_storage_gib, int)
+            or isinstance(self.free_storage_gib, bool)
+            or not 0 <= self.free_storage_gib <= 1_048_576
+        ):
+            raise HomeServiceCatalogError("invalid_free_storage")
+
+
+@dataclass(frozen=True, slots=True)
+class HomeServiceDeploymentRequest:
+    service_id: str
+    target_node_id: str
+    external_publication_requested: bool = False
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "service_id", _identifier(self.service_id, "invalid_service_id"))
+        object.__setattr__(self, "target_node_id", _identifier(self.target_node_id, "invalid_node_id"))
+        if not isinstance(self.external_publication_requested, bool):
+            raise HomeServiceCatalogError("invalid_publication_request")
+
+
+@dataclass(frozen=True, slots=True)
+class HomeServiceDeploymentPlan:
+    service_id: str
+    target_node_id: str
+    state: DeploymentPlanState
+    blockers: tuple[str, ...]
+    external_publication_enabled: bool
+    approval_required: bool = field(default=True, init=False)
+    execution_authorized: bool = field(default=False, init=False)
+    production_mutation_enabled: bool = field(default=False, init=False)
+    schema: str = field(default="home-center.home-service-deployment-plan.v1", init=False)
+
+    def __post_init__(self) -> None:
+        _identifier(self.service_id, "invalid_service_id")
+        _identifier(self.target_node_id, "invalid_node_id")
+        if not isinstance(self.state, DeploymentPlanState):
+            raise HomeServiceCatalogError("invalid_deployment_state")
+        if (
+            not isinstance(self.blockers, tuple)
+            or len(self.blockers) > MAX_BLOCKERS
+            or len(self.blockers) != len(set(self.blockers))
+            or tuple(sorted(self.blockers)) != self.blockers
+            or any(not isinstance(item, str) or BLOCKER.fullmatch(item) is None for item in self.blockers)
+        ):
+            raise HomeServiceCatalogError("invalid_deployment_blockers")
+        if (self.state is DeploymentPlanState.PLANNED) == bool(self.blockers):
+            raise HomeServiceCatalogError("inconsistent_deployment_plan")
+        if not isinstance(self.external_publication_enabled, bool):
+            raise HomeServiceCatalogError("invalid_publication_state")
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema": self.schema,
+            "service_id": self.service_id,
+            "target_node_id": self.target_node_id,
+            "state": self.state.value,
+            "blockers": list(self.blockers),
+            "external_publication_enabled": self.external_publication_enabled,
+            "approval_required": True,
+            "execution_authorized": False,
+            "production_mutation_enabled": False,
+        }
+
+
+class HomeServiceDeploymentPlanner:
+    """Build a deterministic deployment preflight without executing actions."""
+
+    def __init__(self, profiles: Mapping[str, HomeServiceProfile] = HOME_SERVICE_BY_ID) -> None:
+        if not isinstance(profiles, Mapping):
+            raise HomeServiceCatalogError("invalid_catalog")
+        self._profiles = MappingProxyType(dict(profiles))
+
+    def plan(
+        self,
+        request: HomeServiceDeploymentRequest,
+        node: NodeCapabilitySnapshot,
+    ) -> HomeServiceDeploymentPlan:
+        if not isinstance(request, HomeServiceDeploymentRequest):
+            raise HomeServiceCatalogError("invalid_deployment_request")
+        if not isinstance(node, NodeCapabilitySnapshot):
+            raise HomeServiceCatalogError("invalid_node_snapshot")
+
+        blockers: set[str] = set()
+        if request.target_node_id != node.node_id:
+            blockers.add("target_node_mismatch")
+        profile = self._profiles.get(request.service_id)
+        if profile is None:
+            blockers.add("unknown_service")
+        else:
+            for capability in set(profile.required_capabilities).difference(node.capabilities):
+                blockers.add(f"missing_capability:{capability}")
+            if node.free_storage_gib < profile.minimum_storage_gib:
+                blockers.add("insufficient_storage")
+            if request.external_publication_requested:
+                if profile.publication_policy is PublicationPolicy.LOCAL_ONLY:
+                    blockers.add("publication_forbidden")
+                elif "network.external-publication.v1" not in node.capabilities:
+                    blockers.add("missing_capability:network.external-publication.v1")
+
+        canonical = tuple(sorted(blockers))
+        return HomeServiceDeploymentPlan(
+            service_id=request.service_id,
+            target_node_id=request.target_node_id,
+            state=DeploymentPlanState.BLOCKED if canonical else DeploymentPlanState.PLANNED,
+            blockers=canonical,
+            external_publication_enabled=request.external_publication_requested and not canonical,
+        )
