@@ -71,7 +71,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct "$RELEASE_SHA")" >> "$GITHUB_ENV"
+          export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct "$RELEASE_SHA")"
           mkdir -p dist/first dist/second
           python -m pip wheel --no-deps --wheel-dir dist/first .
           python -m pip wheel --no-deps --wheel-dir dist/second .
