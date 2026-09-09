@@ -1,0 +1,116 @@
+name: Publish Home Center 0.18.0
+
+on:
+  push:
+    branches:
+      - release/0.18.0
+    paths:
+      - .github/workflows/release-0.18.0.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-home-center-0.18.0
+  cancel-in-progress: false
+
+env:
+  RELEASE_SHA: a50f3f83e878a922723b0e7268d724d11a06222e
+  RELEASE_TAG: v0.18.0
+  RELEASE_TITLE: Home Center 0.18.0
+
+jobs:
+  publish:
+    name: Qualify and publish v0.18.0
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact qualified release
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+
+      - name: Verify release identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(cat VERSION)" = "0.18.0"
+          grep -F 'version = "0.18.0"' pyproject.toml
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+
+      - name: Compile and validate JSON contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m compileall -q product/control-plane/src deploy/runtime
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          for path in sorted(Path("contracts").rglob("*.json")):
+              with path.open(encoding="utf-8") as stream:
+                  json.load(stream)
+          for path in sorted(Path("product/control-plane/src/home_center").glob("*.json")):
+              with path.open(encoding="utf-8") as stream:
+                  json.load(stream)
+          print("JSON_CONTRACTS=PASS")
+          PY
+
+      - name: Run release tests
+        env:
+          PYTHONPATH: product/control-plane/src
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
+
+      - name: Build reproducible release artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct "$RELEASE_SHA")" >> "$GITHUB_ENV"
+          mkdir -p dist/first dist/second
+          python -m pip wheel --no-deps --wheel-dir dist/first .
+          python -m pip wheel --no-deps --wheel-dir dist/second .
+          python scripts/qualify_release_artifact.py \
+            --wheel-dir dist/first \
+            --compare-wheel-dir dist/second
+          WHEEL="$(find dist/first -maxdepth 1 -type f -name 'home_center-0.18.0-*.whl' -print -quit)"
+          test -n "$WHEEL"
+          sha256sum "$WHEEL" > SHA256SUMS
+          echo "WHEEL=$WHEEL" >> "$GITHUB_ENV"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists" >&2
+            exit 1
+          fi
+          cat > RELEASE_NOTES.md <<'EOF'
+          Home Center 0.18.0 is the cumulative qualified release built on the 0.15 → 0.16 → 0.17 line.
+
+          Highlights:
+          - provider-neutral authorization/RBAC with default-deny boundaries;
+          - secret-free certificate inventory and deterministic renewal planning;
+          - runtime-readiness-driven remote-access publication planning;
+          - cumulative compute, automation, inventory and device-management capabilities from 0.15–0.17;
+          - infrastructure-neutral packaging and reproducible release artifact qualification.
+
+          Safety boundary: privileged operations remain fail-closed and plan-only unless explicitly authorized by the product runtime. This release does not grant private-key handling, endpoint discovery, firewall/NAT mutation, or uncontrolled production execution authority.
+
+          Release source commit: a50f3f83e878a922723b0e7268d724d11a06222e
+          EOF
+          gh release create "$RELEASE_TAG" \
+            "$WHEEL" \
+            SHA256SUMS \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$RELEASE_SHA" \
+            --title "$RELEASE_TITLE" \
+            --notes-file RELEASE_NOTES.md
