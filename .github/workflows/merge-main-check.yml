@@ -1,0 +1,39 @@
+name: HC 0.22 main merge check
+
+on:
+  push:
+    branches:
+      - integration/hc-022-main-sync
+
+permissions:
+  contents: read
+
+jobs:
+  merge-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout integration branch
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check merge with main
+        shell: bash
+        run: |
+          set -uo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main:refs/remotes/origin/main
+          set +e
+          git merge --no-commit --no-ff origin/main
+          rc=$?
+          set -e
+          if [[ $rc -ne 0 ]]; then
+            echo "::group::Unmerged paths"
+            git diff --name-only --diff-filter=U | sort
+            echo "::endgroup::"
+            exit $rc
+          fi
+          echo "Merge is clean"
+          git merge --abort
