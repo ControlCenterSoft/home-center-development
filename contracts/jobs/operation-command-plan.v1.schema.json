@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/jobs/operation-command-plan.v1.schema.json",
+  "title": "Operation Command Plan v1",
+  "description": "Non-authoritative, exact-input plan for one allowlisted bounded privileged operation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "plan_id",
+    "request_sha256",
+    "action_id",
+    "authorization_id",
+    "idempotency_key",
+    "target_node_id",
+    "service",
+    "snapshot_sha256",
+    "execution",
+    "verification",
+    "recovery",
+    "audit",
+    "accepts_caller_argv",
+    "accepts_shell",
+    "execution_authorized",
+    "production_mutation_enabled"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.operation-command-plan.v1"},
+    "plan_id": {"type": "string", "pattern": "^opcmd-[a-f0-9]{24}$"},
+    "request_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "action_id": {"const": "service.restart.v1"},
+    "authorization_id": {"type": "string", "pattern": "^opauth-[a-f0-9]{24}$"},
+    "idempotency_key": {"type": "string", "minLength": 8, "maxLength": 128},
+    "target_node_id": {"type": "string", "minLength": 3, "maxLength": 64},
+    "service": {"const": "home-center.service"},
+    "snapshot_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["executable", "argv", "timeout_seconds", "shell"],
+      "properties": {
+        "executable": {"const": "/usr/bin/systemctl"},
+        "argv": {
+          "type": "array",
+          "prefixItems": [
+            {"const": "/usr/bin/systemctl"},
+            {"const": "restart"},
+            {"const": "home-center.service"}
+          ],
+          "items": false,
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "timeout_seconds": {"const": 15},
+        "shell": {"const": false}
+      }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["argv", "timeout_seconds", "required_active_state"],
+      "properties": {
+        "argv": {"type": "array", "minItems": 3, "maxItems": 8, "items": {"type": "string"}},
+        "timeout_seconds": {"const": 5},
+        "required_active_state": {"const": "active"}
+      }
+    },
+    "recovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy", "argv", "timeout_seconds", "expected_active_state", "verification_required"],
+      "properties": {
+        "strategy": {"const": "restore-observed-active-state"},
+        "argv": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "string"}},
+        "timeout_seconds": {"const": 15},
+        "expected_active_state": {"enum": ["active", "inactive"]},
+        "verification_required": {"const": true}
+      }
+    },
+    "audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "correlation_id", "reason"],
+      "properties": {
+        "required": {"const": true},
+        "correlation_id": {"type": "string", "minLength": 8, "maxLength": 128},
+        "reason": {"type": "string", "minLength": 3, "maxLength": 500}
+      }
+    },
+    "accepts_caller_argv": {"const": false},
+    "accepts_shell": {"const": false},
+    "execution_authorized": {"const": false},
+    "production_mutation_enabled": {"const": false}
+  }
+}
