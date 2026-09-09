@@ -99,18 +99,18 @@ jobs:
             exit 1
           fi
 
-          mkdir -p .gemini
+          mkdir -p .gemini review-evidence
           if [[ -f GEMINI.md ]]; then
             mv GEMINI.md "${RUNNER_TEMP}/GEMINI.md.project"
           fi
 
-          cat > .gemini/release-review.identity <<EOF
+          cat > review-evidence/identity.txt <<EOF
           head_sha=${EXPECTED_HEAD_SHA}
           base_sha=${EXPECTED_BASE_SHA}
           EOF
-          git diff --no-ext-diff --find-renames --find-copies --stat "${EXPECTED_BASE_SHA}...${EXPECTED_HEAD_SHA}" > .gemini/release-review.stat
-          git diff --no-ext-diff --find-renames --find-copies --name-status "${EXPECTED_BASE_SHA}...${EXPECTED_HEAD_SHA}" > .gemini/release-review.files
-          git diff --no-ext-diff --find-renames --find-copies --unified=80 "${EXPECTED_BASE_SHA}...${EXPECTED_HEAD_SHA}" > .gemini/release-review.diff
+          git diff --no-ext-diff --find-renames --find-copies --stat "${EXPECTED_BASE_SHA}...${EXPECTED_HEAD_SHA}" > review-evidence/diff.stat
+          git diff --no-ext-diff --find-renames --find-copies --name-status "${EXPECTED_BASE_SHA}...${EXPECTED_HEAD_SHA}" > review-evidence/files.txt
+          git diff --no-ext-diff --find-renames --find-copies --unified=80 "${EXPECTED_BASE_SHA}...${EXPECTED_HEAD_SHA}" > review-evidence/diff.patch
 
           cat > .gemini/settings.json <<'EOF'
           {
@@ -163,7 +163,7 @@ jobs:
           head_sha=${EXPECTED_HEAD_SHA}
           base_sha=${EXPECTED_BASE_SHA}
 
-          Start with .gemini/release-review.identity, .gemini/release-review.stat, .gemini/release-review.files and .gemini/release-review.diff. Read additional repository files only when needed to assess the diff. Do not use network, GitHub, MCP, account, issue, approval, repository-mutation or file-write tools. Do not request or expose secrets or PII.
+          Start by reading review-evidence/identity.txt, review-evidence/diff.stat, review-evidence/files.txt and review-evidence/diff.patch. These files were generated from the exact checked-out Git history before your review. Read additional repository files only when needed to assess that diff. Do not inspect .git or parent directories. Do not use network, GitHub, MCP, account, issue, approval, repository-mutation or file-write tools. Do not request or expose secrets or PII.
 
           Assess correctness, regressions, security/privacy, infrastructure neutrality, tests, migration/upgrade implications, and release-note consistency. Deterministic CI is a separate authority; do not claim it passed unless that is evident in repository artifacts. Return BLOCK for any release-blocking finding; otherwise PASS.
 
