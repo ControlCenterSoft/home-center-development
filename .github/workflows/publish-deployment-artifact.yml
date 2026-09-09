@@ -71,7 +71,7 @@ jobs:
           set -Eeuo pipefail
           python -m compileall -q product/control-plane/src deploy/runtime
           python -m unittest discover -s tests -p 'test_*.py' -v
-          bash -n deploy/scripts/*.sh
+          for script in deploy/scripts/*.sh; do bash -n "$script"; done
 
       - name: Build deployment artifact
         shell: bash
@@ -79,7 +79,7 @@ jobs:
           HOME_CENTER_RELEASE_BUILD: "1"
         run: |
           set -Eeuo pipefail
-          deploy/scripts/build-deployment-artifact.sh "$RUNNER_TEMP/deployment-dist"
+          bash deploy/scripts/build-deployment-artifact.sh "$RUNNER_TEMP/deployment-dist"
 
       - name: Validate artifact privacy and content
         shell: bash
