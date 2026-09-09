@@ -82,12 +82,14 @@ jobs:
           set -Eeuo pipefail
           artifact="$RUNNER_TEMP/deployment-dist/home-center-0.22.0-linux-amd64.tar.gz"
           sidecar="$artifact.sha256"
+          listing="$RUNNER_TEMP/deployment-dist/home-center-0.22.0-linux-amd64.list"
           test -f "$artifact" -a -f "$sidecar"
           (cd "$RUNNER_TEMP/deployment-dist" && sha256sum -c "$(basename "$sidecar")")
+          tar -tzf "$artifact" >"$listing"
           for entry in ./DEPLOYMENT-ARTIFACT.json ./VERSION ./REVISION ./MANIFEST.sha256 ./deploy/bootstrap-two-node.sh ./deploy/install-node.sh ./deploy/rollback-node.sh; do
-            tar -tzf "$artifact" | grep -Fxq "$entry"
+            grep -Fxq "$entry" "$listing"
           done
-          ! tar -tzf "$artifact" | grep -Eq 'current-environment|private-overlays|production-overlays'
+          ! grep -Eq 'current-environment|private-overlays|production-overlays' "$listing"
           test "$(tar -xOf "$artifact" ./VERSION | tr -d '\r\n')" = "0.22.0"
           test "$(tar -xOf "$artifact" ./REVISION | tr -d '\r\n')" = "c4ae472a7b43b1e8924bc49e18172b05ad66a24d"
 
