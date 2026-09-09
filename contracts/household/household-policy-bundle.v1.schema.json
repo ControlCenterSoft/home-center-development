@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.example/contracts/household/household-policy-bundle.v1.schema.json",
+  "title": "Home Center Household Policy Bundle v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "bundle_id", "role", "internet_policy", "vpn_allowed",
+    "managed_device_required", "home_files_allowed", "smart_home_control_allowed",
+    "administration_allowed", "external_publication_allowed", "production_mutation_enabled"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.household-policy-bundle.v1"},
+    "bundle_id": {"type": "string", "pattern": "^hpb-[0-9a-f]{24}$"},
+    "role": {"enum": ["parent", "child", "guest"]},
+    "internet_policy": {"enum": ["full", "filtered", "guest"]},
+    "vpn_allowed": {"type": "boolean"},
+    "managed_device_required": {"type": "boolean"},
+    "home_files_allowed": {"type": "boolean"},
+    "smart_home_control_allowed": {"type": "boolean"},
+    "administration_allowed": {"type": "boolean"},
+    "external_publication_allowed": {"const": false},
+    "production_mutation_enabled": {"const": false}
+  }
+}
