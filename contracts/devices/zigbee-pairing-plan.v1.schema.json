@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.invalid/contracts/devices/zigbee-pairing-plan.v1.schema.json",
+  "title": "Zigbee Pairing Plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "operation_id",
+    "provider_id",
+    "state",
+    "steps",
+    "blockers",
+    "production_mutation_enabled",
+    "execution_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.zigbee-pairing-plan.v1"},
+    "operation_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "provider_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "state": {"enum": ["planned", "blocked"]},
+    "steps": {
+      "type": "array",
+      "maxItems": 6,
+      "items": {
+        "enum": [
+          "validate-provider",
+          "request-permit-join",
+          "confirm-permit-join",
+          "observe-device",
+          "validate-capabilities",
+          "register-device",
+          "close-permit-join"
+        ]
+      }
+    },
+    "blockers": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+        "enum": [
+          "provider_identity_mismatch",
+          "provider_not_healthy",
+          "pairing_capability_missing",
+          "device_already_registered"
+        ]
+      }
+    },
+    "production_mutation_enabled": {"const": false},
+    "execution_authorized": {"const": false}
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "state": {"const": "planned"},
+        "steps": {"minItems": 6, "maxItems": 6},
+        "blockers": {"maxItems": 0}
+      }
+    },
+    {
+      "properties": {
+        "state": {"const": "blocked"},
+        "steps": {"maxItems": 0},
+        "blockers": {"minItems": 1}
+      }
+    }
+  ]
+}

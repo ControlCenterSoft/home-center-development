@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.invalid/contracts/releases/release-artifact-qualification.v1.schema.json",
+  "title": "Home Center Release Artifact Qualification v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "release",
+    "artifact",
+    "artifact_sha256",
+    "state",
+    "checks",
+    "production_mutation_enabled"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.release-artifact-qualification.v1"},
+    "release": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+    "artifact": {"type": "string", "pattern": "^home_center-[A-Za-z0-9_.+-]+-py3-none-any\\.whl$"},
+    "artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "state": {"const": "qualified"},
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identity_consistent",
+        "runtime_data_present",
+        "archive_members_safe",
+        "generated_bytecode_absent",
+        "reproducible_build"
+      ],
+      "properties": {
+        "identity_consistent": {"const": true},
+        "runtime_data_present": {"const": true},
+        "archive_members_safe": {"const": true},
+        "generated_bytecode_absent": {"const": true},
+        "reproducible_build": {"const": true}
+      }
+    },
+    "production_mutation_enabled": {"const": false}
+  }
+}

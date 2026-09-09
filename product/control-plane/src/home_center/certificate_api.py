@@ -209,6 +209,7 @@ class CertificateLifecycleApi:
             "evaluated_at": _timestamp(evaluated_at),
             "warning_days": checked_warning_days,
             "items": items,
+            "production_mutation_enabled": False,
         }
 
     def plan(self, policy: CertificateRenewalPolicy) -> dict[str, Any]:

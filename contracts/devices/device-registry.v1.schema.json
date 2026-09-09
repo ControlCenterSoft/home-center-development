@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.invalid/contracts/devices/device-registry.v1.schema.json",
+  "title": "Device Registry v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "observed_at", "source", "production_mutation_enabled", "devices"],
+  "properties": {
+    "schema": {"const": "home-center.device-registry.v1"},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "source": {"const": "local-trusted"},
+    "production_mutation_enabled": {"const": false},
+    "devices": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {"$ref": "#/$defs/device"}
+    }
+  },
+  "$defs": {
+    "identifier": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "capability": {"type": "string", "pattern": "^[a-z][a-z0-9.-]{1,126}\\.v[1-9][0-9]*$"},
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_type", "occurred_at"],
+      "properties": {
+        "event_type": {"$ref": "#/$defs/identifier"},
+        "occurred_at": {"type": "string", "format": "date-time"}
+      }
+    },
+    "device": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "device_id",
+        "name",
+        "kind",
+        "state",
+        "location_id",
+        "owner_subject",
+        "permission_refs",
+        "capabilities",
+        "last_observed_at",
+        "last_event",
+        "command_authority"
+      ],
+      "properties": {
+        "device_id": {"$ref": "#/$defs/identifier"},
+        "name": {"type": "string", "minLength": 1, "maxLength": 80},
+        "kind": {"enum": ["sensor", "switch", "light", "outlet", "thermostat", "coordinator", "media", "other"]},
+        "state": {"enum": ["online", "offline", "degraded", "unknown"]},
+        "location_id": {"oneOf": [{"$ref": "#/$defs/identifier"}, {"type": "null"}]},
+        "owner_subject": {"oneOf": [{"$ref": "#/$defs/identifier"}, {"type": "null"}]},
+        "permission_refs": {
+          "type": "array",
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "capabilities": {
+          "type": "array",
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/capability"}
+        },
+        "last_observed_at": {"type": "string", "format": "date-time"},
+        "last_event": {"oneOf": [{"$ref": "#/$defs/event"}, {"type": "null"}]},
+        "command_authority": {"const": false}
+      }
+    }
+  }
+}

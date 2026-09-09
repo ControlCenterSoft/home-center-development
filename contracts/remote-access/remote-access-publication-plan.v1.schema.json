@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/remote-access/remote-access-publication-plan.v1.schema.json",
+  "title": "Home Center RemoteAccessPublicationPlan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "intent_id", "service_id", "state", "steps", "blockers", "production_mutation_enabled"],
+  "properties": {
+    "schema": {"const": "home-center.remote-access-publication-plan.v1"},
+    "intent_id": {"$ref": "#/$defs/id"},
+    "service_id": {"$ref": "#/$defs/id"},
+    "state": {"enum": ["planned", "blocked"]},
+    "steps": {
+      "type": "array",
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {"enum": ["validate-readiness", "validate-authentication", "validate-tls", "prepare-publication", "health-check", "activate-publication"]}
+    },
+    "blockers": {
+      "type": "array",
+      "maxItems": 9,
+      "uniqueItems": true,
+      "items": {
+        "enum": ["provider_identity_mismatch", "publication_mode_mismatch", "public_hostname_unavailable", "hostname_mismatch", "tls_not_ready", "authentication_not_ready", "network_not_ready", "dns_not_ready", "trusted_proxy_not_ready"]
+      }
+    },
+    "production_mutation_enabled": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"state": {"const": "planned"}}, "required": ["state"]},
+      "then": {
+        "properties": {
+          "steps": {"const": ["validate-readiness", "validate-authentication", "validate-tls", "prepare-publication", "health-check", "activate-publication"]},
+          "blockers": {"maxItems": 0}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"state": {"const": "blocked"}}, "required": ["state"]},
+      "then": {
+        "properties": {
+          "steps": {"maxItems": 0},
+          "blockers": {"minItems": 1}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"}
+  }
+}

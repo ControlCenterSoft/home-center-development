@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://controlcentersoft.example/contracts/market/home-service-execution-revalidation.v1.schema.json",
+  "title": "Home Service Execution Revalidation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "revalidation_id",
+    "admission_id",
+    "admission_sha256",
+    "claim_id",
+    "claim_token_sha256",
+    "plan_id",
+    "job_id",
+    "worker_id",
+    "node_id",
+    "instance_id",
+    "operation",
+    "observed_job_state",
+    "observed_generation",
+    "observed_resource_version",
+    "revalidated",
+    "compare_and_swap_matched",
+    "revalidation_record_only",
+    "execution_authorized",
+    "direct_execution",
+    "production_mutation_enabled",
+    "accepts_secret_values"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.home-service-execution-revalidation.v1"},
+    "revalidation_id": {"type": "string", "pattern": "^hsrv-[a-f0-9]{24}$"},
+    "admission_id": {"type": "string", "pattern": "^hsea-[a-f0-9]{24}$"},
+    "admission_sha256": {"$ref": "#/$defs/sha256"},
+    "claim_id": {"type": "string", "pattern": "^hswc-[a-f0-9]{24}$"},
+    "claim_token_sha256": {"$ref": "#/$defs/sha256"},
+    "plan_id": {"type": "string", "pattern": "^hsop-[a-f0-9]{24}$"},
+    "job_id": {"$ref": "#/$defs/identifier"},
+    "worker_id": {"$ref": "#/$defs/identifier"},
+    "node_id": {"$ref": "#/$defs/identifier"},
+    "instance_id": {"$ref": "#/$defs/identifier"},
+    "operation": {
+      "enum": ["install", "configure", "health", "update", "backup", "restore", "remove"]
+    },
+    "observed_job_state": {"const": "queued"},
+    "observed_generation": {"type": "integer", "minimum": 1},
+    "observed_resource_version": {"$ref": "#/$defs/identifier"},
+    "revalidated": {"const": true},
+    "compare_and_swap_matched": {"const": true},
+    "revalidation_record_only": {"const": true},
+    "execution_authorized": {"const": false},
+    "direct_execution": {"const": false},
+    "production_mutation_enabled": {"const": false},
+    "accepts_secret_values": {"const": false}
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}
