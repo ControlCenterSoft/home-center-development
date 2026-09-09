@@ -1,0 +1,46 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Home Center Compute Capacity API",
+    "version": "1.0.0",
+    "description": "Provider-neutral, authenticated, plan-only placement boundary for virtual machines and containers."
+  },
+  "paths": {
+    "/api/v1/compute/capacity-plans": {
+      "post": {
+        "operationId": "planComputeCapacity",
+        "summary": "Evaluate provider capacity without creating a resource",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "../compute/compute-capacity-request.v1.schema.json"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Deterministic placement plan or a typed blocked result",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../compute/compute-capacity-plan.v1.schema.json"}
+              }
+            }
+          },
+          "400": {"description": "Closed request contract rejected"},
+          "401": {"description": "Authentication required"}
+        },
+        "security": [{"sessionCookie": []}]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "hc_session"
+      }
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/compute/compute-capacity-snapshot.v1.schema.json",
+  "title": "Home Center Compute Capacity Snapshot v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "provider_id", "sequence", "total", "allocated", "reserved"],
+  "properties": {
+    "schema": {"const": "home-center.compute-capacity-snapshot.v1"},
+    "provider_id": {"$ref": "#/$defs/identifier"},
+    "sequence": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807},
+    "total": {"$ref": "#/$defs/capacity"},
+    "allocated": {"$ref": "#/$defs/capacity"},
+    "reserved": {"$ref": "#/$defs/capacity"}
+  },
+  "$defs": {
+    "identifier": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "capacity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["vcpu", "memory_mib", "storage_gib"],
+      "properties": {
+        "vcpu": {"type": "integer", "minimum": 0, "maximum": 65536},
+        "memory_mib": {"type": "integer", "minimum": 0, "maximum": 16777216},
+        "storage_gib": {"type": "integer", "minimum": 0, "maximum": 16777216}
+      }
+    }
+  }
+}
