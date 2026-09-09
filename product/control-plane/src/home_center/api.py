@@ -26,9 +26,18 @@ from .actions import (
 from .ad_auth import AdAuthError
 from .auth import SessionManager
 from .automation_execution import AutomationPlanningError, action_catalog
+from .certificate_api import (
+    CertificateApiError,
+    CertificateInventoryUnavailable,
+    CertificateNotFound,
+    CertificateRenewalPolicy,
+)
+from .compute_api import ComputeCapacityPlanningApi
+from .core.compute_framework import ComputeFrameworkError
 from .external_access import ExternalAccessRejected, ExternalRequestContext
 from .local_admin_auth import LocalAdminAuthError
 from .node_inventory_api import NodeInventoryError
+from .local_admin_change import LocalAdminPasswordChangeError
 from .runtime import Runtime
 from .util import utc_now
 
@@ -119,10 +128,24 @@ class RuntimeRequestHandler(BaseHTTPRequestHandler):
     def _actor(self) -> str | None:
         return self.runtime.sessions.actor_from_headers(self.headers.get("Cookie"))
 
-    def _require_actor(self, correlation_id: str) -> str | None:
+    def _require_actor(
+        self,
+        correlation_id: str,
+        *,
+        allow_password_change_required: bool = False,
+    ) -> str | None:
         actor = self._actor()
         if not actor:
             self._error(HTTPStatus.UNAUTHORIZED, "authentication_required", "Требуется вход", correlation_id)
+            return None
+        if not allow_password_change_required and self.runtime.actor_requires_password_change(actor):
+            self._error(
+                HTTPStatus.FORBIDDEN,
+                "password_change_required",
+                "Перед началом работы необходимо сменить пароль администратора",
+                correlation_id,
+            )
+            return None
         return actor
 
     def _classify_request(self, correlation_id: str) -> ExternalRequestContext | None:
@@ -223,12 +246,24 @@ class RuntimeRequestHandler(BaseHTTPRequestHandler):
         if path.startswith("/static/"):
             self._static(path.removeprefix("/static/"))
             return
+        if path == "/api/v1/session":
+            actor = self._require_actor(correlation_id, allow_password_change_required=True)
+            if not actor:
+                return
+            self._json(
+                200,
+                {
+                    "schema": "home-center.session.v1",
+                    "authenticated": True,
+                    "actor": actor,
+                    "password_change_required": self.runtime.actor_requires_password_change(actor),
+                },
+            )
+            return
         actor = self._require_actor(correlation_id)
         if not actor:
             return
-        if path == "/api/v1/session":
-            self._json(200, {"schema": "home-center.session.v1", "authenticated": True, "actor": actor})
-        elif path in {"/api/v1/overview", "/api/v1/cluster"}:
+        if path in {"/api/v1/overview", "/api/v1/cluster"}:
             self._json(200, self.runtime.overview())
         elif path == "/api/v1/infrastructure":
             try:
@@ -275,6 +310,17 @@ class RuntimeRequestHandler(BaseHTTPRequestHandler):
             self._json(200, {"schema": "home-center.backup-list.v1", "items": self.runtime.backup_inventory()})
         elif path == "/api/v1/external-access":
             self._json(200, self.runtime.external_access.status())
+        elif path == "/api/v1/certificates":
+            try:
+                self._json(HTTPStatus.OK, self.runtime.certificates.inventory())
+            except (CertificateApiError, CertificateInventoryUnavailable):
+                LOG.exception("certificate inventory failed")
+                self._error(
+                    HTTPStatus.SERVICE_UNAVAILABLE,
+                    "certificate_inventory_unavailable",
+                    "Инвентаризация сертификатов временно недоступна",
+                    correlation_id,
+                )
         else:
             self._error(404, "not_found", "Ресурс не найден", correlation_id)
 
@@ -334,7 +380,7 @@ class RuntimeRequestHandler(BaseHTTPRequestHandler):
             self._login(correlation_id, context)
             return
         if path == "/api/v1/session/logout":
-            actor = self._require_actor(correlation_id)
+            actor = self._require_actor(correlation_id, allow_password_change_required=True)
             if not actor:
                 return
             self.runtime.store.audit(
@@ -346,6 +392,12 @@ class RuntimeRequestHandler(BaseHTTPRequestHandler):
                 details={},
             )
             self._json(200, {"schema": "home-center.session.v1", "authenticated": False}, cookie=SessionManager.expired_cookie())
+            return
+        if path == "/api/v1/auth/local-admin/password/change":
+            actor = self._require_actor(correlation_id, allow_password_change_required=True)
+            if not actor:
+                return
+            self._change_local_admin_password(actor, correlation_id)
             return
         actor = self._require_actor(correlation_id)
         if not actor:
@@ -408,6 +460,56 @@ class RuntimeRequestHandler(BaseHTTPRequestHandler):
             )
             self._json(HTTPStatus.OK, plan)
             return
+        if path == "/api/v1/certificates/renewal-plan":
+            safe_target = "certificate"
+            try:
+                body = self._read_json(max_bytes=4096)
+                policy = CertificateRenewalPolicy.from_mapping(body)
+                safe_target = policy.certificate_id
+                plan = self.runtime.certificates.plan(policy)
+            except CertificateNotFound as exc:
+                status, code, message = HTTPStatus.NOT_FOUND, exc.code, "Сертификат не найден"
+            except (CertificateApiError, ValueError, TypeError, json.JSONDecodeError) as exc:
+                status = HTTPStatus.BAD_REQUEST
+                code = exc.code if isinstance(exc, CertificateApiError) else "invalid_certificate_policy"
+                message = "Некорректная политика обновления сертификата"
+            except CertificateInventoryUnavailable:
+                status = HTTPStatus.SERVICE_UNAVAILABLE
+                code = "certificate_inventory_unavailable"
+                message = "Инвентаризация сертификатов временно недоступна"
+            except Exception:
+                LOG.exception("certificate renewal planning failed")
+                self._error(
+                    HTTPStatus.INTERNAL_SERVER_ERROR,
+                    "certificate_planning_unavailable",
+                    "Планирование обновления сертификата временно недоступно",
+                    correlation_id,
+                )
+                return
+            else:
+                self.runtime.store.audit(
+                    actor=actor,
+                    action="certificate.renewal.plan",
+                    target=safe_target,
+                    outcome="accepted",
+                    correlation_id=correlation_id,
+                    details={"plan_id": plan["plan_id"], "state": plan["state"], "status": plan["status"]},
+                )
+                self._json(HTTPStatus.OK, plan)
+                return
+            self.runtime.store.audit(
+                actor=actor,
+                action="certificate.renewal.plan",
+                target=safe_target,
+                outcome="denied",
+                correlation_id=correlation_id,
+                details={"reason": code},
+            )
+            self._error(status, code, message, correlation_id)
+            return
+        if path == "/api/v1/compute/capacity-plans":
+            self._plan_compute_capacity(actor, correlation_id)
+            return
         if path.startswith("/api/v1/actions/"):
             action_id = path.removeprefix("/api/v1/actions/")
             try:
@@ -454,6 +556,35 @@ class RuntimeRequestHandler(BaseHTTPRequestHandler):
             )
             return
         self._error(405, "typed_action_not_available", "Изменение не входит в эту сертифицированную версию", correlation_id)
+
+    def _plan_compute_capacity(self, actor: str, correlation_id: str) -> None:
+        try:
+            body = self._read_json(max_bytes=65_536)
+            result = ComputeCapacityPlanningApi().plan(body)
+        except (ComputeFrameworkError, ValueError, TypeError, json.JSONDecodeError) as exc:
+            code = exc.code if isinstance(exc, ComputeFrameworkError) else "invalid_compute_capacity_request"
+            self.runtime.store.audit(
+                actor=actor,
+                action="compute.capacity-plan",
+                target="compute-plan",
+                outcome="denied",
+                correlation_id=correlation_id,
+                details={"reason": code},
+            )
+            self._error(HTTPStatus.BAD_REQUEST, code, "Некорректный запрос планирования ресурсов", correlation_id)
+            return
+        self.runtime.store.audit(
+            actor=actor,
+            action="compute.capacity-plan",
+            target=str(result["request_id"]),
+            outcome="accepted",
+            correlation_id=correlation_id,
+            details={
+                "state": result["state"],
+                "selected_provider_id": result["selected_provider_id"],
+            },
+        )
+        self._json(HTTPStatus.OK, result)
 
     def do_PUT(self) -> None:  # noqa: N802
         self._reject_mutation()
@@ -550,7 +681,84 @@ class RuntimeRequestHandler(BaseHTTPRequestHandler):
             correlation_id=correlation_id,
             details=self._origin_details(context),
         )
-        self._json(200, {"schema": "home-center.session.v1", "authenticated": True, "actor": actor, "expires_at_epoch": expires}, cookie=SessionManager.cookie(session, expires - int(time.time())))
+        self._json(
+            200,
+            {
+                "schema": "home-center.session.v1",
+                "authenticated": True,
+                "actor": actor,
+                "expires_at_epoch": expires,
+                "password_change_required": self.runtime.actor_requires_password_change(actor),
+            },
+            cookie=SessionManager.cookie(session, expires - int(time.time())),
+        )
+
+    def _change_local_admin_password(self, actor: str, correlation_id: str) -> None:
+        if not actor.startswith("local-admin:"):
+            self._error(
+                HTTPStatus.FORBIDDEN,
+                "local_admin_required",
+                "Смена локального пароля доступна только локальному администратору",
+                correlation_id,
+            )
+            return
+        try:
+            body = self._read_json()
+            if set(body) != {"schema", "current_password", "new_password"}:
+                raise ValueError("invalid password change shape")
+            if body.get("schema") != "home-center.local-admin-password-change.v1":
+                raise ValueError("invalid password change schema")
+            current_password = body.get("current_password")
+            new_password = body.get("new_password")
+            if not isinstance(current_password, str) or not isinstance(new_password, str):
+                raise ValueError("invalid password change values")
+        except (ValueError, TypeError, json.JSONDecodeError):
+            self._error(HTTPStatus.BAD_REQUEST, "invalid_password_change", "Некорректный запрос смены пароля", correlation_id)
+            return
+
+        username = actor.removeprefix("local-admin:")
+        try:
+            self.runtime.change_local_admin_password(username, current_password, new_password)
+        except LocalAdminPasswordChangeError as exc:
+            if exc.code == "current_password_invalid":
+                status, code, message = HTTPStatus.FORBIDDEN, exc.code, "Текущий пароль неверен"
+            elif exc.code in {
+                "password_too_short",
+                "password_letter_required",
+                "password_digit_required",
+                "password_rejected",
+            }:
+                status, code, message = HTTPStatus.BAD_REQUEST, exc.code, "Новый пароль не соответствует требованиям"
+            else:
+                status, code, message = HTTPStatus.SERVICE_UNAVAILABLE, "password_change_unavailable", "Смена пароля временно недоступна"
+            self.runtime.store.audit(
+                actor=actor,
+                action="local-admin.password.change",
+                target=self.runtime.config.node_id,
+                outcome="denied" if status in {HTTPStatus.BAD_REQUEST, HTTPStatus.FORBIDDEN} else "failed",
+                correlation_id=correlation_id,
+                details={"reason": code},
+            )
+            self._error(status, code, message, correlation_id)
+            return
+
+        self.runtime.store.audit(
+            actor=actor,
+            action="local-admin.password.change",
+            target=self.runtime.config.node_id,
+            outcome="accepted",
+            correlation_id=correlation_id,
+            details={},
+        )
+        self._json(
+            HTTPStatus.OK,
+            {
+                "schema": "home-center.local-admin-password-change-result.v1",
+                "status": "changed",
+                "node_id": self.runtime.config.node_id,
+            },
+            cookie=SessionManager.expired_cookie(),
+        )
 
     def _static(self, name: str) -> None:
         if not STATIC_NAME.fullmatch(name):

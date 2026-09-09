@@ -57,7 +57,10 @@ jobs:
             exit 0
           fi
 
-          tag_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" --jq '.object.sha' 2>/dev/null || true)"
+          tag_sha=""
+          if existing_tag_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" --jq '.object.sha' 2>/dev/null)"; then
+            tag_sha="$existing_tag_sha"
+          fi
           if [[ -n "$tag_sha" && "$tag_sha" != "$RELEASE_SHA" ]]; then
             echo "${RELEASE_TAG} already points to ${tag_sha}, expected ${RELEASE_SHA}" >&2
             exit 1

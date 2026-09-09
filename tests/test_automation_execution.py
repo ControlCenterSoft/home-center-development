@@ -219,6 +219,10 @@ class _Runtime:
         self.store = _Store()
         self.automation = AutomationPlanningService(self.store.nodes)
 
+    @staticmethod
+    def actor_requires_password_change(_actor: str) -> bool:
+        return False
+
 
 class AutomationPlanningEndpointTests(unittest.TestCase):
     def setUp(self) -> None:
