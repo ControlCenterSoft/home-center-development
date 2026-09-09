@@ -18,11 +18,11 @@ class Release023BootstrapTests(unittest.TestCase):
         self.assertEqual(version, project["project"]["version"])
         self.assertEqual(version, home_center.__version__)
 
-    def test_development_baseline_is_present(self) -> None:
+    def test_development_candidate_is_present(self) -> None:
         notes = (ROOT / "docs/releases/0.23.0.md").read_text(encoding="utf-8")
         self.assertIn("# Home Center 0.23.0", notes)
-        self.assertIn("Status: development qualification baseline.", notes)
-        self.assertIn("0.22.0 home-service safety", notes)
+        self.assertIn("Status: development qualification candidate.", notes)
+        self.assertIn("durable mutation boundary is explicit", notes)
         self.assertIn("does not by itself authorize an official release", notes)
 
     def test_previous_release_guarantees_remain_documented(self) -> None:
