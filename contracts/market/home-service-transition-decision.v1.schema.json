@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://controlcentersoft.example/contracts/market/home-service-transition-decision.v1.schema.json",
+  "title": "Home Service Transition Decision v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "decision_id",
+    "result_id",
+    "evidence_digest",
+    "admission_id",
+    "claim_id",
+    "plan_id",
+    "job_id",
+    "worker_id",
+    "node_id",
+    "instance_id",
+    "source_state",
+    "target_state",
+    "expected_generation",
+    "expected_resource_version",
+    "status",
+    "rejection_codes",
+    "evidence_record_only",
+    "transition_allowed",
+    "durable_commit_required",
+    "production_mutation_enabled"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.home-service-transition-decision.v1"},
+    "decision_id": {"type": "string", "pattern": "^hstd-[a-f0-9]{24}$"},
+    "result_id": {"type": "string", "pattern": "^hser-[a-f0-9]{24}$"},
+    "evidence_digest": {"type": "string", "minLength": 2, "maxLength": 128},
+    "admission_id": {"type": "string", "minLength": 2, "maxLength": 128},
+    "claim_id": {"type": "string", "minLength": 2, "maxLength": 128},
+    "plan_id": {"type": "string", "minLength": 2, "maxLength": 128},
+    "job_id": {"type": "string", "minLength": 2, "maxLength": 128},
+    "worker_id": {"type": "string", "minLength": 2, "maxLength": 128},
+    "node_id": {"type": "string", "minLength": 2, "maxLength": 128},
+    "instance_id": {"type": "string", "minLength": 2, "maxLength": 128},
+    "source_state": {"enum": ["planned", "installed", "configured", "ready", "degraded", "removed"]},
+    "target_state": {"enum": ["planned", "installed", "configured", "ready", "degraded", "removed"]},
+    "expected_generation": {"type": "integer", "minimum": 1},
+    "expected_resource_version": {"type": "string", "minLength": 2, "maxLength": 128},
+    "status": {"enum": ["allowed", "rejected"]},
+    "rejection_codes": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 16,
+      "items": {
+        "enum": [
+          "evidence_not_verified",
+          "execution_not_succeeded",
+          "unsafe_evidence_boundary",
+          "unsafe_worker_claim",
+          "unsafe_execution_admission",
+          "claim_binding_mismatch",
+          "admission_binding_mismatch",
+          "plan_binding_mismatch",
+          "job_binding_mismatch",
+          "worker_binding_mismatch",
+          "instance_binding_mismatch",
+          "node_binding_mismatch",
+          "operation_binding_mismatch",
+          "target_state_mismatch",
+          "generation_binding_mismatch",
+          "resource_version_binding_mismatch"
+        ]
+      }
+    },
+    "evidence_record_only": {"const": true},
+    "transition_allowed": {"type": "boolean"},
+    "durable_commit_required": {"const": true},
+    "production_mutation_enabled": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "allowed"}}, "required": ["status"]},
+      "then": {
+        "properties": {
+          "transition_allowed": {"const": true},
+          "rejection_codes": {"maxItems": 0}
+        }
+      },
+      "else": {
+        "properties": {
+          "transition_allowed": {"const": false},
+          "rejection_codes": {"minItems": 1}
+        }
+      }
+    }
+  ]
+}
