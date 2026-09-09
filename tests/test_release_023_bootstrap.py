@@ -19,10 +19,11 @@ class Release023BootstrapTests(unittest.TestCase):
         self.assertEqual(version, home_center.__version__)
 
     def test_development_baseline_is_present(self) -> None:
-        notes = (ROOT / "docs/releases/0.23.0-development.md").read_text(encoding="utf-8")
-        self.assertIn("# Home Center 0.23.0 development", notes)
+        notes = (ROOT / "docs/releases/0.23.0.md").read_text(encoding="utf-8")
+        self.assertIn("# Home Center 0.23.0", notes)
+        self.assertIn("Status: development qualification baseline.", notes)
         self.assertIn("0.22.0 home-service safety", notes)
-        self.assertIn("not the final 0.23.0 release note", notes)
+        self.assertIn("does not by itself authorize an official release", notes)
 
     def test_previous_release_guarantees_remain_documented(self) -> None:
         previous = (ROOT / "docs/releases/0.22.0.md").read_text(encoding="utf-8")
