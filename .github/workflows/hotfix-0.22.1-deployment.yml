@@ -30,7 +30,7 @@ jobs:
           python-version: "3.12"
           cache: ""
 
-      - name: Verify release identity and qualification
+      - name: Verify immutable release identity
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -39,17 +39,23 @@ jobs:
           [[ "$(tr -d '[:space:]' < VERSION)" == "0.22.1" ]]
           [[ "$(git describe --tags --exact-match HEAD)" == "v0.22.1" ]]
           gh api "repos/${GITHUB_REPOSITORY}/releases/tags/v0.22.1" --jq '.draft == false and .prerelease == false' | grep -Fx true
-          python -m compileall -q product/control-plane/src deploy/runtime
-          PYTHONPATH=product/control-plane/src python -m unittest discover -s tests -p 'test_*.py' -v
-          for script in deploy/scripts/*.sh; do bash -n "$script"; done
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]]
 
-      - name: Build deployment artifact
+      - name: Build deployment artifact from clean tag
         shell: bash
         env:
           HOME_CENTER_RELEASE_BUILD: "1"
         run: |
           set -Eeuo pipefail
           bash deploy/scripts/build-deployment-artifact.sh "$RUNNER_TEMP/deployment-dist"
+
+      - name: Re-run qualification after artifact build
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m compileall -q product/control-plane/src deploy/runtime
+          PYTHONPATH=product/control-plane/src python -m unittest discover -s tests -p 'test_*.py' -v
+          for script in deploy/scripts/*.sh; do bash -n "$script"; done
 
       - name: Validate and publish immutable hotfix assets
         shell: bash
