@@ -1,36 +1,41 @@
 # Home Center
 
-Home Center is an infrastructure-neutral platform for managing home and small-server infrastructure through a unified Web UI and API.
+Home Center — инфраструктурно-независимая платформа управления домашней и небольшой серверной инфраструктурой через единый Web-интерфейс и API.
 
-## Active development repository
+**Текущий опубликованный исходный релиз:** `0.22.0`.
 
-This repository is the authoritative workspace for active Home Center product development.
+## Назначение
 
-Home Center must be installable on a new or existing supported infrastructure without any dependency on a particular deployment. Product source must not hard-code real node names, domain names, directory identifiers, network addresses, credentials, certificates, or topology from an operator environment.
+Home Center объединяет управление узлами, сервисами и домашними инфраструктурными модулями в одной модели. Продукт рассчитан на установку в новой или существующей поддерживаемой среде и не требует заранее заданных имён серверов, доменов, сетевых адресов или конкретной топологии.
 
-Runtime identity and topology are supplied by discovery, enrollment and deployment profiles. Directory integration is optional and configured by the administrator. Compute, storage, device, automation, certificate and remote-access providers are selected through capabilities and provider profiles rather than fixed hosts.
+Идентичность узлов и фактическая топология определяются при установке, обнаружении и подключении узлов. Интеграция с каталогом пользователей является настраиваемой возможностью. Вычислительные, дисковые, сетевые, автоматизационные и другие провайдеры выбираются по поддерживаемым возможностям, а не по жёстко заданным хостам.
 
-## Repository boundary
+## Архитектурные принципы
 
-Allowed here:
+- поддерживается самостоятельная single-node установка; архитектура также предусматривает multi-node/HA-сценарии для тех ролей и версий, где они явно поддержаны;
+- Desired State и Actual State разделены: изменение сначала планируется и проверяется, затем проходит требуемые границы допуска;
+- длительные операции оформляются как управляемые задания с проверяемым состоянием и идемпотентностью;
+- дополнительные функции поставляются как отдельные Market-модули и не должны размывать границы Core;
+- конфигурация и примеры не должны содержать реальные учётные данные, приватные ключи или привязку к инфраструктуре конкретного владельца.
 
-- product source and Web UI;
-- portable deployment and enrollment logic;
-- schemas and API contracts;
-- tests and GitHub Actions CI;
-- infrastructure-neutral documentation and examples;
-- release and feature branches for active development.
+## Возможности линии 0.22
 
-Not allowed here:
+Линия 0.22 развивает безопасный жизненный цикл домашних сервисов. Worker claim привязан к утверждённому плану, целевому узлу, durable Job и точной версии экземпляра сервиса. Непосредственно перед выполнением производится повторная проверка состояния. Результат выполнения сохраняется отдельно от решения о переходе durable state, поэтому сам по себе результат операции не является разрешением на изменение состояния.
 
-- credentials, private keys or production certificates;
-- real deployment IP addresses, host names, directory SIDs or private realms;
-- operator-specific deployment overlays;
-- production acceptance evidence containing private infrastructure details;
-- internal server-only operational data.
+В накопительной линии также присутствуют типизированные контракты инвентаризации, автоматизации, сертификатов, удалённого доступа и домашних сервисов, включая профили Yandex Smart Home, TorrServer, torrent client, ZigBee bridge, Minecraft Server и Android MDM. Конкретная доступность функции определяется версией и установленными модулями.
 
-Those restricted operational materials remain outside the public product-development repository.
+## Первый вход
 
-## Development model
+После чистой установки создаётся локальный пользователь `admin` с первоначальным паролем `admin`. Этот пароль является одноразовым bootstrap credential: при первом входе требуется обязательная смена пароля, а обычная работа до её завершения запрещена. При обновлении существующий пароль администратора сохраняется и не заменяется первоначальным значением.
 
-`main` is the infrastructure-neutral integration baseline. Active versions are developed in parallel release and feature branches. Every push and pull request is checked by the infrastructure-neutrality gate on GitHub-hosted runners.
+## Граница безопасности
+
+Home Center не предоставляет generic shell как пользовательский API. Опасные действия должны быть типизированы, ограничены ресурсом, предварительно проверены и иметь понятный путь проверки результата и восстановления. Значения секретов не должны становиться durable evidence; для них используются ссылки на защищённые источники.
+
+Публикация исходного релиза `0.22.0` сама по себе не включает произвольное production-выполнение операций. Для функций, меняющих состояние инфраструктуры, действуют отдельные продуктовые границы допуска.
+
+## Документация релиза
+
+Описание текущего релиза: [`docs/releases/0.22.0.md`](docs/releases/0.22.0.md).
+
+Функции более новых версий считаются предварительными до официальной публикации соответствующего релиза и не должны описываться как доступные в текущей стабильной версии.
