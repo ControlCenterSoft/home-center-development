@@ -57,6 +57,16 @@ jobs:
           python -m unittest discover -s tests -p 'test_*.py' -v
           for script in deploy/scripts/*.sh; do bash -n "$script"; done
 
+      - name: Restore clean release worktree
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git diff --quiet
+          git diff --cached --quiet
+          git clean -fdx
+          test -z "$(git status --porcelain --untracked-files=all)"
+          test "$(git rev-parse HEAD)" = "$(git rev-list -n1 v0.22.0)"
+
       - name: Build deployment artifact
         shell: bash
         env:
@@ -78,6 +88,7 @@ jobs:
           done
           ! tar -tzf "$artifact" | grep -Eq 'current-environment|private-overlays|production-overlays'
           test "$(tar -xOf "$artifact" ./VERSION | tr -d '\r\n')" = "0.22.0"
+          test "$(tar -xOf "$artifact" ./REVISION | tr -d '\r\n')" = "c4ae472a7b43b1e8924bc49e18172b05ad66a24d"
 
       - name: Publish immutable assets
         shell: bash
