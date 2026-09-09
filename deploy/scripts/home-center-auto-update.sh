@@ -3,7 +3,7 @@ set -Eeuo pipefail
 export LC_ALL=C
 umask 077
 
-API_URL="${HOME_CENTER_RELEASE_API:-https://api.github.com/repos/ControlCenterSoft/home-center/releases/latest}"
+RELEASES_API="${HOME_CENTER_RELEASES_API:-https://api.github.com/repos/ControlCenterSoft/home-center-development/releases?per_page=30}"
 COORDINATOR="${HOME_CENTER_UPDATE_COORDINATOR:-}"
 PEER="${HOME_CENTER_UPDATE_PEER:-}"
 STATE_DIR="${HOME_CENTER_UPDATE_STATE_DIR:-/var/lib/home-center-auto-update}"
@@ -21,12 +21,13 @@ fail() {
 }
 
 [[ "$(id -u)" -eq 0 ]] || fail "root required"
-[[ "$COORDINATOR" =~ ^[A-Za-z0-9._-]+$ ]] || fail "invalid or missing coordinator"
-[[ "$PEER" =~ ^[A-Za-z0-9._-]+$ ]] || fail "invalid or missing peer"
+[[ "$COORDINATOR" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,126}$ ]] || fail "invalid or missing coordinator"
+[[ "$PEER" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,126}$ ]] || fail "invalid or missing peer"
+[[ "$COORDINATOR" != "$PEER" ]] || fail "coordinator and peer must differ"
 
 node="$(hostname -s)"
 if [[ "$node" != "${COORDINATOR%%.*}" && "$(hostname -f 2>/dev/null || hostname)" != "$COORDINATOR" ]]; then
-  log "standby timer check: coordinator is ${COORDINATOR}; no cluster mutation on ${node}"
+  log "standby timer check: no cluster mutation on this node"
   exit 0
 fi
 
@@ -50,10 +51,10 @@ systemctl is-active --quiet home-center.service || fail "local Home Center servi
 
 peer_identity="$(
   ssh -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=yes "$PEER" \
-    'set -eu; p=$(readlink -f /opt/home-center/current); test -n "$p" -a -f "$p/VERSION" -a -f "$p/REVISION"; printf "%s %s %s\n" "$p" "$(tr -d "\r\n" <"$p/VERSION")" "$(tr -d "\r\n" <"$p/REVISION")"; systemctl is-active --quiet home-center.service' \
+    'set -eu; p=$(readlink -f /opt/home-center/current); test -n "$p" -a -f "$p/VERSION" -a -f "$p/REVISION"; systemctl is-active --quiet home-center.service; printf "%s\t%s\t%s\n" "$p" "$(tr -d "\r\n" <"$p/VERSION")" "$(tr -d "\r\n" <"$p/REVISION")"' \
   2>/dev/null
 )" || fail "peer identity/readiness probe failed"
-read -r peer_release peer_version peer_revision <<<"$peer_identity"
+IFS=$'\t' read -r peer_release peer_version peer_revision <<<"$peer_identity"
 [[ "$peer_release" == /opt/home-center/releases/* ]] || fail "invalid peer release path"
 [[ "$peer_version" == "$current_version" && "$peer_revision" == "$current_revision" ]] || fail "cluster version/revision drift; automatic update blocked"
 
@@ -61,70 +62,72 @@ tmp="$(mktemp -d "${STATE_DIR}/run.XXXXXX")"
 cleanup() { rm -rf -- "$tmp"; }
 trap cleanup EXIT
 
-release_json="$tmp/release.json"
+releases_json="$tmp/releases.json"
 curl --fail --silent --show-error --location \
   --connect-timeout 10 --max-time 30 --retry 2 \
   -H 'Accept: application/vnd.github+json' \
   -H 'X-GitHub-Api-Version: 2022-11-28' \
-  "$API_URL" -o "$release_json"
+  "$RELEASES_API" -o "$releases_json"
 
-read -r target_version artifact_url checksum_url api_digest < <(
-python3 - "$release_json" <<'PY'
+candidate="$(python3 - "$releases_json" "$current_version" <<'PY'
 import json, re, sys
 from pathlib import Path
-data = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-if data.get("draft") is not False or data.get("prerelease") is not False:
-    raise SystemExit("release_not_stable")
-tag = data.get("tag_name")
-m = re.fullmatch(r"v([0-9]+\.[0-9]+\.[0-9]+)", tag or "")
-if not m:
-    raise SystemExit("invalid_release_tag")
-version = m.group(1)
-artifact_name = f"home-center-{version}-linux-amd64.tar.gz"
-checksum_name = artifact_name + ".sha256"
-assets = data.get("assets")
-if not isinstance(assets, list):
-    raise SystemExit("invalid_assets")
-by_name = {}
-for asset in assets:
-    name = asset.get("name")
-    if isinstance(name, str):
-        by_name.setdefault(name, []).append(asset)
-if len(by_name.get(artifact_name, [])) != 1 or len(by_name.get(checksum_name, [])) != 1:
-    raise SystemExit("required_release_assets_missing_or_ambiguous")
-artifact = by_name[artifact_name][0]
-checksum = by_name[checksum_name][0]
-prefix = f"https://github.com/ControlCenterSoft/home-center/releases/download/v{version}/"
-artifact_url = artifact.get("browser_download_url", "")
-checksum_url = checksum.get("browser_download_url", "")
-if artifact_url != prefix + artifact_name or checksum_url != prefix + checksum_name:
-    raise SystemExit("unexpected_release_asset_url")
-digest = artifact.get("digest", "")
-dm = re.fullmatch(r"sha256:([0-9a-f]{64})", digest or "")
-if not dm:
-    raise SystemExit("github_asset_digest_missing")
-print(version, artifact_url, checksum_url, dm.group(1))
-PY
-) || fail "release metadata validation failed"
 
-set +e
-python3 - "$current_version" "$target_version" <<'PY'
-import re, sys
-def version(value):
-    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", value):
-        raise SystemExit(2)
-    return tuple(map(int, value.split(".")))
-cur, target = map(version, sys.argv[1:3])
-raise SystemExit(0 if target > cur else 10)
+def semver(value: str):
+    if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", value) is None:
+        raise ValueError(value)
+    return tuple(int(part) for part in value.split("."))
+
+releases = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+current = semver(sys.argv[2])
+if not isinstance(releases, list):
+    raise SystemExit("invalid_releases_response")
+candidates = []
+for data in releases:
+    if not isinstance(data, dict) or data.get("draft") is not False or data.get("prerelease") is not False:
+        continue
+    tag = data.get("tag_name")
+    match = re.fullmatch(r"v([0-9]+\.[0-9]+\.[0-9]+)", tag or "")
+    if match is None:
+        continue
+    version = match.group(1)
+    parsed = semver(version)
+    if parsed <= current:
+        continue
+    artifact_name = f"home-center-{version}-linux-amd64.tar.gz"
+    checksum_name = artifact_name + ".sha256"
+    assets = data.get("assets")
+    if not isinstance(assets, list):
+        continue
+    by_name = {}
+    for asset in assets:
+        if isinstance(asset, dict) and isinstance(asset.get("name"), str):
+            by_name.setdefault(asset["name"], []).append(asset)
+    if len(by_name.get(artifact_name, [])) != 1 or len(by_name.get(checksum_name, [])) != 1:
+        continue
+    artifact = by_name[artifact_name][0]
+    checksum = by_name[checksum_name][0]
+    prefix = f"https://github.com/ControlCenterSoft/home-center-development/releases/download/v{version}/"
+    artifact_url = artifact.get("browser_download_url", "")
+    checksum_url = checksum.get("browser_download_url", "")
+    if artifact_url != prefix + artifact_name or checksum_url != prefix + checksum_name:
+        continue
+    digest = artifact.get("digest", "")
+    digest_match = re.fullmatch(r"sha256:([0-9a-f]{64})", digest or "")
+    if digest_match is None:
+        continue
+    candidates.append((parsed, version, artifact_url, checksum_url, digest_match.group(1)))
+if candidates:
+    _, version, artifact_url, checksum_url, digest = max(candidates, key=lambda item: item[0])
+    print("\t".join((version, artifact_url, checksum_url, digest)))
 PY
-cmp_rc=$?
-set -e
-if [[ "$cmp_rc" -eq 10 ]]; then
-  log "no update: current=${current_version}, published=${target_version}"
+)" || fail "release metadata validation failed"
+
+if [[ -z "$candidate" ]]; then
+  log "no compatible deployment release newer than ${current_version}"
   exit 0
-elif [[ "$cmp_rc" -ne 0 ]]; then
-  fail "version comparison failed"
 fi
+IFS=$'\t' read -r target_version artifact_url checksum_url api_digest <<<"$candidate"
 
 artifact="$tmp/home-center-${target_version}-linux-amd64.tar.gz"
 checksum="$tmp/home-center-${target_version}-linux-amd64.tar.gz.sha256"
@@ -143,18 +146,18 @@ archive_revision="$(tar -xOf "$artifact" ./REVISION 2>/dev/null | tr -d '\r\n')"
 [[ "$archive_revision" =~ ^[0-9a-f]{40}$ ]] || fail "invalid artifact revision"
 
 if [[ -f "$BLOCKED_FILE" ]] && [[ "$(tr -d '\r\n' <"$BLOCKED_FILE")" == "$actual_digest" ]]; then
-  log "release ${target_version} is quarantined after an earlier failed rollout; waiting for a different release or operator clearance"
+  log "release ${target_version} is quarantined after an earlier failed rollout; waiting for a different artifact or operator clearance"
   exit 0
 fi
 
-for path in ./deploy/bootstrap-hm-dm.sh ./deploy/install-node.sh ./deploy/rollback-node.sh; do
+for path in ./DEPLOYMENT-ARTIFACT.json ./deploy/bootstrap-two-node.sh ./deploy/install-node.sh ./deploy/rollback-node.sh; do
   tar -tzf "$artifact" | grep -Fxq "$path" || fail "required deployment entry missing: $path"
 done
 
-bootstrap="$tmp/bootstrap.sh"
+bootstrap="$tmp/bootstrap-two-node.sh"
 installer="$tmp/install-node.sh"
 rollback="$tmp/rollback-node.sh"
-tar -xOf "$artifact" ./deploy/bootstrap-hm-dm.sh >"$bootstrap"
+tar -xOf "$artifact" ./deploy/bootstrap-two-node.sh >"$bootstrap"
 tar -xOf "$artifact" ./deploy/install-node.sh >"$installer"
 tar -xOf "$artifact" ./deploy/rollback-node.sh >"$rollback"
 chmod 0500 "$bootstrap" "$installer" "$rollback"
@@ -162,13 +165,15 @@ bash -n "$bootstrap"
 bash -n "$installer"
 bash -n "$rollback"
 
-log "admitting stable release ${target_version} (${actual_digest:0:12}); rolling order is peer first, coordinator second"
+log "admitting deployment release ${target_version} (${actual_digest:0:12}); rolling order is peer first, coordinator second"
 set +e
 bash "$bootstrap" \
   --artifact "$artifact" \
   --sha256 "$actual_digest" \
   --installer "$installer" \
-  --rollback "$rollback"
+  --rollback "$rollback" \
+  --coordinator "$COORDINATOR" \
+  --peer "$PEER"
 rollout_rc=$?
 set -e
 
