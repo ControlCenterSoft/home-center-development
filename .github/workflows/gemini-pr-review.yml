@@ -34,17 +34,39 @@ jobs:
     steps:
       - name: Decide whether AI review is needed
         id: scope
-        if: github.event_name == 'pull_request'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
           REPOSITORY: ${{ github.repository }}
+          SUSPEND_TITLE: '[automation] Gemini API suspended after quota error'
         run: |
           set -euo pipefail
           review=false
-          page=1
+          suspended=false
 
+          suspension_json="$(curl --fail-with-body --silent --show-error --get \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            --data-urlencode "q=repo:${REPOSITORY} is:issue is:open in:title \"${SUSPEND_TITLE}\"" \
+            "https://api.github.com/search/issues")"
+
+          if [[ "$(jq -r '.total_count' <<<"${suspension_json}")" -gt 0 ]]; then
+            suspended=true
+            echo "review=false" >> "${GITHUB_OUTPUT}"
+            echo "suspended=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+            echo "review=true" >> "${GITHUB_OUTPUT}"
+            echo "suspended=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          page=1
           while :; do
             response="$(curl --fail-with-body --silent --show-error \
               -H "Accept: application/vnd.github+json" \
@@ -71,20 +93,26 @@ jobs:
           done
 
           echo "review=${review}" >> "${GITHUB_OUTPUT}"
+          echo "suspended=${suspended}" >> "${GITHUB_OUTPUT}"
+
+      - name: Record suspended Gemini review
+        if: steps.scope.outputs.suspended == 'true'
+        run: echo 'Gemini is suspended after a quota-exhaustion incident. Development continues without Gemini until explicit owner instruction.' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Record skipped Gemini review
-        if: github.event_name == 'pull_request' && steps.scope.outputs.review != 'true'
+        if: github.event_name == 'pull_request' && steps.scope.outputs.suspended != 'true' && steps.scope.outputs.review != 'true'
         run: echo 'Gemini review skipped because the PR changes only documentation or static assets.' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Checkout repository
-        if: github.event_name == 'workflow_dispatch' || steps.scope.outputs.review == 'true'
+        if: steps.scope.outputs.review == 'true'
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
         with:
           persist-credentials: false
 
       - name: Run Gemini pull request review
         id: gemini_review
-        if: github.event_name == 'workflow_dispatch' || steps.scope.outputs.review == 'true'
+        if: steps.scope.outputs.review == 'true'
+        continue-on-error: true
         uses: google-github-actions/run-gemini-cli@v0
         env:
           GEMINI_CLI_TRUST_WORKSPACE: 'true'
@@ -135,3 +163,56 @@ jobs:
               "https://github.com/gemini-cli-extensions/code-review"
             ]
           prompt: /pr-code-review
+
+      - name: Apply Gemini fail-open policy
+        if: always() && steps.scope.outputs.review == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          GEMINI_OUTCOME: ${{ steps.gemini_review.outcome }}
+          GEMINI_ERRORS: ${{ steps.gemini_review.outputs.gemini_errors }}
+          GEMINI_RESPONSE: ${{ steps.gemini_review.outputs.gemini_response }}
+          SUSPEND_TITLE: '[automation] Gemini API suspended after quota error'
+        run: |
+          set -euo pipefail
+
+          if [[ "${GEMINI_OUTCOME}" == "success" ]]; then
+            exit 0
+          fi
+
+          evidence="${GEMINI_ERRORS}"$'\n'"${GEMINI_RESPONSE}"
+          if grep -Eiq 'exhausted your daily quota|daily quota|quota[_ -]?exceeded|resource_exhausted|generate_content_free_tier_requests' <<<"${evidence}"; then
+            body='<!-- gemini-api-suspended:v1 -->
+Gemini PR review was automatically suspended after a recurrent quota-exhaustion error (HTTP 429 / daily quota).
+
+Development, qualification, CI/CD and releases must continue without Gemini. Missing Gemini evidence must not block promotion while this suspension is active.
+
+Resume Gemini only after an explicit instruction from the repository owner. Closing this issue without that instruction is not part of the automated workflow.'
+
+            existing="$(curl --fail-with-body --silent --show-error --get \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              --data-urlencode "q=repo:${REPOSITORY} is:issue is:open in:title \"${SUSPEND_TITLE}\"" \
+              "https://api.github.com/search/issues")"
+
+            if [[ "$(jq -r '.total_count' <<<"${existing}")" -eq 0 ]]; then
+              payload="$(jq -n --arg title "${SUSPEND_TITLE}" --arg body "${body}" '{title:$title, body:$body}')"
+              if ! curl --fail-with-body --silent --show-error \
+                -X POST \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer ${GH_TOKEN}" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                "https://api.github.com/repos/${REPOSITORY}/issues" \
+                -d "${payload}" >/dev/null; then
+                echo '::warning title=Gemini suspension marker::Could not create the suspension issue, but this run remains fail-open.'
+              fi
+            fi
+
+            echo 'Gemini quota exhaustion detected. Gemini is suspended; development continues without it until explicit owner instruction.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          echo '::error title=Gemini review failed::Gemini failed for a reason other than the configured recurrent quota-exhaustion condition.'
+          exit 1
