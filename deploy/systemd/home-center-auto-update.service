@@ -1,0 +1,15 @@
+[Unit]
+Description=Home Center HA automatic stable release update
+Wants=network-online.target
+After=network-online.target home-center.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+EnvironmentFile=/etc/home-center/auto-update.env
+ExecStart=/usr/local/sbin/home-center-auto-update
+TimeoutStartSec=50min
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

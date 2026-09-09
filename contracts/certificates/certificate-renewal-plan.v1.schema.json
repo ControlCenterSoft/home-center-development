@@ -9,7 +9,7 @@
     "schema": {"const": "home-center.certificate-renewal-plan.v1"},
     "certificate_id": {"type": "string", "minLength": 2, "maxLength": 128},
     "service_id": {"type": "string", "minLength": 2, "maxLength": 128},
-    "status": {"enum": ["valid", "expiring", "expired", "invalid"]},
+    "status": {"enum": ["valid", "renewal_due", "expired", "invalid"]},
     "state": {"enum": ["planned", "blocked"]},
     "blockers": {"type": "array", "maxItems": 16, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9_:-]+$"}},
     "production_mutation_enabled": {"const": false}

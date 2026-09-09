@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from .local_admin_auth import (
-    CREDENTIAL_SCHEMA,
+    CREDENTIAL_SCHEMA_V2,
     KDF_DKLEN,
     KDF_N,
     KDF_NAME,
@@ -24,6 +24,7 @@ from .local_admin_auth import (
     MAX_CREDENTIAL_FILE_BYTES,
     SALT_BYTES,
     LocalAdminAuthError,
+    LocalAdminCredentialStore,
     _derive,
     _password_bytes,
     normalize_username,
@@ -36,17 +37,37 @@ class LocalAdminProvisionError(ValueError):
         self.code = code
 
 
-def credential_document(username: str, password: str, *, salt: bytes | None = None) -> dict[str, Any]:
+def _bootstrap_password_bytes(username: str, password: str, password_change_required: bool) -> bytes:
+    """Admit only the product's exact one-time bootstrap credential."""
+
+    canonical_username = normalize_username(username)
+    if canonical_username != "admin" or password != "admin" or not password_change_required:
+        return _password_bytes(password)
+    return b"admin"
+
+
+def credential_document(
+    username: str,
+    password: str,
+    *,
+    salt: bytes | None = None,
+    password_change_required: bool = False,
+    allow_default_bootstrap: bool = False,
+) -> dict[str, Any]:
     """Build a verifier document without retaining plaintext password material."""
 
     canonical_username = normalize_username(username)
-    password_bytes = _password_bytes(password)
+    password_bytes = (
+        _bootstrap_password_bytes(canonical_username, password, password_change_required)
+        if allow_default_bootstrap
+        else _password_bytes(password)
+    )
     credential_salt = secrets.token_bytes(SALT_BYTES) if salt is None else bytes(salt)
     if len(credential_salt) != SALT_BYTES:
         raise LocalAdminProvisionError("credential_salt_rejected")
     verifier = _derive(password_bytes, credential_salt)
     return {
-        "schema": CREDENTIAL_SCHEMA,
+        "schema": CREDENTIAL_SCHEMA_V2,
         "username": canonical_username,
         "kdf": KDF_NAME,
         "n": KDF_N,
@@ -55,6 +76,7 @@ def credential_document(username: str, password: str, *, salt: bytes | None = No
         "dklen": KDF_DKLEN,
         "salt_b64": base64.b64encode(credential_salt).decode("ascii"),
         "verifier_b64": base64.b64encode(verifier).decode("ascii"),
+        "password_change_required": password_change_required,
     }
 
 
@@ -78,6 +100,8 @@ def provision_credential_file(
     file_uid: int = 0,
     file_gid: int,
     file_mode: int = 0o640,
+    password_change_required: bool = False,
+    allow_default_bootstrap: bool = False,
 ) -> str:
     """Create a credential exactly once using a no-follow, no-overwrite publication.
 
@@ -92,7 +116,12 @@ def provision_credential_file(
         raise LocalAdminProvisionError("credential_path_rejected")
 
     try:
-        document = credential_document(username, password)
+        document = credential_document(
+            username,
+            password,
+            password_change_required=password_change_required,
+            allow_default_bootstrap=allow_default_bootstrap,
+        )
     except LocalAdminAuthError as exc:
         raise LocalAdminProvisionError(exc.code) from exc
     data = (json.dumps(document, ensure_ascii=True, separators=(",", ":"), sort_keys=True) + "\n").encode("utf-8")
@@ -191,3 +220,64 @@ def provision_credential_file(
         raise
     finally:
         os.close(directory_fd)
+
+
+def ensure_default_admin_credential_file(
+    path: Path,
+    *,
+    expected_directory_uid: int = 0,
+    expected_directory_gid: int,
+    expected_directory_mode: int = 0o750,
+    file_uid: int = 0,
+    file_gid: int,
+    file_mode: int = 0o640,
+) -> tuple[str, bool]:
+    """Create the one-time admin/admin credential or preserve an existing verifier.
+
+    Returning ``created=False`` is the upgrade path: the existing verifier is
+    validated and never rewritten, so neither a custom password nor its
+    password-change state can be reset by package installation.
+    """
+
+    target = Path(path)
+    try:
+        existing = LocalAdminCredentialStore(
+            target,
+            expected_uid=file_uid,
+            expected_gid=file_gid,
+            expected_mode=file_mode,
+        )
+    except LocalAdminAuthError as exc:
+        if exc.code != "credential_file_unavailable":
+            raise LocalAdminProvisionError(exc.code) from exc
+    else:
+        return existing.username, False
+
+    try:
+        username = provision_credential_file(
+            target,
+            "admin",
+            "admin",
+            expected_directory_uid=expected_directory_uid,
+            expected_directory_gid=expected_directory_gid,
+            expected_directory_mode=expected_directory_mode,
+            file_uid=file_uid,
+            file_gid=file_gid,
+            file_mode=file_mode,
+            password_change_required=True,
+            allow_default_bootstrap=True,
+        )
+        return username, True
+    except LocalAdminProvisionError as exc:
+        if exc.code != "credential_file_exists":
+            raise
+        try:
+            existing = LocalAdminCredentialStore(
+                target,
+                expected_uid=file_uid,
+                expected_gid=file_gid,
+                expected_mode=file_mode,
+            )
+        except LocalAdminAuthError as load_exc:
+            raise LocalAdminProvisionError(load_exc.code) from load_exc
+        return existing.username, False

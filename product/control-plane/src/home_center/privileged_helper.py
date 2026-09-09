@@ -56,8 +56,10 @@ ACTIONS: dict[str, Action] = {
         timeout_seconds=5,
     ),
 }
-SECRET_ACTIONS: dict[str, str] = {}
-PERMISSIONS = frozenset(action.permission for action in ACTIONS.values())
+SECRET_ACTIONS: dict[str, str] = {
+    "local-admin.password.rotate.v1": "local-admin.password.rotate",
+}
+PERMISSIONS = frozenset(action.permission for action in ACTIONS.values()) | frozenset(SECRET_ACTIONS.values())
 
 
 class HelperError(Exception):
