@@ -3,15 +3,35 @@
   "title": "Home Center Certificate Inventory v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "evaluated_at", "warning_days", "items"],
+  "required": [
+    "schema",
+    "evaluated_at",
+    "warning_days",
+    "items",
+    "production_mutation_enabled"
+  ],
   "properties": {
-    "schema": {"const": "home-center.certificate-inventory.v1"},
-    "evaluated_at": {"type": "string", "format": "date-time"},
-    "warning_days": {"type": "integer", "minimum": 1, "maximum": 365},
+    "schema": {
+      "const": "home-center.certificate-inventory.v1"
+    },
+    "evaluated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "warning_days": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 365
+    },
     "items": {
       "type": "array",
       "maxItems": 128,
-      "items": {"$ref": "#/$defs/item"}
+      "items": {
+        "$ref": "#/$defs/item"
+      }
+    },
+    "production_mutation_enabled": {
+      "const": false
     }
   },
   "$defs": {
@@ -28,7 +48,9 @@
         "validation"
       ],
       "properties": {
-        "schema": {"const": "home-center.certificate-inventory-item.v1"},
+        "schema": {
+          "const": "home-center.certificate-inventory-item.v1"
+        },
         "certificate_id": {
           "type": "string",
           "minLength": 2,
@@ -41,19 +63,40 @@
           "maxLength": 128,
           "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"
         },
-        "fingerprint_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-        "not_after": {"type": "string", "format": "date-time"},
-        "status": {"enum": ["valid", "renewal_due", "expired"]},
-        "validation": {"$ref": "#/$defs/validation"}
+        "fingerprint_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "not_after": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "status": {
+          "enum": [
+            "valid",
+            "renewal_due",
+            "expired"
+          ]
+        },
+        "validation": {
+          "$ref": "#/$defs/validation"
+        }
       }
     },
     "validation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["chain_valid", "name_valid"],
+      "required": [
+        "chain_valid",
+        "name_valid"
+      ],
       "properties": {
-        "chain_valid": {"type": "boolean"},
-        "name_valid": {"type": "boolean"}
+        "chain_valid": {
+          "type": "boolean"
+        },
+        "name_valid": {
+          "type": "boolean"
+        }
       }
     }
   }
