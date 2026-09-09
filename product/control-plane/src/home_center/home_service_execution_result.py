@@ -6,13 +6,27 @@ import hashlib
 import json
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Protocol
 
 from home_center.home_service_operations import HomeServiceInstanceState
-from home_center.home_service_worker_claim import HomeServiceWorkerClaim
 from home_center.home_services import HomeServiceCatalogError, _identifier
 
 
 SCHEMA = "home-center.home-service-execution-result.v1"
+
+
+class HomeServiceWorkerClaimView(Protocol):
+    claim_id: str
+    plan_id: str
+    job_id: str
+    worker_id: str
+    instance_id: str
+    based_on_generation: int
+    based_on_resource_version: str
+    claimed: bool
+    revalidate_before_execution: bool
+    direct_execution: bool
+    production_mutation_enabled: bool
 
 
 class HomeServiceExecutionOutcome(StrEnum):
@@ -59,7 +73,7 @@ class HomeServiceExecutionResult:
 
 
 def record_execution_result(
-    claim: HomeServiceWorkerClaim,
+    claim: HomeServiceWorkerClaimView,
     *,
     outcome: HomeServiceExecutionOutcome,
     target_state: HomeServiceInstanceState,
@@ -69,35 +83,58 @@ def record_execution_result(
 ) -> HomeServiceExecutionResult:
     """Create an inert result record after revalidating the worker claim boundary."""
 
-    if not isinstance(claim, HomeServiceWorkerClaim):
-        raise HomeServiceCatalogError("invalid_worker_claim")
+    try:
+        claim_id = _identifier(claim.claim_id, "invalid_claim_id")
+        plan_id = _identifier(claim.plan_id, "invalid_plan_id")
+        job_id = _identifier(claim.job_id, "invalid_job_id")
+        worker_id = _identifier(claim.worker_id, "invalid_worker_id")
+        instance_id = _identifier(claim.instance_id, "invalid_instance_id")
+        based_on_generation = claim.based_on_generation
+        based_on_resource_version = _identifier(
+            claim.based_on_resource_version,
+            "invalid_based_on_resource_version",
+        )
+        claimed = claim.claimed
+        revalidate_before_execution = claim.revalidate_before_execution
+        direct_execution = claim.direct_execution
+        production_mutation_enabled = claim.production_mutation_enabled
+    except (AttributeError, TypeError) as exc:
+        raise HomeServiceCatalogError("invalid_worker_claim") from exc
+
     if not isinstance(outcome, HomeServiceExecutionOutcome):
         raise HomeServiceCatalogError("invalid_execution_outcome")
     if not isinstance(target_state, HomeServiceInstanceState):
         raise HomeServiceCatalogError("invalid_instance_state")
-    if not isinstance(observed_generation, int) or isinstance(observed_generation, bool) or observed_generation < 1:
+    if (
+        not isinstance(observed_generation, int)
+        or isinstance(observed_generation, bool)
+        or observed_generation < 1
+    ):
         raise HomeServiceCatalogError("invalid_observed_generation")
-    observed_resource_version = _identifier(observed_resource_version, "invalid_observed_resource_version")
+    observed_resource_version = _identifier(
+        observed_resource_version,
+        "invalid_observed_resource_version",
+    )
     evidence_digest = _identifier(evidence_digest, "invalid_evidence_digest")
     if (
-        claim.claimed is not True
-        or claim.revalidate_before_execution is not True
-        or claim.direct_execution is not False
-        or claim.production_mutation_enabled is not False
+        claimed is not True
+        or revalidate_before_execution is not True
+        or direct_execution is not False
+        or production_mutation_enabled is not False
     ):
         raise HomeServiceCatalogError("unsafe_worker_claim")
     if (
-        observed_generation != claim.based_on_generation
-        or observed_resource_version != claim.based_on_resource_version
+        observed_generation != based_on_generation
+        or observed_resource_version != based_on_resource_version
     ):
         raise HomeServiceCatalogError("execution_result_precondition_failed")
 
     identity = {
-        "claim_id": claim.claim_id,
-        "plan_id": claim.plan_id,
-        "job_id": claim.job_id,
-        "worker_id": claim.worker_id,
-        "instance_id": claim.instance_id,
+        "claim_id": claim_id,
+        "plan_id": plan_id,
+        "job_id": job_id,
+        "worker_id": worker_id,
+        "instance_id": instance_id,
         "outcome": outcome.value,
         "target_state": target_state.value,
         "generation": observed_generation,
@@ -109,11 +146,11 @@ def record_execution_result(
     ).hexdigest()
     return HomeServiceExecutionResult(
         result_id=f"hser-{digest[:24]}",
-        claim_id=claim.claim_id,
-        plan_id=claim.plan_id,
-        job_id=claim.job_id,
-        worker_id=claim.worker_id,
-        instance_id=claim.instance_id,
+        claim_id=claim_id,
+        plan_id=plan_id,
+        job_id=job_id,
+        worker_id=worker_id,
+        instance_id=instance_id,
         outcome=outcome,
         target_state=target_state,
         observed_generation=observed_generation,
