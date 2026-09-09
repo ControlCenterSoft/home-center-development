@@ -67,8 +67,9 @@ jobs:
           sidecar="$artifact.sha256"
           [[ -f "$artifact" && -f "$sidecar" ]]
           (cd "$RUNNER_TEMP/deployment-dist" && sha256sum -c "$(basename "$sidecar")")
+          members=$(tar -tzf "$artifact")
           for entry in ./DEPLOYMENT-ARTIFACT.json ./VERSION ./REVISION ./MANIFEST.sha256 ./web/index.html ./web/app.css ./web/app.js ./deploy/bootstrap-two-node.sh ./deploy/install-node.sh ./deploy/rollback-node.sh; do
-            tar -tzf "$artifact" | grep -Fxq "$entry" || { echo "missing required entry: $entry" >&2; exit 66; }
+            grep -Fxq "$entry" <<<"$members" || { echo "missing required entry: $entry" >&2; exit 66; }
           done
           existing=$(gh release view v0.22.1 --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
           if grep -Fxq 'home-center-0.22.1-linux-amd64.tar.gz' <<<"$existing" || grep -Fxq 'home-center-0.22.1-linux-amd64.tar.gz.sha256' <<<"$existing"; then
