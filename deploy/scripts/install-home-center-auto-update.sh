@@ -3,17 +3,16 @@ set -Eeuo pipefail
 
 usage() {
     cat <<'EOF'
-Usage: install-home-center-auto-update.sh --coordinator HOSTNAME [--sync-script PATH]
+Usage: install-home-center-auto-update.sh --coordinator HOSTNAME --peer HOSTNAME
 
-Installs the same periodic update unit on a Home Center node. Only HOSTNAME
-will execute the cluster-wide rolling update; other nodes keep the timer
-installed but their service exits without mutation.
+Installs the same periodic updater on a Home Center node. Only the configured
+coordinator performs the cluster-wide rolling update. The peer hostname is used
+only by the coordinator for readiness and rollout checks.
 EOF
 }
 
 COORDINATOR=""
-SYNC_SCRIPT="/opt/home-center/scripts/home-center-sync.sh"
-
+PEER=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --coordinator)
@@ -21,9 +20,9 @@ while [[ $# -gt 0 ]]; do
             COORDINATOR="$2"
             shift 2
             ;;
-        --sync-script)
+        --peer)
             [[ $# -ge 2 ]] || { usage >&2; exit 64; }
-            SYNC_SCRIPT="$2"
+            PEER="$2"
             shift 2
             ;;
         -h|--help)
@@ -39,22 +38,21 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ "${EUID}" -eq 0 ]] || { echo "must run as root" >&2; exit 1; }
-[[ -n "${COORDINATOR}" ]] || { echo "--coordinator is required" >&2; exit 64; }
-[[ "${COORDINATOR}" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "invalid coordinator hostname" >&2; exit 64; }
-[[ "${SYNC_SCRIPT}" == /* ]] || { echo "--sync-script must be an absolute path" >&2; exit 64; }
-[[ -x "${SYNC_SCRIPT}" ]] || { echo "sync script is not executable: ${SYNC_SCRIPT}" >&2; exit 1; }
+[[ "${COORDINATOR}" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "--coordinator is required and must be a hostname" >&2; exit 64; }
+[[ "${PEER}" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "--peer is required and must be a hostname" >&2; exit 64; }
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
 SERVICE_SOURCE="${REPO_ROOT}/deploy/systemd/home-center-auto-update.service"
 TIMER_SOURCE="${REPO_ROOT}/deploy/systemd/home-center-auto-update.timer"
-WRAPPER_SOURCE="${SCRIPT_DIR}/home-center-auto-update.sh"
+UPDATER_SOURCE="${SCRIPT_DIR}/home-center-auto-update.sh"
 
-for source in "${SERVICE_SOURCE}" "${TIMER_SOURCE}" "${WRAPPER_SOURCE}"; do
+for source in "${SERVICE_SOURCE}" "${TIMER_SOURCE}" "${UPDATER_SOURCE}"; do
     [[ -f "${source}" ]] || { echo "missing deployment file: ${source}" >&2; exit 1; }
 done
 
-install -m 0755 "${WRAPPER_SOURCE}" /usr/local/sbin/home-center-auto-update
+bash -n "${UPDATER_SOURCE}"
+install -m 0755 "${UPDATER_SOURCE}" /usr/local/sbin/home-center-auto-update
 install -m 0644 "${SERVICE_SOURCE}" /etc/systemd/system/home-center-auto-update.service
 install -m 0644 "${TIMER_SOURCE}" /etc/systemd/system/home-center-auto-update.timer
 install -d -m 0755 /etc/home-center
@@ -63,14 +61,13 @@ ENV_TMP="$(mktemp)"
 trap 'rm -f "${ENV_TMP}"' EXIT
 cat >"${ENV_TMP}" <<EOF
 HOME_CENTER_UPDATE_COORDINATOR=${COORDINATOR}
-HOME_CENTER_SYNC_SCRIPT=${SYNC_SCRIPT}
-HOME_CENTER_UPDATE_TIMEOUT_SECONDS=2700
+HOME_CENTER_UPDATE_PEER=${PEER}
+HOME_CENTER_RELEASE_API=https://api.github.com/repos/ControlCenterSoft/home-center/releases/latest
 EOF
-install -m 0644 "${ENV_TMP}" /etc/home-center/auto-update.env
+install -m 0600 "${ENV_TMP}" /etc/home-center/auto-update.env
 
 systemctl daemon-reload
 systemctl enable --now home-center-auto-update.timer
 systemctl start home-center-auto-update.service
-
 systemctl --no-pager --full status home-center-auto-update.timer || true
 systemctl --no-pager --full status home-center-auto-update.service || true
