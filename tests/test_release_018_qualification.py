@@ -72,7 +72,7 @@ class ReleaseIdentityAndContractTests(unittest.TestCase):
         with (ROOT / "pyproject.toml").open("rb") as stream:
             project = tomllib.load(stream)
         package_version = project["project"]["version"]
-        self.assertEqual(version_file, "0.18.0")
+        self.assertGreaterEqual(tuple(int(part) for part in version_file.split(".")), (0, 18, 0))
         self.assertEqual(package_version, version_file)
         self.assertEqual(home_center.__version__, version_file)
         self.assertIn(

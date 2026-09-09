@@ -23,6 +23,7 @@ REQUIRED_MEMBERS = frozenset(
         "home_center/certificate_inventory_0180.py",
         "home_center/deployment_profiles.py",
         "home_center/infrastructure_inventory.py",
+        "home_center/home_services.py",
         "home_center/node_discovery.py",
         "home_center/node_drain_preflight.py",
         "home_center/node_health.py",
