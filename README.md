@@ -1,46 +1,51 @@
 # Home Center
 
-Home Center is an infrastructure-neutral platform for managing home and small-server infrastructure through a unified Web UI and API.
+Home Center — инфраструктурно-независимая платформа управления домашней и небольшой серверной инфраструктурой через единый Web-интерфейс и API.
 
-## Active development repository
+**Последний опубликованный релиз:** `0.22.3`.
 
-This repository is the authoritative workspace for active Home Center product development.
+## Назначение
 
-Home Center must be installable on a new or existing supported infrastructure without any dependency on a particular deployment. Product source must not hard-code real node names, domain names, directory identifiers, network addresses, credentials, certificates, or topology from an operator environment.
+Home Center объединяет управление узлами, сервисами и домашними инфраструктурными модулями в одной модели. Продукт рассчитан на установку в новой или существующей поддерживаемой среде и не требует заранее заданных имён серверов, доменов, сетевых адресов или конкретной топологии.
 
-Runtime identity and topology are supplied by discovery, enrollment and deployment profiles. Directory integration is optional and configured by the administrator. Compute, storage, device, automation, certificate and remote-access providers are selected through capabilities and provider profiles rather than fixed hosts.
+Идентичность узлов и фактическая топология определяются при установке, обнаружении и подключении узлов. Интеграция с каталогом пользователей является настраиваемой возможностью. Вычислительные, дисковые, сетевые, автоматизационные и другие провайдеры выбираются по поддерживаемым возможностям, а не по жёстко заданным хостам.
 
-## Product UX architecture
+## Архитектурные принципы
 
-Home Center has two complementary user-interface levels: the full technical interface and the accepted mobile-first interface **«Уютный»**. «Уютный» is part of Home Center, not a separate product or theme.
+- поддерживается самостоятельная single-node установка; архитектура также предусматривает multi-node/HA-сценарии для тех ролей и версий, где они явно поддержаны;
+- Desired State и Actual State разделены: изменение сначала планируется и проверяется, затем проходит требуемые границы допуска;
+- длительные операции оформляются как управляемые задания с проверяемым состоянием и идемпотентностью;
+- дополнительные функции поставляются как отдельные Market-модули и не должны размывать границы Core;
+- конфигурация и примеры не должны содержать реальные учётные данные, приватные ключи или привязку к инфраструктуре конкретного владельца.
 
-The authoritative architecture and release boundary for this interface are defined in [`docs/architecture/cozy-interface.md`](docs/architecture/cozy-interface.md).
+## Пользовательские интерфейсы
 
-The core rule is that the user expresses a household intent while Home Center translates it into a safe policy/desired-state plan and executes it through the normal authorization, Change/Job, reconciliation, verification and recovery boundaries. The current 0.23 release scope is not expanded by this decision; the foundation starts with 0.24.
+Home Center имеет два взаимодополняющих интерфейса: **«Полный»** для профессионального управления и mobile-first **«Уютный»** для повседневных домашних сценариев. «Уютный» является частью Home Center, а не отдельным продуктом или темой оформления.
 
-From 0.24 onward, every new user-facing capability should define both its Full/Core representation and its Household/Intent representation, or explicitly document why the latter is not applicable.
+«Уютный» работает через Household/Intent model и общий безопасный путь Desired/Actual State, Change/Job, Audit, post-condition verification и recovery. Подробное архитектурное решение: [`docs/architecture/cozy-interface.md`](docs/architecture/cozy-interface.md).
 
-## Repository boundary
+Текущий кандидат `0.23.0` сохраняет durable home-service transition scope. Подготовленные development-кандидаты `0.24.0` и `0.25.0` продолжают эту же transition/evidence линию: `0.24.0` добавляет read-back verification и audited apply boundary, а `0.25.0` — completion audit для результата verification. Household/Intent foundation и последующие этапы «Уютного» не закрепляются за уже занятыми номерами версий до появления соответствующего фактического состава кода.
 
-Allowed here:
+## Возможности линии 0.22
 
-- product source and Web UI;
-- portable deployment and enrollment logic;
-- schemas and API contracts;
-- tests and GitHub Actions CI;
-- infrastructure-neutral documentation and examples;
-- release and feature branches for active development.
+Линия 0.22 развивает безопасный жизненный цикл домашних сервисов. Worker claim привязан к утверждённому плану, целевому узлу, durable Job и точной версии экземпляра сервиса. Непосредственно перед выполнением производится повторная проверка состояния. Результат выполнения сохраняется отдельно от решения о переходе durable state, поэтому сам по себе результат операции не является разрешением на изменение состояния.
 
-Not allowed here:
+Патч `0.22.1` исправил встроенный Web-интерфейс: канонический `/static/` маршрут для CSS/JavaScript, same-origin sign-in flow, обязательную смену первоначального пароля и адаптивное отображение инфраструктурной инвентаризации. Патч `0.22.2` усилил совместимость rolling-update и сохранение постоянного deployment profile. Патч `0.22.3` завершил миграцию legacy deployment profile в устойчивое расположение `/etc/home-center/deployment-profile.json` до переключения узлов, сохранив проверку SHA-256 артефакта, backup, rollback и post-deployment verification. Эти патчи не расширяют исполнительную границу 0.22 и не создают новый production mutation path.
 
-- credentials, private keys or production certificates;
-- real deployment IP addresses, host names, directory SIDs or private realms;
-- operator-specific deployment overlays;
-- production acceptance evidence containing private infrastructure details;
-- internal server-only operational data.
+В накопительной линии также присутствуют типизированные контракты инвентаризации, автоматизации, сертификатов, удалённого доступа и домашних сервисов, включая профили Yandex Smart Home, TorrServer, torrent client, ZigBee bridge, Minecraft Server и Android MDM. Конкретная доступность функции определяется версией и установленными модулями.
 
-Those restricted operational materials remain outside the public product-development repository.
+## Первый вход
 
-## Development model
+После чистой установки создаётся локальный пользователь `admin` с первоначальным паролем `admin`. Этот пароль является одноразовым bootstrap credential: при первом входе требуется обязательная смена пароля, а обычная работа до её завершения запрещена. При обновлении существующий пароль администратора сохраняется и не заменяется первоначальным значением.
 
-`main` is the infrastructure-neutral integration baseline. Active versions are developed in parallel release and feature branches. Every push and pull request is checked by the infrastructure-neutrality gate on GitHub-hosted runners.
+## Граница безопасности
+
+Home Center не предоставляет generic shell как пользовательский API. Опасные действия должны быть типизированы, ограничены ресурсом, предварительно проверены и иметь понятный путь проверки результата и восстановления. Значения секретов не должны становиться durable evidence; для них используются ссылки на защищённые источники.
+
+Публикация релиза `0.22.3` сама по себе не расширяет разрешённый набор инфраструктурных изменений. Для функций, меняющих состояние инфраструктуры, действуют отдельные продуктовые границы допуска.
+
+## Документация релиза
+
+Описание текущего релиза: [`docs/releases/0.22.3.md`](docs/releases/0.22.3.md).
+
+Функции более новых версий считаются предварительными до официальной публикации соответствующего релиза и не должны описываться как доступные в текущем опубликованном релизе.
