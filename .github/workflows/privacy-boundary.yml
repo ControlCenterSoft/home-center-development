@@ -23,6 +23,10 @@ jobs:
           from pathlib import Path
 
           root = Path('.')
+          policy_files = {
+              Path('.github/workflows/infrastructure-neutrality.yml'),
+              Path('.github/workflows/privacy-boundary.yml'),
+          }
           private_networks = tuple(
               ipaddress.ip_network(value)
               for value in ('10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16')
@@ -43,6 +47,8 @@ jobs:
               if not path.is_file() or '.git' in path.parts:
                   continue
               rel = path.relative_to(root)
+              if rel in policy_files:
+                  continue
               if any(part in forbidden_parts for part in rel.parts):
                   findings.append(f'{rel}: forbidden environment-specific path')
                   continue
