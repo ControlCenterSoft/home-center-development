@@ -1,0 +1,68 @@
+name: Publish official release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: official-release-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Tag and publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - name: Validate release inputs
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(tr -d '[:space:]' < VERSION)"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          notes="docs/releases/${version}.md"
+          test -f "$notes"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "notes=$notes" >> "$GITHUB_OUTPUT"
+
+      - name: Publish idempotently
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_NOTES: ${{ steps.release.outputs.notes }}
+        run: |
+          set -euo pipefail
+          if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" >/dev/null 2>&1; then
+            echo "${RELEASE_TAG} is already published"
+            exit 0
+          fi
+
+          tag_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" --jq '.object.sha' 2>/dev/null || true)"
+          if [[ -n "$tag_sha" && "$tag_sha" != "$GITHUB_SHA" ]]; then
+            echo "${RELEASE_TAG} already points to ${tag_sha}, expected ${GITHUB_SHA}" >&2
+            exit 1
+          fi
+          if [[ -z "$tag_sha" ]]; then
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+              -f ref="refs/tags/${RELEASE_TAG}" \
+              -f sha="$GITHUB_SHA" >/dev/null
+          fi
+
+          gh release create "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Home Center ${RELEASE_VERSION}" \
+            --notes-file "$RELEASE_NOTES" \
+            --verify-tag
