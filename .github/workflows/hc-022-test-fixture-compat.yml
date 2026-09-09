@@ -25,8 +25,8 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin main:refs/remotes/origin/main
           git checkout origin/main -- tests/test_automation_execution.py tests/test_node_inventory_api.py
-          python -c 'from pathlib import Path; p=Path("product/control-plane/src/home_center/certificate_api.py"); s=p.read_text(encoding="utf-8"); old="            \\\"items\\\": items,\\n        }"; new="            \\\"items\\\": items,\\n            \\\"production_mutation_enabled\\\": False,\\n        }"; assert old in s; p.write_text(s.replace(old,new,1),encoding="utf-8")'
-          python -c 'import json; from pathlib import Path; p=Path("contracts/certificates/certificate-inventory.v1.schema.json"); d=json.loads(p.read_text(encoding="utf-8")); r=d["required"]; r.append("production_mutation_enabled") if "production_mutation_enabled" not in r else None; d["properties"]["production_mutation_enabled"]={"const":False}; p.write_text(json.dumps(d,ensure_ascii=False,indent=2)+"\\n",encoding="utf-8")'
+          sed -i '/            "items": items,/a\            "production_mutation_enabled": False,' product/control-plane/src/home_center/certificate_api.py
+          python -c 'import json; from pathlib import Path; p=Path("contracts/certificates/certificate-inventory.v1.schema.json"); d=json.loads(p.read_text(encoding="utf-8")); r=d["required"]; r.append("production_mutation_enabled") if "production_mutation_enabled" not in r else None; d["properties"]["production_mutation_enabled"]={"const":False}; p.write_text(json.dumps(d,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")'
           git rm .github/workflows/hc-022-test-fixture-compat.yml
           git add -A
           git commit -m "HC 0.22: align endpoint fixtures with first-login gate"
