@@ -6,8 +6,8 @@ usage() {
 Usage: install-home-center-auto-update.sh --coordinator HOSTNAME --peer HOSTNAME
 
 Installs the same periodic updater on a Home Center node. Only the configured
-coordinator performs the cluster-wide rolling update. The peer hostname is used
-only by the coordinator for readiness and rollout checks.
+coordinator performs the cluster-wide rolling update. Topology bindings are
+written only to a root-owned local environment file.
 EOF
 }
 
@@ -38,8 +38,9 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ "${EUID}" -eq 0 ]] || { echo "must run as root" >&2; exit 1; }
-[[ "${COORDINATOR}" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "--coordinator is required and must be a hostname" >&2; exit 64; }
-[[ "${PEER}" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "--peer is required and must be a hostname" >&2; exit 64; }
+[[ "${COORDINATOR}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,126}$ ]] || { echo "--coordinator is required and must be a hostname" >&2; exit 64; }
+[[ "${PEER}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,126}$ ]] || { echo "--peer is required and must be a hostname" >&2; exit 64; }
+[[ "${COORDINATOR}" != "${PEER}" ]] || { echo "coordinator and peer must differ" >&2; exit 64; }
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
@@ -62,7 +63,7 @@ trap 'rm -f "${ENV_TMP}"' EXIT
 cat >"${ENV_TMP}" <<EOF
 HOME_CENTER_UPDATE_COORDINATOR=${COORDINATOR}
 HOME_CENTER_UPDATE_PEER=${PEER}
-HOME_CENTER_RELEASE_API=https://api.github.com/repos/ControlCenterSoft/home-center/releases/latest
+HOME_CENTER_RELEASES_API=https://api.github.com/repos/ControlCenterSoft/home-center-development/releases?per_page=30
 EOF
 install -m 0600 "${ENV_TMP}" /etc/home-center/auto-update.env
 
