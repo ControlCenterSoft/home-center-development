@@ -90,13 +90,23 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Isolate release review context
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The release gate uses an explicit prompt and the local exact-SHA diff.
+          # Repository-specific interactive Gemini instructions are intentionally
+          # excluded from this non-interactive independent review context.
+          if [[ -f GEMINI.md ]]; then
+            mv GEMINI.md "${RUNNER_TEMP}/GEMINI.md.project"
+          fi
+
       - name: Run Gemini exact-SHA review
         id: gemini_review
         continue-on-error: true
         uses: google-github-actions/run-gemini-cli@v0
         env:
           GEMINI_CLI_TRUST_WORKSPACE: 'true'
-          GITHUB_TOKEN: ${{ github.token }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         with:
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
@@ -108,41 +118,20 @@ jobs:
           settings: |-
             {
               "model": {
-                "maxSessionTurns": 16
+                "maxSessionTurns": 24
               },
               "telemetry": {
                 "enabled": false
-              },
-              "mcpServers": {
-                "github": {
-                  "command": "docker",
-                  "args": [
-                    "run",
-                    "-i",
-                    "--rm",
-                    "-e",
-                    "GITHUB_PERSONAL_ACCESS_TOKEN",
-                    "ghcr.io/github/github-mcp-server:v0.27.0"
-                  ],
-                  "includeTools": [
-                    "pull_request_read"
-                  ],
-                  "env": {
-                    "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
-                  }
-                }
-              },
-              "tools": {
-                "core": []
               }
             }
           prompt: |-
-            Review Home Center pull request #${{ steps.identity.outputs.pr_number }} as an independent release-candidate reviewer.
-            The exact identity that MUST be reviewed is:
+            Review the Home Center release candidate using ONLY the checked-out local repository and local workspace tools. Do not use GitHub, MCP, network, account, issue, review, approval, or repository-mutation tools.
+
+            The exact review identity is:
             head_sha=${{ steps.identity.outputs.head_sha }}
             base_sha=${{ steps.identity.outputs.base_sha }}
 
-            Inspect only the pull-request diff and repository context needed to assess correctness, regressions, security/privacy, infrastructure neutrality, tests, migration/upgrade implications, and release-note consistency. Do not request or expose secrets or PII. Do not modify code, approve/merge the PR, change repository settings, or create a release.
+            First verify that HEAD equals head_sha. Then inspect the exact local diff base_sha...head_sha and only the repository files needed to assess it. Assess correctness, regressions, security/privacy, infrastructure neutrality, tests, migration/upgrade implications, and release-note consistency. Do not request or expose secrets or PII. Do not modify files or repository state.
 
             Return ONLY one compact JSON object and no markdown/code fences. The object MUST have exactly these keys:
             {"verdict":"PASS|BLOCK","head_sha":"40-hex SHA","base_sha":"40-hex SHA","findings":["concise finding"]}
