@@ -1,0 +1,128 @@
+name: Publish qualified deployment artifact
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing stable release tag to promote
+        required: true
+        type: string
+      confirmation:
+        description: Type PROMOTE to publish the deployment artifact
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: home-center-deployment-artifact-${{ inputs.release_tag }}
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Validate promotion request
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$CONFIRMATION" == PROMOTE ]] || { echo 'confirmation must be PROMOTE' >&2; exit 64; }
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'release_tag must be vMAJOR.MINOR.PATCH' >&2; exit 64; }
+
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.release_tag }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+          cache: ""
+
+      - name: Verify stable release and exact source identity
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -Eeuo pipefail
+          tag_commit=$(git rev-list -n1 "$RELEASE_TAG")
+          [[ "$tag_commit" == "$(git rev-parse HEAD)" ]] || { echo 'checked-out revision does not match tag' >&2; exit 66; }
+          release_json=$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}")
+          python3 - "$RELEASE_TAG" "$release_json" <<'PY'
+          import json, re, sys
+          tag, raw = sys.argv[1:]
+          data = json.loads(raw)
+          if data.get('tag_name') != tag or data.get('draft') is not False or data.get('prerelease') is not False:
+              raise SystemExit('release_not_stable')
+          if re.fullmatch(r'v[0-9]+\.[0-9]+\.[0-9]+', tag) is None:
+              raise SystemExit('invalid_tag')
+          PY
+
+      - name: Run release qualification tests
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m compileall -q product/control-plane/src deploy/runtime
+          python -m unittest discover -s tests -p 'test_*.py' -v
+          bash -n deploy/scripts/*.sh
+
+      - name: Build deployment artifact
+        shell: bash
+        env:
+          HOME_CENTER_RELEASE_BUILD: "1"
+        run: |
+          set -Eeuo pipefail
+          deploy/scripts/build-deployment-artifact.sh "$RUNNER_TEMP/deployment-dist"
+
+      - name: Validate artifact privacy and content
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -Eeuo pipefail
+          version=${RELEASE_TAG#v}
+          artifact="$RUNNER_TEMP/deployment-dist/home-center-${version}-linux-amd64.tar.gz"
+          sidecar="$artifact.sha256"
+          [[ -f "$artifact" && -f "$sidecar" ]]
+          (cd "$RUNNER_TEMP/deployment-dist" && sha256sum -c "$(basename "$sidecar")")
+          for entry in ./DEPLOYMENT-ARTIFACT.json ./VERSION ./REVISION ./MANIFEST.sha256 ./deploy/bootstrap-two-node.sh ./deploy/install-node.sh ./deploy/rollback-node.sh; do
+            tar -tzf "$artifact" | grep -Fxq "$entry" || { echo "missing required entry: $entry" >&2; exit 66; }
+          done
+          if tar -tzf "$artifact" | grep -Eq 'current-environment|private-overlays|production-overlays'; then
+            echo 'environment-specific path found in deployment artifact' >&2
+            exit 66
+          fi
+
+      - name: Refuse duplicate deployment assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -Eeuo pipefail
+          version=${RELEASE_TAG#v}
+          artifact_name="home-center-${version}-linux-amd64.tar.gz"
+          sidecar_name="${artifact_name}.sha256"
+          existing=$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+          if grep -Fxq "$artifact_name" <<<"$existing" || grep -Fxq "$sidecar_name" <<<"$existing"; then
+            echo 'deployment artifact already exists; immutable promotion refuses replacement' >&2
+            exit 66
+          fi
+
+      - name: Publish immutable deployment assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -Eeuo pipefail
+          version=${RELEASE_TAG#v}
+          artifact="$RUNNER_TEMP/deployment-dist/home-center-${version}-linux-amd64.tar.gz"
+          gh release upload "$RELEASE_TAG" "$artifact" "$artifact.sha256" --repo "$GITHUB_REPOSITORY"
