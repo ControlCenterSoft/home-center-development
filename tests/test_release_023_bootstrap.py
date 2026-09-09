@@ -23,6 +23,7 @@ class Release023BootstrapTests(unittest.TestCase):
         self.assertIn("# Home Center 0.23.0", notes)
         self.assertIn("Status: development qualification candidate.", notes)
         self.assertIn("## Durable transition authorization", notes)
+        self.assertIn("published `0.22.3` baseline", notes)
         self.assertIn("Home Center 0.22.0 admission", notes)
         self.assertIn("does not by itself authorize an official release", notes)
 
