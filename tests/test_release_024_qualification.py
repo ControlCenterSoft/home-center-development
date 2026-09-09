@@ -23,9 +23,11 @@ class Release024QualificationTests(unittest.TestCase):
         self.assertIn("# Home Center 0.24.0", notes)
         self.assertIn("Status: development qualification candidate.", notes)
         self.assertIn("read-back verification", notes)
+        self.assertIn("## Audited apply boundary", notes)
 
-    def test_release_artifact_requires_apply_and_verification_runtime(self) -> None:
+    def test_release_artifact_requires_apply_audit_and_verification_runtime(self) -> None:
         self.assertIn("home_center/home_service_transition_apply.py", REQUIRED_MEMBERS)
+        self.assertIn("home_center/home_service_transition_audit.py", REQUIRED_MEMBERS)
         self.assertIn("home_center/home_service_transition_verify.py", REQUIRED_MEMBERS)
 
     def test_verification_contract_is_closed_and_non_mutating(self) -> None:
