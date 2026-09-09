@@ -3,6 +3,7 @@ from __future__ import annotations
 import json, logging, ssl, threading, urllib.error, urllib.request
 from typing import Any
 from .config import Config, Peer
+from .ha_peer_snapshot import HAPeerStateSnapshot, build_peer_state_snapshot
 from .inventory import collect
 from .store import StateStore
 
@@ -27,6 +28,17 @@ class Reconciler:
     def local_capability(self) -> dict[str, Any]:
         with self._lock:
             return json.loads(json.dumps(self._latest_local))
+
+    def ha_state_snapshot(self) -> HAPeerStateSnapshot:
+        """Return an immutable fail-closed snapshot of configured HA membership."""
+
+        configured_node_ids = (self.config.node_id, *(peer.node_id for peer in self.config.peers))
+        return build_peer_state_snapshot(
+            cluster_id=self.config.cluster_id,
+            configured_node_ids=configured_node_ids,
+            node_rows=self.store.nodes(),
+            audit_events=self.store.audit_events(limit=500),
+        )
 
     def _run(self) -> None:
         while not self._stop.wait(self.config.reconcile_interval_seconds):
