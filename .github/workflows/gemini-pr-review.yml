@@ -32,13 +32,59 @@ jobs:
     timeout-minutes: 10
 
     steps:
+      - name: Decide whether AI review is needed
+        id: scope
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          review=false
+          page=1
+
+          while :; do
+            response="$(curl --fail-with-body --silent --show-error \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${REPOSITORY}/pulls/${PR_NUMBER}/files?per_page=100&page=${page}")"
+            count="$(jq 'length' <<<"${response}")"
+
+            while IFS= read -r file; do
+              case "${file}" in
+                docs/*|documentation/*|*.md|*.mdx|*.txt|LICENSE|LICENSE.*|*.png|*.jpg|*.jpeg|*.gif|*.svg|*.webp)
+                  ;;
+                *)
+                  review=true
+                  break
+                  ;;
+              esac
+            done < <(jq -r '.[].filename' <<<"${response}")
+
+            if [[ "${review}" == "true" || "${count}" -lt 100 ]]; then
+              break
+            fi
+            page=$((page + 1))
+          done
+
+          echo "review=${review}" >> "${GITHUB_OUTPUT}"
+
+      - name: Record skipped Gemini review
+        if: github.event_name == 'pull_request' && steps.scope.outputs.review != 'true'
+        run: echo 'Gemini review skipped because the PR changes only documentation or static assets.' >> "$GITHUB_STEP_SUMMARY"
+
       - name: Checkout repository
+        if: github.event_name == 'workflow_dispatch' || steps.scope.outputs.review == 'true'
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
         with:
           persist-credentials: false
 
       - name: Run Gemini pull request review
         id: gemini_review
+        if: github.event_name == 'workflow_dispatch' || steps.scope.outputs.review == 'true'
         uses: google-github-actions/run-gemini-cli@v0
         env:
           GEMINI_CLI_TRUST_WORKSPACE: 'true'
@@ -47,14 +93,14 @@ jobs:
         with:
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
           gemini_cli_version: ${{ vars.GEMINI_CLI_VERSION }}
-          gemini_model: ${{ vars.GEMINI_MODEL }}
+          gemini_model: gemini-3.8-flash
           gemini_debug: ${{ fromJSON(vars.GEMINI_DEBUG || vars.ACTIONS_STEP_DEBUG || false) }}
           workflow_name: home-center-gemini-review
           github_pr_number: ${{ github.event.pull_request.number || inputs.pr_number }}
           settings: |-
             {
               "model": {
-                "maxSessionTurns": 25
+                "maxSessionTurns": 16
               },
               "telemetry": {
                 "enabled": false
