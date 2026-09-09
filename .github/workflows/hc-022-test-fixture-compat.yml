@@ -25,31 +25,8 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin main:refs/remotes/origin/main
           git checkout origin/main -- tests/test_automation_execution.py tests/test_node_inventory_api.py
-
-          python - <<'PY'
-          from pathlib import Path
-          path = Path("product/control-plane/src/home_center/certificate_api.py")
-          text = path.read_text(encoding="utf-8")
-          old = '''        return {
-            "schema": "home-center.certificate-inventory.v1",
-            "evaluated_at": _timestamp(evaluated_at),
-            "warning_days": checked_warning_days,
-            "items": items,
-        }
-'''
-          new = '''        return {
-            "schema": "home-center.certificate-inventory.v1",
-            "evaluated_at": _timestamp(evaluated_at),
-            "warning_days": checked_warning_days,
-            "items": items,
-            "production_mutation_enabled": False,
-        }
-'''
-          if old not in text:
-              raise SystemExit("expected certificate inventory return block not found")
-          path.write_text(text.replace(old, new, 1), encoding="utf-8")
-          PY
-
+          python -c 'from pathlib import Path; p=Path("product/control-plane/src/home_center/certificate_api.py"); s=p.read_text(encoding="utf-8"); old="            \\\"items\\\": items,\\n        }"; new="            \\\"items\\\": items,\\n            \\\"production_mutation_enabled\\\": False,\\n        }"; assert old in s; p.write_text(s.replace(old,new,1),encoding="utf-8")'
+          python -c 'import json; from pathlib import Path; p=Path("contracts/certificates/certificate-inventory.v1.schema.json"); d=json.loads(p.read_text(encoding="utf-8")); r=d["required"]; r.append("production_mutation_enabled") if "production_mutation_enabled" not in r else None; d["properties"]["production_mutation_enabled"]={"const":False}; p.write_text(json.dumps(d,ensure_ascii=False,indent=2)+"\\n",encoding="utf-8")'
           git rm .github/workflows/hc-022-test-fixture-compat.yml
           git add -A
           git commit -m "HC 0.22: align endpoint fixtures with first-login gate"
