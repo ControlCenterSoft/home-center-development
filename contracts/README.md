@@ -1,5 +1,12 @@
 # Home Center Contracts
 
+## Home Center 0.19 home-service catalog
+
+`market/home-service-profile.v1.schema.json` defines the closed, portable and
+secret-free catalog surface for the accepted home-service families. Catalog
+records declare requirements and lifecycle coverage only. They neither
+authorize installation nor enable external publication.
+
 `contracts/` — canonical source для machine-readable границ Home Center. После допуска к разработке generated code может создаваться из contracts, но не должен становиться альтернативным источником истины.
 
 ## Планируемая структура

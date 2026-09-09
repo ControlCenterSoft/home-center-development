@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.invalid/contracts/market/home-service-profile.v1.schema.json",
+  "title": "Home Center Home Service Catalog v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "production_mutation_enabled", "profiles"],
+  "properties": {
+    "schema": {"const": "home-center.home-service-catalog.v1"},
+    "production_mutation_enabled": {"const": false},
+    "profiles": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/profile"}
+    }
+  },
+  "$defs": {
+    "identifier": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "capability": {"type": "string", "pattern": "^[a-z][a-z0-9.-]{1,126}\\.v[1-9][0-9]*$"},
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["service_id", "kind", "name", "required_capabilities", "provided_capabilities", "minimum_storage_gib", "publication_policy", "backup_policy", "lifecycle"],
+      "properties": {
+        "service_id": {"$ref": "#/$defs/identifier"},
+        "kind": {"enum": ["yandex-smart-home", "torrserver", "torrent-client", "zigbee-bridge", "minecraft-server", "android-mdm"]},
+        "name": {"type": "string", "minLength": 1, "maxLength": 80},
+        "required_capabilities": {"type": "array", "maxItems": 128, "uniqueItems": true, "items": {"$ref": "#/$defs/capability"}},
+        "provided_capabilities": {"type": "array", "maxItems": 128, "uniqueItems": true, "items": {"$ref": "#/$defs/capability"}},
+        "minimum_storage_gib": {"type": "integer", "minimum": 1, "maximum": 1048576},
+        "publication_policy": {"enum": ["local-only", "explicit"]},
+        "backup_policy": {"enum": ["none", "configuration", "state"]},
+        "lifecycle": {
+          "type": "array",
+          "prefixItems": [{"const": "install"}, {"const": "configure"}, {"const": "health"}, {"const": "update"}, {"const": "backup"}, {"const": "restore"}, {"const": "remove"}],
+          "items": false,
+          "minItems": 7,
+          "maxItems": 7
+        }
+      }
+    }
+  }
+}
