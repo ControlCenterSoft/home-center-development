@@ -5,3 +5,7 @@ build/
 dist/
 .coverage
 .pytest_cache/
+
+# Gemini CLI local state / temporary credentials
+.gemini/
+gha-creds-*.json
