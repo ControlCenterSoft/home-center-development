@@ -1,0 +1,175 @@
+{
+  "$id": "https://home-center.example/contracts/modules/module-contract-compatibility-profile.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "admission_authorized": {
+      "const": false
+    },
+    "execution_authorized": {
+      "const": false
+    },
+    "external_publication_authorized": {
+      "const": false
+    },
+    "home_center_version": {
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+      "type": "string"
+    },
+    "installation_authorized": {
+      "const": false
+    },
+    "production_mutation_enabled": {
+      "const": false
+    },
+    "profile_id": {
+      "pattern": "^mccp-[0-9a-f]{24}$",
+      "type": "string"
+    },
+    "schema": {
+      "const": "home-center.module-contract-compatibility-profile.v1"
+    },
+    "supported_contracts": {
+      "additionalProperties": false,
+      "properties": {
+        "module_admission_decision": {
+          "items": {
+            "pattern": "^home-center\\.[a-z0-9]+(?:-[a-z0-9]+)*\\.v[1-9][0-9]*$",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "module_admission_revalidation": {
+          "items": {
+            "pattern": "^home-center\\.[a-z0-9]+(?:-[a-z0-9]+)*\\.v[1-9][0-9]*$",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "module_admission_set_revalidation": {
+          "items": {
+            "pattern": "^home-center\\.[a-z0-9]+(?:-[a-z0-9]+)*\\.v[1-9][0-9]*$",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "module_admission_snapshot_binding": {
+          "items": {
+            "pattern": "^home-center\\.[a-z0-9]+(?:-[a-z0-9]+)*\\.v[1-9][0-9]*$",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "module_candidate_set_decision": {
+          "items": {
+            "pattern": "^home-center\\.[a-z0-9]+(?:-[a-z0-9]+)*\\.v[1-9][0-9]*$",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "module_candidate_set_revalidation": {
+          "items": {
+            "pattern": "^home-center\\.[a-z0-9]+(?:-[a-z0-9]+)*\\.v[1-9][0-9]*$",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "module_compatibility_policy_snapshot": {
+          "items": {
+            "pattern": "^home-center\\.[a-z0-9]+(?:-[a-z0-9]+)*\\.v[1-9][0-9]*$",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "module_compatibility_snapshot": {
+          "items": {
+            "pattern": "^home-center\\.[a-z0-9]+(?:-[a-z0-9]+)*\\.v[1-9][0-9]*$",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "module_manifest": {
+          "items": {
+            "pattern": "^home-center\\.[a-z0-9]+(?:-[a-z0-9]+)*\\.v[1-9][0-9]*$",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "module_policy_candidate_set_decision": {
+          "items": {
+            "pattern": "^home-center\\.[a-z0-9]+(?:-[a-z0-9]+)*\\.v[1-9][0-9]*$",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "module_policy_candidate_set_revalidation": {
+          "items": {
+            "pattern": "^home-center\\.[a-z0-9]+(?:-[a-z0-9]+)*\\.v[1-9][0-9]*$",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "module_manifest",
+        "module_admission_decision",
+        "module_admission_revalidation",
+        "module_compatibility_snapshot",
+        "module_admission_snapshot_binding",
+        "module_admission_set_revalidation",
+        "module_candidate_set_decision",
+        "module_candidate_set_revalidation",
+        "module_compatibility_policy_snapshot",
+        "module_policy_candidate_set_decision",
+        "module_policy_candidate_set_revalidation"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema",
+    "profile_id",
+    "home_center_version",
+    "supported_contracts",
+    "admission_authorized",
+    "installation_authorized",
+    "execution_authorized",
+    "production_mutation_enabled",
+    "external_publication_authorized"
+  ],
+  "title": "Home Center Module Contract Compatibility Profile v1",
+  "type": "object"
+}
