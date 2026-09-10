@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "home-center.ha-rolling-writer-handoff-recovery-assessment.v1",
+  "title": "HA rolling writer handoff recovery assessment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "cluster_id",
+    "assessment_id",
+    "handoff_receipt_id",
+    "handoff_intent_id",
+    "blocked_plan_id",
+    "previous_writer_node_id",
+    "successor_writer_node_id",
+    "member_node_ids",
+    "peer_snapshot_id",
+    "peer_journal_seq",
+    "role_assignment_id",
+    "role_epoch",
+    "role_resource_version",
+    "role_journal_seq",
+    "role_transition_id",
+    "minimum_ready_nodes",
+    "required_quorum_nodes",
+    "ready_node_ids",
+    "ready_count",
+    "previous_writer_health",
+    "successor_writer_health",
+    "disposition",
+    "reason",
+    "fencing_required",
+    "reconciliation_required",
+    "role_transition_authorized",
+    "failover_authorized",
+    "host_mutation_authorized",
+    "production_mutation_enabled"
+  ],
+  "properties": {
+    "schema": {
+      "const": "home-center.ha-rolling-writer-handoff-recovery-assessment.v1"
+    },
+    "cluster_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "assessment_id": {"type": "string", "pattern": "^ha-roll-writer-handoff-recovery-[a-f0-9]{64}$"},
+    "handoff_receipt_id": {"type": "string", "minLength": 1, "maxLength": 160},
+    "handoff_intent_id": {"type": "string", "minLength": 1, "maxLength": 160},
+    "blocked_plan_id": {"type": "string", "minLength": 1, "maxLength": 160},
+    "previous_writer_node_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "successor_writer_node_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "member_node_ids": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"}
+    },
+    "peer_snapshot_id": {"type": "string", "pattern": "^ha-state-[a-f0-9]{64}$"},
+    "peer_journal_seq": {"type": "integer", "minimum": 0},
+    "role_assignment_id": {"type": "string", "minLength": 1, "maxLength": 160},
+    "role_epoch": {"type": "integer", "minimum": 0},
+    "role_resource_version": {"type": "integer", "minimum": 1},
+    "role_journal_seq": {"type": "integer", "minimum": 1},
+    "role_transition_id": {"type": "string", "minLength": 1, "maxLength": 160},
+    "minimum_ready_nodes": {"type": "integer", "minimum": 1, "maximum": 64},
+    "required_quorum_nodes": {"type": "integer", "minimum": 2, "maximum": 33},
+    "ready_node_ids": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"}
+    },
+    "ready_count": {"type": "integer", "minimum": 0, "maximum": 64},
+    "previous_writer_health": {
+      "enum": ["unknown", "ready", "degraded", "unreachable", "maintenance"]
+    },
+    "successor_writer_health": {
+      "enum": ["unknown", "ready", "degraded", "unreachable", "maintenance"]
+    },
+    "disposition": {"enum": ["healthy", "hold", "reconcile"]},
+    "reason": {
+      "enum": [
+        "handoff_healthy",
+        "previous_writer_not_ready",
+        "majority_quorum_not_met",
+        "minimum_ready_not_met",
+        "successor_not_ready_fencing_required"
+      ]
+    },
+    "fencing_required": {"type": "boolean"},
+    "reconciliation_required": {"type": "boolean"},
+    "role_transition_authorized": {"const": false},
+    "failover_authorized": {"const": false},
+    "host_mutation_authorized": {"const": false},
+    "production_mutation_enabled": {"const": false}
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "disposition": {"const": "healthy"},
+        "reason": {"const": "handoff_healthy"},
+        "successor_writer_health": {"const": "ready"},
+        "fencing_required": {"const": false},
+        "reconciliation_required": {"const": false}
+      }
+    },
+    {
+      "properties": {
+        "disposition": {"const": "hold"},
+        "reason": {"enum": ["majority_quorum_not_met", "minimum_ready_not_met"]},
+        "successor_writer_health": {"const": "ready"},
+        "fencing_required": {"const": false},
+        "reconciliation_required": {"const": true}
+      }
+    },
+    {
+      "properties": {
+        "disposition": {"const": "reconcile"},
+        "reason": {
+          "enum": [
+            "previous_writer_not_ready",
+            "majority_quorum_not_met",
+            "minimum_ready_not_met",
+            "successor_not_ready_fencing_required"
+          ]
+        },
+        "successor_writer_health": {"not": {"const": "ready"}},
+        "fencing_required": {"const": true},
+        "reconciliation_required": {"const": true}
+      }
+    }
+  ]
+}
