@@ -18,14 +18,17 @@ class Release023BootstrapTests(unittest.TestCase):
         self.assertEqual(version, project["project"]["version"])
         self.assertEqual(version, home_center.__version__)
 
-    def test_development_candidate_is_present(self) -> None:
+    def test_official_release_notes_are_final(self) -> None:
         notes = (ROOT / "docs/releases/0.23.0.md").read_text(encoding="utf-8")
         self.assertIn("# Home Center 0.23.0", notes)
-        self.assertIn("Status: development qualification candidate.", notes)
+        self.assertIn("Status: official release.", notes)
         self.assertIn("## Durable transition authorization", notes)
         self.assertIn("published `0.22.3` baseline", notes)
         self.assertIn("Home Center 0.22.0 admission", notes)
-        self.assertIn("does not by itself authorize an official release", notes)
+        self.assertIn("## Release artifacts", notes)
+        self.assertIn("GitHub-generated source archives", notes)
+        self.assertNotIn("development qualification candidate", notes.lower())
+        self.assertNotIn("remains a development candidate", notes.lower())
 
     def test_previous_release_guarantees_remain_documented(self) -> None:
         previous = (ROOT / "docs/releases/0.22.0.md").read_text(encoding="utf-8")
