@@ -49,7 +49,7 @@ jobs:
           python scripts/qualify_release_artifact.py \
             --wheel-dir dist/first \
             --compare-wheel-dir dist/second
-      - name: Run unit tests and import every module
+      - name: Run complete test suite and import every module
         env:
           PYTHONPATH: product/control-plane/src
-        run: python -m unittest discover -s tests -p 'test_*.py' -v
+        run: python -m pytest -q
