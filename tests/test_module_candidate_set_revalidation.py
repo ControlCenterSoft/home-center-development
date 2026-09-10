@@ -284,7 +284,10 @@ class ModuleCandidateSetRevalidationTests(unittest.TestCase):
         self.assertEqual(result.status, "stale")
         self.assertIn("candidate_membership_changed", result.drift_reasons)
         self.assertIn("planned_module_set_changed", result.drift_reasons)
-        self.assertEqual(result.stale_modules, ("example.media",))
+        self.assertEqual(
+            result.stale_modules,
+            ("base.media", "example.media"),
+        )
 
     def test_candidate_version_and_artifact_change_are_detected(self) -> None:
         original_manifest = _manifest("base.media", "2.4.0", digest="a")
