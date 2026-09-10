@@ -128,10 +128,11 @@ jobs:
           sidecar="$artifact.sha256"
           [[ -f "$artifact" && -f "$sidecar" ]]
           (cd "$RUNNER_TEMP/deployment-dist" && sha256sum -c "$(basename "$sidecar")")
+          members=$(tar -tzf "$artifact")
           for entry in ./DEPLOYMENT-ARTIFACT.json ./VERSION ./REVISION ./MANIFEST.sha256 ./deploy/bootstrap-two-node.sh ./deploy/install-node.sh ./deploy/rollback-node.sh; do
-            tar -tzf "$artifact" | grep -Fxq "$entry" || { echo "missing required entry: $entry" >&2; exit 66; }
+            grep -Fxq "$entry" <<<"$members" || { echo "missing required entry: $entry" >&2; exit 66; }
           done
-          if tar -tzf "$artifact" | grep -Eq 'current-environment|private-overlays|production-overlays'; then
+          if grep -Eq 'current-environment|private-overlays|production-overlays' <<<"$members"; then
             echo 'environment-specific path found in deployment artifact' >&2
             exit 66
           fi
