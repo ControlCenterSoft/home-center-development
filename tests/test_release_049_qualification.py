@@ -55,7 +55,7 @@ def test_release_049_cozy_ui_has_explicit_confirmation_surface() -> None:
     html = (ROOT / "product/web/static/index.html").read_text(encoding="utf-8")
     javascript = (ROOT / "product/web/static/app.js").read_text(encoding="utf-8")
 
-    assert 'id="add-person-form"' in html
+    assert 'id="member-plan-form"' in html
     assert 'id="member-confirm-card"' in html
     assert "Родитель" in html
     assert "Ребёнок" in html
