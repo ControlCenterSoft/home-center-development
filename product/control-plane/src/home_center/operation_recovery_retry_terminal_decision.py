@@ -230,6 +230,7 @@ def _validate_revalidation(
         raise OperationRecoveryRetryTerminalDecisionError(
             "invalid_observed_terminal_revision"
         )
+    _validate_observed_revision_semantics(revalidation, observed_version)
     for digest in (
         revalidation.seal_sha256,
         revalidation.observed_job_completion_sha256,
@@ -250,6 +251,65 @@ def _validate_revalidation(
             "terminal_revalidation_identity_mismatch"
         )
     return _sha256(revalidation.to_dict())
+
+
+def _validate_observed_revision_semantics(
+    revalidation: OperationRecoveryRetryTerminalLineageRevalidation,
+    observed_version: int | None,
+) -> None:
+    sealed_version = revalidation.sealed_job_state_version
+    if revalidation.status == "current":
+        if (
+            observed_version != sealed_version
+            or revalidation.observed_job_state != revalidation.sealed_job_state
+        ):
+            raise OperationRecoveryRetryTerminalDecisionError(
+                "current_terminal_revalidation_observation_mismatch"
+            )
+        observed_digests = (
+            revalidation.observed_job_completion_sha256,
+            revalidation.observed_terminal_evidence_sha256,
+            revalidation.observed_completion_journal_sha256,
+            revalidation.observed_audit_event_sha256,
+        )
+        if any(digest is None for digest in observed_digests):
+            raise OperationRecoveryRetryTerminalDecisionError(
+                "current_terminal_revalidation_evidence_incomplete"
+            )
+        return
+
+    if revalidation.status == "superseded":
+        if observed_version is None or observed_version <= sealed_version:
+            raise OperationRecoveryRetryTerminalDecisionError(
+                "superseded_terminal_revalidation_observation_mismatch"
+            )
+        return
+
+    reason = revalidation.reason
+    if (
+        reason == "sealed_terminal_digest_mismatch"
+        and observed_version != sealed_version
+    ):
+        raise OperationRecoveryRetryTerminalDecisionError(
+            "ambiguous_terminal_revalidation_observation_mismatch"
+        )
+    if (
+        reason == "advanced_revision_without_intact_sealed_journal"
+        and (observed_version is None or observed_version <= sealed_version)
+    ):
+        raise OperationRecoveryRetryTerminalDecisionError(
+            "ambiguous_terminal_revalidation_observation_mismatch"
+        )
+    if reason == "durable_job_revision_regressed" and (
+        observed_version is None or observed_version >= sealed_version
+    ):
+        raise OperationRecoveryRetryTerminalDecisionError(
+            "ambiguous_terminal_revalidation_observation_mismatch"
+        )
+    if reason == "durable_job_revision_invalid" and observed_version is not None:
+        raise OperationRecoveryRetryTerminalDecisionError(
+            "ambiguous_terminal_revalidation_observation_mismatch"
+        )
 
 
 def _revalidation_identity_material(

@@ -40,7 +40,7 @@ def make_revalidation(
         "sealed_job_state": "rolled_back",
         "sealed_job_state_version": 8,
         "observed_job_state": "rolled_back",
-        "observed_job_state_version": 8 if current else 9,
+        "observed_job_state_version": 9 if status == "superseded" else 8,
         "observed_job_completion_sha256": "6" * 64,
         "observed_terminal_evidence_sha256": "7" * 64,
         "observed_completion_journal_sha256": "8" * 64,
@@ -178,6 +178,26 @@ class TerminalDecisionBoundaryTests(unittest.TestCase):
         with self.assertRaisesRegex(
             OperationRecoveryRetryTerminalDecisionError,
             "invalid_terminal_revalidation_revision",
+        ):
+            decide_operation_recovery_retry_terminal_boundary(revalidation)
+
+    def test_semantically_impossible_ambiguous_revision_is_rejected(self):
+        revalidation = make_revalidation(status="ambiguous")
+        object.__setattr__(revalidation, "observed_job_state_version", 9)
+        material = {
+            key: value
+            for key, value in revalidation.to_dict().items()
+            if key not in {"schema", "revalidation_id"}
+        }
+        digest = sha256(material)
+        object.__setattr__(
+            revalidation,
+            "revalidation_id",
+            f"oprecoveryrevalidate-{digest[:24]}",
+        )
+        with self.assertRaisesRegex(
+            OperationRecoveryRetryTerminalDecisionError,
+            "ambiguous_terminal_revalidation_observation_mismatch",
         ):
             decide_operation_recovery_retry_terminal_boundary(revalidation)
 
