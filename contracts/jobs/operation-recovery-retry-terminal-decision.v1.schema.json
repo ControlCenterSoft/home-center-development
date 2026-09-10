@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "home-center.operation-recovery-retry-terminal-decision.v1",
+  "title": "Home Center operation recovery retry terminal decision v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "decision_id",
+    "revalidation_id",
+    "revalidation_sha256",
+    "seal_id",
+    "job_id",
+    "receipt_id",
+    "plan_id",
+    "target_node_id",
+    "revalidation_status",
+    "operator_action",
+    "reason",
+    "terminal_closure_eligible",
+    "fresh_reconciliation_required",
+    "new_lineage_required",
+    "immutable_evidence_only",
+    "previous_lineage_reusable",
+    "fresh_admission_authorized",
+    "contains_command_material",
+    "accepts_caller_argv",
+    "accepts_shell",
+    "grants_execution_authority",
+    "retry_authorized",
+    "rollback_authorized",
+    "production_mutation_enabled"
+  ],
+  "properties": {
+    "schema": {
+      "const": "home-center.operation-recovery-retry-terminal-decision.v1"
+    },
+    "decision_id": {
+      "type": "string",
+      "pattern": "^oprecoverydecision-[0-9a-f]{24}$"
+    },
+    "revalidation_id": {
+      "type": "string",
+      "pattern": "^oprecoveryrevalidate-[0-9a-f]{24}$"
+    },
+    "revalidation_sha256": {"$ref": "#/$defs/sha256"},
+    "seal_id": {
+      "type": "string",
+      "pattern": "^oprecoveryseal-[0-9a-f]{24}$"
+    },
+    "job_id": {
+      "type": "string",
+      "pattern": "^opjob-[0-9a-f]{24}$"
+    },
+    "receipt_id": {
+      "type": "string",
+      "pattern": "^oprecoveryverify-[0-9a-f]{24}$"
+    },
+    "plan_id": {
+      "type": "string",
+      "pattern": "^opplan-[0-9a-f]{24}$"
+    },
+    "target_node_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "revalidation_status": {
+      "type": "string",
+      "enum": ["current", "superseded", "ambiguous"]
+    },
+    "operator_action": {
+      "type": "string",
+      "enum": [
+        "acknowledge_terminal_closure",
+        "start_fresh_operator_reconciliation"
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "enum": [
+        "current_terminal_lineage_may_be_acknowledged",
+        "superseded_terminal_lineage_requires_fresh_reconciliation",
+        "ambiguous_terminal_lineage_requires_fresh_reconciliation"
+      ]
+    },
+    "terminal_closure_eligible": {"type": "boolean"},
+    "fresh_reconciliation_required": {"type": "boolean"},
+    "new_lineage_required": {"type": "boolean"},
+    "immutable_evidence_only": {"const": true},
+    "previous_lineage_reusable": {"const": false},
+    "fresh_admission_authorized": {"const": false},
+    "contains_command_material": {"const": false},
+    "accepts_caller_argv": {"const": false},
+    "accepts_shell": {"const": false},
+    "grants_execution_authority": {"const": false},
+    "retry_authorized": {"const": false},
+    "rollback_authorized": {"const": false},
+    "production_mutation_enabled": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"revalidation_status": {"const": "current"}},
+        "required": ["revalidation_status"]
+      },
+      "then": {
+        "properties": {
+          "operator_action": {"const": "acknowledge_terminal_closure"},
+          "reason": {"const": "current_terminal_lineage_may_be_acknowledged"},
+          "terminal_closure_eligible": {"const": true},
+          "fresh_reconciliation_required": {"const": false},
+          "new_lineage_required": {"const": false}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"revalidation_status": {"const": "superseded"}},
+        "required": ["revalidation_status"]
+      },
+      "then": {
+        "properties": {
+          "operator_action": {
+            "const": "start_fresh_operator_reconciliation"
+          },
+          "reason": {
+            "const": "superseded_terminal_lineage_requires_fresh_reconciliation"
+          },
+          "terminal_closure_eligible": {"const": false},
+          "fresh_reconciliation_required": {"const": true},
+          "new_lineage_required": {"const": true}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"revalidation_status": {"const": "ambiguous"}},
+        "required": ["revalidation_status"]
+      },
+      "then": {
+        "properties": {
+          "operator_action": {
+            "const": "start_fresh_operator_reconciliation"
+          },
+          "reason": {
+            "const": "ambiguous_terminal_lineage_requires_fresh_reconciliation"
+          },
+          "terminal_closure_eligible": {"const": false},
+          "fresh_reconciliation_required": {"const": true},
+          "new_lineage_required": {"const": true}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}
