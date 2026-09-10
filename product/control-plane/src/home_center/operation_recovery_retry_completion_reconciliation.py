@@ -21,7 +21,7 @@ from .util import canonical_json
 
 
 SCHEMA = "home-center.operation-recovery-retry-completion-reconciliation.v1"
-MAX_AUDIT_SCAN = 500
+COMPLETION_JOURNAL_SCHEMA = "home-center.operation-recovery-retry-completion-journal.v1"
 
 
 class OperationRecoveryRetryCompletionReconciliationError(RuntimeError):
@@ -31,7 +31,9 @@ class OperationRecoveryRetryCompletionReconciliationError(RuntimeError):
 class OperationRecoveryRetryCompletionReconciliationStore(Protocol):
     def operation_job(self, job_id: str) -> dict[str, Any] | None: ...
 
-    def audit_events(self, limit: int = 100) -> list[dict[str, Any]]: ...
+    def operation_recovery_retry_completion_journal(
+        self, receipt_id: str
+    ) -> dict[str, Any] | None: ...
 
     def verify_audit_chain(self) -> str: ...
 
@@ -158,25 +160,16 @@ def assess_operation_recovery_retry_verification_completion(
             reason="verification_evidence_not_current",
         )
 
-    audit_event_id = job.get("last_audit_event_id")
-    if not isinstance(audit_event_id, str) or not audit_event_id:
-        return _build_checkpoint(
-            receipt,
-            receipt_sha256,
-            job,
-            reason="transition_audit_missing",
-        )
-
     try:
-        event = _find_audit_event(store, audit_event_id)
+        journal = store.operation_recovery_retry_completion_journal(receipt.receipt_id)
     except (RuntimeError, ValueError, KeyError, TypeError):
         return _build_checkpoint(
             receipt,
             receipt_sha256,
             job,
-            reason="audit_chain_invalid",
+            reason="transition_audit_not_current",
         )
-    if event is None:
+    if journal is None:
         return _build_checkpoint(
             receipt,
             receipt_sha256,
@@ -184,7 +177,12 @@ def assess_operation_recovery_retry_verification_completion(
             reason="transition_audit_missing",
         )
 
-    audit_event_sha256 = _validate_transition_audit(job, receipt, event)
+    audit_event_sha256 = _validate_completion_journal(
+        job,
+        receipt,
+        receipt_sha256,
+        journal,
+    )
     if audit_event_sha256 is None:
         return _build_checkpoint(
             receipt,
@@ -219,7 +217,11 @@ def _validate_inputs(
         raise TypeError(
             "receipt must be OperationRecoveryRetryVerificationReceipt"
         )
-    for name in ("operation_job", "audit_events", "verify_audit_chain"):
+    for name in (
+        "operation_job",
+        "operation_recovery_retry_completion_journal",
+        "verify_audit_chain",
+    ):
         if not hasattr(store, name):
             raise TypeError(f"store does not provide {name}")
     value = receipt.to_dict()
@@ -253,19 +255,53 @@ def _validate_inputs(
         )
 
 
-def _find_audit_event(
-    store: OperationRecoveryRetryCompletionReconciliationStore,
-    event_id: str,
-) -> dict[str, Any] | None:
-    events = store.audit_events(MAX_AUDIT_SCAN)
-    if not isinstance(events, list):
-        raise OperationRecoveryRetryCompletionReconciliationError(
-            "invalid_audit_event_collection"
-        )
-    for event in events:
-        if isinstance(event, dict) and event.get("event_id") == event_id:
-            return event
-    return None
+def _validate_completion_journal(
+    job: dict[str, Any],
+    receipt: OperationRecoveryRetryVerificationReceipt,
+    receipt_sha256: str,
+    journal: dict[str, Any],
+) -> str | None:
+    if not isinstance(journal, dict):
+        return None
+    expected = {
+        "schema": COMPLETION_JOURNAL_SCHEMA,
+        "journal_id": f"oprecoveryjournal-{receipt_sha256[:24]}",
+        "receipt_id": receipt.receipt_id,
+        "receipt_sha256": receipt_sha256,
+        "job_id": receipt.job_id,
+        "plan_id": receipt.plan_id,
+        "plan_sha256": receipt.plan_sha256,
+        "from_state": receipt.from_state,
+        "to_state": receipt.next_state,
+        "from_state_version": receipt.from_state_version,
+        "to_state_version": receipt.to_state_version,
+        "audit_event_id": job.get("last_audit_event_id"),
+        "atomic_with_job_transition": True,
+        "single_use": True,
+        "contains_command_material": False,
+        "accepts_caller_argv": False,
+        "accepts_shell": False,
+        "grants_execution_authority": False,
+        "retry_authorized": False,
+        "rollback_authorized": False,
+        "production_mutation_enabled": False,
+    }
+    for name, value in expected.items():
+        if journal.get(name) != value:
+            return None
+
+    audit_entry_hash = journal.get("audit_entry_hash")
+    if not _is_sha256(audit_entry_hash):
+        return None
+    event = journal.get("audit_event")
+    if not isinstance(event, dict):
+        return None
+    if (
+        event.get("event_id") != journal.get("audit_event_id")
+        or event.get("entry_hash") != audit_entry_hash
+    ):
+        return None
+    return _validate_transition_audit(job, receipt, event)
 
 
 def _validate_transition_audit(
@@ -298,12 +334,7 @@ def _validate_transition_audit(
     ):
         return None
     for name in ("previous_hash", "entry_hash"):
-        value = event.get(name)
-        if not isinstance(value, str) or len(value) != 64:
-            return None
-        try:
-            int(value, 16)
-        except ValueError:
+        if not _is_sha256(event.get(name)):
             return None
     return _sha256(event)
 
@@ -410,6 +441,16 @@ def _build_checkpoint(
         exact_completion_confirmed=confirmed,
         reconciliation_required=not confirmed,
     )
+
+
+def _is_sha256(value: Any) -> bool:
+    if not isinstance(value, str) or len(value) != 64:
+        return False
+    try:
+        int(value, 16)
+    except ValueError:
+        return False
+    return True
 
 
 def _sha256(value: Any) -> str:
