@@ -2,11 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import unittest
 from dataclasses import replace
 from pathlib import Path
-
-import jsonschema
-import pytest
 
 from home_center.module_home_service_contract_binding import (
     bind_module_home_service_contracts,
@@ -119,151 +117,153 @@ def _revalidate(
     )
 
 
-def test_unchanged_binding_is_current_and_deterministic() -> None:
-    first = _revalidate()
-    second = _revalidate()
-    assert first == second
-    assert first.current is True
-    assert first.status == "current"
-    assert first.drift_reasons == ()
-    assert first.original_binding_id == first.fresh_binding_id
+class ModuleHomeServiceContractBindingRevalidationTests(unittest.TestCase):
+    def test_unchanged_binding_is_current_and_deterministic(self) -> None:
+        first = _revalidate()
+        second = _revalidate()
+        self.assertEqual(first, second)
+        self.assertTrue(first.current)
+        self.assertEqual(first.status, "current")
+        self.assertEqual(first.drift_reasons, ())
+        self.assertEqual(first.original_binding_id, first.fresh_binding_id)
 
+    def test_service_profile_capability_drift_is_stale(self) -> None:
+        profile = _service_profile()
+        profile["provided_capabilities"] = [
+            "devices.zigbee.v1",
+            "smart-home.bridge.v1",
+            "smart-home.scene.v1",
+        ]
+        result = _revalidate(fresh_profile=profile)
+        self.assertEqual(result.status, "stale")
+        self.assertIn("home_service_profile_changed", result.drift_reasons)
+        self.assertIn("provided_service_contracts_changed", result.drift_reasons)
 
-def test_service_profile_capability_drift_is_stale() -> None:
-    profile = _service_profile()
-    profile["provided_capabilities"] = [
-        "devices.zigbee.v1",
-        "smart-home.bridge.v1",
-        "smart-home.scene.v1",
-    ]
-    result = _revalidate(fresh_profile=profile)
-    assert result.status == "stale"
-    assert "home_service_profile_changed" in result.drift_reasons
-    assert "provided_service_contracts_changed" in result.drift_reasons
+    def test_non_capability_profile_drift_is_stale_even_when_compatible(self) -> None:
+        profile = _service_profile()
+        profile["minimum_storage_gib"] = 8
+        result = _revalidate(fresh_profile=profile)
+        self.assertEqual(result.status, "stale")
+        self.assertEqual(result.original_compatibility_status, "compatible")
+        self.assertEqual(result.fresh_compatibility_status, "compatible")
+        self.assertEqual(result.drift_reasons, ("home_service_profile_changed",))
 
-
-def test_non_capability_profile_drift_is_stale_even_when_compatible() -> None:
-    profile = _service_profile()
-    profile["minimum_storage_gib"] = 8
-    result = _revalidate(fresh_profile=profile)
-    assert result.status == "stale"
-    assert result.original_compatibility_status == "compatible"
-    assert result.fresh_compatibility_status == "compatible"
-    assert result.drift_reasons == ("home_service_profile_changed",)
-
-
-def test_required_contract_drift_is_stale_and_can_block() -> None:
-    result = _revalidate(
-        fresh_requirements=("devices.zigbee.v2",),
-    )
-    assert result.status == "stale"
-    assert result.fresh_compatibility_status == "blocked"
-    assert "required_service_contracts_changed" in result.drift_reasons
-    assert "unsupported_service_contracts_changed" in result.drift_reasons
-    assert "compatibility_status_changed" in result.drift_reasons
-
-
-def test_module_contract_binding_drift_is_stale() -> None:
-    fresh_module = _module_binding(home_center_version="0.41.1")
-    result = _revalidate(fresh_module=fresh_module)
-    assert result.status == "stale"
-    assert "module_contract_admission_binding_changed" in result.drift_reasons
-    assert "home_center_version_changed" in result.drift_reasons
-
-
-def test_module_identity_and_version_drift_are_explicit() -> None:
-    fresh_module = _module_binding(
-        module_id="example.module.next",
-        module_version="2.0.0",
-    )
-    result = _revalidate(fresh_module=fresh_module)
-    assert result.status == "stale"
-    assert "module_identity_changed" in result.drift_reasons
-    assert "module_version_changed" in result.drift_reasons
-
-
-def test_tampered_original_binding_is_rejected() -> None:
-    module, profile, requirements, binding = _original()
-    tampered = replace(
-        binding,
-        binding_id="mhscb-" + "f" * 24,
-    )
-    with pytest.raises(
-        ModuleHomeServiceContractBindingRevalidationError,
-        match="original_home_service_binding_rejected",
-    ):
-        revalidate_module_home_service_contract_binding(
-            module,
-            profile,
-            requirements,
-            tampered,
-            fresh_module_binding=module,
-            fresh_service_profile=profile,
-            fresh_required_service_contracts=requirements,
+    def test_required_contract_drift_is_stale_and_can_block(self) -> None:
+        result = _revalidate(
+            fresh_requirements=("devices.zigbee.v2",),
         )
+        self.assertEqual(result.status, "stale")
+        self.assertEqual(result.fresh_compatibility_status, "blocked")
+        self.assertIn("required_service_contracts_changed", result.drift_reasons)
+        self.assertIn("unsupported_service_contracts_changed", result.drift_reasons)
+        self.assertIn("compatibility_status_changed", result.drift_reasons)
 
+    def test_module_contract_binding_drift_is_stale(self) -> None:
+        fresh_module = _module_binding(home_center_version="0.41.1")
+        result = _revalidate(fresh_module=fresh_module)
+        self.assertEqual(result.status, "stale")
+        self.assertIn("module_contract_admission_binding_changed", result.drift_reasons)
+        self.assertIn("home_center_version_changed", result.drift_reasons)
 
-def test_tampered_original_profile_is_rejected() -> None:
-    module, profile, requirements, binding = _original()
-    changed = dict(profile)
-    changed["minimum_storage_gib"] = 8
-    with pytest.raises(
-        ModuleHomeServiceContractBindingRevalidationError,
-        match="original_home_service_binding_rejected",
-    ):
-        revalidate_module_home_service_contract_binding(
-            module,
-            changed,
-            requirements,
+    def test_module_identity_and_version_drift_are_explicit(self) -> None:
+        fresh_module = _module_binding(
+            module_id="example.module.next",
+            module_version="2.0.0",
+        )
+        result = _revalidate(fresh_module=fresh_module)
+        self.assertEqual(result.status, "stale")
+        self.assertIn("module_identity_changed", result.drift_reasons)
+        self.assertIn("module_version_changed", result.drift_reasons)
+
+    def test_tampered_original_binding_is_rejected(self) -> None:
+        module, profile, requirements, binding = _original()
+        tampered = replace(
             binding,
-            fresh_module_binding=module,
-            fresh_service_profile=changed,
-            fresh_required_service_contracts=requirements,
+            binding_id="mhscb-" + "f" * 24,
         )
+        with self.assertRaisesRegex(
+            ModuleHomeServiceContractBindingRevalidationError,
+            "original_home_service_binding_rejected",
+        ):
+            revalidate_module_home_service_contract_binding(
+                module,
+                profile,
+                requirements,
+                tampered,
+                fresh_module_binding=module,
+                fresh_service_profile=profile,
+                fresh_required_service_contracts=requirements,
+            )
+
+    def test_tampered_original_profile_is_rejected(self) -> None:
+        module, profile, requirements, binding = _original()
+        changed = dict(profile)
+        changed["minimum_storage_gib"] = 8
+        with self.assertRaisesRegex(
+            ModuleHomeServiceContractBindingRevalidationError,
+            "original_home_service_binding_rejected",
+        ):
+            revalidate_module_home_service_contract_binding(
+                module,
+                changed,
+                requirements,
+                binding,
+                fresh_module_binding=module,
+                fresh_service_profile=changed,
+                fresh_required_service_contracts=requirements,
+            )
+
+    def test_malformed_fresh_profile_is_rejected_fail_closed(self) -> None:
+        profile = _service_profile()
+        profile["provided_capabilities"] = [
+            "smart-home.bridge.v1",
+            "devices.zigbee.v1",
+        ]
+        with self.assertRaisesRegex(
+            ModuleHomeServiceContractBindingRevalidationError,
+            "fresh_home_service_binding_rejected",
+        ):
+            _revalidate(fresh_profile=profile)
+
+    def test_authority_bearing_fresh_module_binding_is_rejected(self) -> None:
+        module = _module_binding()
+        module["execution_authorized"] = True
+        evidence = dict(module)
+        evidence.pop("binding_id")
+        module["binding_id"] = "mcab-" + _hash(evidence)[:24]
+        with self.assertRaisesRegex(
+            ModuleHomeServiceContractBindingRevalidationError,
+            "fresh_home_service_binding_rejected",
+        ):
+            _revalidate(fresh_module=module)
+
+    def test_schema_is_closed_non_authorizing_and_matches_runtime_output(self) -> None:
+        schema_path = (
+            Path(__file__).parents[1]
+            / "contracts/modules/"
+            "module-home-service-contract-binding-revalidation.v1.schema.json"
+        )
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        result = _revalidate().to_dict()
+
+        self.assertFalse(schema["additionalProperties"])
+        self.assertEqual(set(result), set(schema["required"]))
+        self.assertEqual(result["schema"], schema["properties"]["schema"]["const"])
+        self.assertIn(result["status"], schema["properties"]["status"]["enum"])
+        self.assertRegex(result["revalidation_id"], r"^mhscbr-[0-9a-f]{24}$")
+        self.assertRegex(result["original_binding_id"], r"^mhscb-[0-9a-f]{24}$")
+        self.assertRegex(result["fresh_binding_id"], r"^mhscb-[0-9a-f]{24}$")
+        self.assertEqual(result["drift_reasons"], [])
+        for name in (
+            "admission_authorized",
+            "installation_authorized",
+            "execution_authorized",
+            "production_mutation_enabled",
+            "external_publication_authorized",
+        ):
+            self.assertEqual(schema["properties"][name], {"const": False})
+            self.assertIs(result[name], False)
 
 
-def test_malformed_fresh_profile_is_rejected_fail_closed() -> None:
-    profile = _service_profile()
-    profile["provided_capabilities"] = [
-        "smart-home.bridge.v1",
-        "devices.zigbee.v1",
-    ]
-    with pytest.raises(
-        ModuleHomeServiceContractBindingRevalidationError,
-        match="fresh_home_service_binding_rejected",
-    ):
-        _revalidate(fresh_profile=profile)
-
-
-def test_authority_bearing_fresh_module_binding_is_rejected() -> None:
-    module = _module_binding()
-    module["execution_authorized"] = True
-    evidence = dict(module)
-    evidence.pop("binding_id")
-    module["binding_id"] = "mcab-" + _hash(evidence)[:24]
-    with pytest.raises(
-        ModuleHomeServiceContractBindingRevalidationError,
-        match="fresh_home_service_binding_rejected",
-    ):
-        _revalidate(fresh_module=module)
-
-
-def test_schema_is_closed_non_authorizing_and_accepts_runtime_output() -> None:
-    schema_path = (
-        Path(__file__).parents[1]
-        / "contracts/modules/"
-        "module-home-service-contract-binding-revalidation.v1.schema.json"
-    )
-    schema = json.loads(schema_path.read_text(encoding="utf-8"))
-    jsonschema.Draft202012Validator.check_schema(schema)
-    result = _revalidate()
-    jsonschema.Draft202012Validator(schema).validate(result.to_dict())
-    assert schema["additionalProperties"] is False
-    for name in (
-        "admission_authorized",
-        "installation_authorized",
-        "execution_authorized",
-        "production_mutation_enabled",
-        "external_publication_authorized",
-    ):
-        assert schema["properties"][name] == {"const": False}
+if __name__ == "__main__":
+    unittest.main()
