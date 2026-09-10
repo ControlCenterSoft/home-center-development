@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "home-center.module-compatibility-policy-snapshot.v1.schema.json",
+  "title": "Home Center Module Compatibility Policy Snapshot v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "policy_id",
+    "policy_version",
+    "blocked_module_ids",
+    "restrict_publishers",
+    "allowed_publishers",
+    "required_runtime_capabilities",
+    "max_candidate_modules",
+    "installation_authorized",
+    "execution_authorized",
+    "production_mutation_enabled",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {
+      "const": "home-center.module-compatibility-policy-snapshot.v1"
+    },
+    "policy_id": {
+      "type": "string",
+      "pattern": "^mcp-[0-9a-f]{24}$"
+    },
+    "policy_version": {
+      "$ref": "#/$defs/semver"
+    },
+    "blocked_module_ids": {
+      "$ref": "#/$defs/moduleIds"
+    },
+    "restrict_publishers": {
+      "type": "boolean"
+    },
+    "allowed_publishers": {
+      "$ref": "#/$defs/publishers"
+    },
+    "required_runtime_capabilities": {
+      "$ref": "#/$defs/capabilities"
+    },
+    "max_candidate_modules": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 128
+    },
+    "installation_authorized": {
+      "const": false
+    },
+    "execution_authorized": {
+      "const": false
+    },
+    "production_mutation_enabled": {
+      "const": false
+    },
+    "external_publication_authorized": {
+      "const": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "restrict_publishers": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "allowed_publishers": {
+            "minItems": 1
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "allowed_publishers": {
+            "maxItems": 0
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "moduleId": {
+      "type": "string",
+      "pattern": "^[a-z0-9](?:[a-z0-9.-]{0,126}[a-z0-9])?$"
+    },
+    "symbolicId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+    },
+    "moduleIds": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/moduleId"
+      }
+    },
+    "publishers": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/moduleId"
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/symbolicId"
+      }
+    }
+  }
+}
