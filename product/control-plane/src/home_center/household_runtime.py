@@ -1,16 +1,17 @@
 """Runtime integration for the Home Center Household/Cozy domain.
 
-0.48 intentionally limits mutation to Home Center product state.  It does not
+0.48 intentionally limits mutation to Home Center product state. It does not
 create operating-system accounts, change DNS/VPN/MDM, execute providers, mutate
-external Desired State, or publish services.  Household state is persisted in
-the existing SQLite-backed cluster metadata and every accepted mutation is
-recorded in the audit chain.
+external Desired State, or publish services. Household state and actor bindings
+are persisted atomically in the existing SQLite-backed cluster metadata and
+every accepted mutation is recorded in the audit chain.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import re
 import threading
 import uuid
 from dataclasses import dataclass
@@ -20,16 +21,18 @@ from .home_services import HomeServiceCatalogError
 from .household import FamilyMember, Household, HouseholdRole, ManagedDevice
 from .household_intent import HouseholdIntent, HouseholdIntentKind
 from .household_intent_proposal import build_household_intent_proposal
-from .household_store import HouseholdSnapshot, HouseholdStore
+from .household_store import HouseholdSnapshot, HouseholdStore, MAX_GENERATION
 from .store import StateStore
 
 
-HOUSEHOLD_STATE_KEY = "cozy.household.snapshot.v1"
-HOUSEHOLD_BINDINGS_KEY = "cozy.household.actor-bindings.v1"
+HOUSEHOLD_STATE_KEY = "cozy.household.runtime-state.v1"
+HOUSEHOLD_PERSISTED_SCHEMA = "home-center.household-persisted-state.v1"
 HOUSEHOLD_RUNTIME_SCHEMA = "home-center.household-runtime.v1"
 HOUSEHOLD_BOOTSTRAP_SCHEMA = "home-center.household-bootstrap.v1"
 HOUSEHOLD_BOOTSTRAP_RESULT_SCHEMA = "home-center.household-bootstrap-result.v1"
 HOUSEHOLD_INTENT_REQUEST_SCHEMA = "home-center.household-intent-request.v1"
+SNAPSHOT_ID = re.compile(r"^hsnap-[a-f0-9]{24}$")
+RESOURCE_VERSION = re.compile(r"^hrv-[a-f0-9]{24}$")
 
 
 class HouseholdRuntimeError(ValueError):
@@ -82,9 +85,9 @@ def _household_from_dict(value: object) -> Household:
             members=members,
             devices=devices,
         )
+    except HouseholdRuntimeError:
+        raise
     except (KeyError, TypeError, ValueError, HomeServiceCatalogError) as exc:
-        if isinstance(exc, HouseholdRuntimeError):
-            raise
         raise HouseholdRuntimeError("household_state_invalid") from exc
 
 
@@ -93,29 +96,88 @@ def _snapshot_from_dict(value: object) -> HouseholdSnapshot:
         raise HouseholdRuntimeError("household_state_invalid")
     household = _household_from_dict(value.get("household"))
     try:
-        snapshot = HouseholdSnapshot(
-            snapshot_id=value["snapshot_id"],
-            resource_version=value["resource_version"],
-            household_id=value["household_id"],
-            generation=value["generation"],
-            previous_snapshot_id=value.get("previous_snapshot_id"),
-            household=household,
-        )
-    except (KeyError, TypeError, ValueError) as exc:
+        generation = value["generation"]
+        previous_snapshot_id = value.get("previous_snapshot_id")
+        snapshot_id = value["snapshot_id"]
+        resource_version = value["resource_version"]
+        household_id = value["household_id"]
+    except KeyError as exc:
         raise HouseholdRuntimeError("household_state_invalid") from exc
-    if snapshot.household_id != household.household_id:
+    if (
+        isinstance(generation, bool)
+        or not isinstance(generation, int)
+        or not 1 <= generation <= MAX_GENERATION
+        or not isinstance(snapshot_id, str)
+        or SNAPSHOT_ID.fullmatch(snapshot_id) is None
+        or not isinstance(resource_version, str)
+        or RESOURCE_VERSION.fullmatch(resource_version) is None
+        or household_id != household.household_id
+    ):
+        raise HouseholdRuntimeError("household_state_invalid")
+    if generation == 1:
+        if previous_snapshot_id is not None:
+            raise HouseholdRuntimeError("household_state_invalid")
+    elif not isinstance(previous_snapshot_id, str) or SNAPSHOT_ID.fullmatch(previous_snapshot_id) is None:
         raise HouseholdRuntimeError("household_state_invalid")
 
-    # 0.48 persists only the initial generation.  Reconstruct it through the
-    # authoritative HouseholdStore so tampered ids/resource versions fail closed.
-    if snapshot.generation != 1 or snapshot.previous_snapshot_id is not None:
-        raise HouseholdRuntimeError("household_state_generation_unsupported")
-    verifier = HouseholdStore()
-    verifier.create(household)
-    expected = verifier.read(household.household_id)
-    if expected != snapshot:
+    canonical = {
+        "household": household.to_dict(),
+        "generation": generation,
+        "previous_snapshot_id": previous_snapshot_id,
+    }
+    digest = hashlib.sha256(
+        json.dumps(canonical, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode("ascii")
+    ).hexdigest()
+    if snapshot_id != "hsnap-" + digest[:24] or resource_version != "hrv-" + digest[24:48]:
         raise HouseholdRuntimeError("household_state_evidence_mismatch")
-    return snapshot
+    return HouseholdSnapshot(
+        snapshot_id=snapshot_id,
+        resource_version=resource_version,
+        household_id=household_id,
+        generation=generation,
+        previous_snapshot_id=previous_snapshot_id,
+        household=household,
+    )
+
+
+def _state_from_dict(value: object) -> tuple[HouseholdSnapshot, tuple[ActorBinding, ...]]:
+    if not isinstance(value, dict) or value.get("schema") != HOUSEHOLD_PERSISTED_SCHEMA:
+        raise HouseholdRuntimeError("household_state_invalid")
+    snapshot = _snapshot_from_dict(value.get("snapshot"))
+    raw_bindings = value.get("bindings")
+    if not isinstance(raw_bindings, list) or not raw_bindings:
+        raise HouseholdRuntimeError("household_state_invalid")
+    bindings: list[ActorBinding] = []
+    seen_actors: set[str] = set()
+    seen_members: set[str] = set()
+    known_members = {member.member_id for member in snapshot.household.members}
+    for raw in raw_bindings:
+        if not isinstance(raw, dict) or set(raw) != {"actor", "member_id"}:
+            raise HouseholdRuntimeError("household_state_invalid")
+        actor = raw.get("actor")
+        member_id = raw.get("member_id")
+        if (
+            not isinstance(actor, str)
+            or not actor
+            or len(actor) > 320
+            or not isinstance(member_id, str)
+            or member_id not in known_members
+            or actor in seen_actors
+            or member_id in seen_members
+        ):
+            raise HouseholdRuntimeError("household_state_invalid")
+        seen_actors.add(actor)
+        seen_members.add(member_id)
+        bindings.append(ActorBinding(actor=actor, member_id=member_id))
+    return snapshot, tuple(bindings)
+
+
+def _persisted(snapshot: HouseholdSnapshot, bindings: tuple[ActorBinding, ...]) -> dict[str, object]:
+    return {
+        "schema": HOUSEHOLD_PERSISTED_SCHEMA,
+        "snapshot": snapshot.to_dict(),
+        "bindings": [binding.to_dict() for binding in bindings],
+    }
 
 
 class HouseholdRuntimeService:
@@ -124,6 +186,12 @@ class HouseholdRuntimeService:
     def __init__(self, store: StateStore) -> None:
         self.store = store
         self._lock = threading.RLock()
+
+    def _read_state(self) -> tuple[HouseholdSnapshot, tuple[ActorBinding, ...]]:
+        raw = self.store.get_meta(HOUSEHOLD_STATE_KEY)
+        if raw is None:
+            raise HouseholdRuntimeError("household_not_configured")
+        return _state_from_dict(raw)
 
     def status(self) -> dict[str, object]:
         with self._lock:
@@ -136,7 +204,7 @@ class HouseholdRuntimeService:
                     "infrastructure_mutation_authorized": False,
                     "external_publication_authorized": False,
                 }
-            snapshot = _snapshot_from_dict(raw)
+            snapshot, _bindings = _state_from_dict(raw)
             return {
                 "schema": HOUSEHOLD_RUNTIME_SCHEMA,
                 "configured": True,
@@ -156,26 +224,27 @@ class HouseholdRuntimeService:
             if self.store.get_meta(HOUSEHOLD_STATE_KEY) is not None:
                 raise HouseholdRuntimeError("household_already_configured")
             member_id = "member-" + uuid.uuid4().hex[:16]
-            household = Household(
-                household_id="home",
-                members=(
-                    FamilyMember(
-                        member_id=member_id,
-                        display_name=display_name,
-                        role=HouseholdRole.PARENT,
+            try:
+                household = Household(
+                    household_id="home",
+                    members=(
+                        FamilyMember(
+                            member_id=member_id,
+                            display_name=display_name,
+                            role=HouseholdRole.PARENT,
+                        ),
                     ),
-                ),
-                devices=(),
-            )
+                    devices=(),
+                )
+            except HomeServiceCatalogError as exc:
+                raise HouseholdRuntimeError(exc.code) from exc
             reference = HouseholdStore()
             commit = reference.create(household)
             snapshot = reference.read(household.household_id)
-            bindings = {
-                "schema": "home-center.household-actor-bindings.v1",
-                "bindings": [{"actor": actor, "member_id": member_id}],
-            }
-            self.store.set_meta(HOUSEHOLD_STATE_KEY, snapshot.to_dict())
-            self.store.set_meta(HOUSEHOLD_BINDINGS_KEY, bindings)
+            binding = ActorBinding(actor=actor, member_id=member_id)
+            # One SQLite-backed meta write keeps the snapshot and its first
+            # administrative actor binding atomic from the runtime's perspective.
+            self.store.set_meta(HOUSEHOLD_STATE_KEY, _persisted(snapshot, (binding,)))
             audit_event_id = self.store.audit(
                 actor=actor,
                 action="household.bootstrap",
@@ -194,7 +263,7 @@ class HouseholdRuntimeService:
                 "schema": HOUSEHOLD_BOOTSTRAP_RESULT_SCHEMA,
                 "snapshot": snapshot.to_dict(),
                 "commit": commit.to_dict(),
-                "actor_binding": ActorBinding(actor=actor, member_id=member_id).to_dict(),
+                "actor_binding": binding.to_dict(),
                 "audit_event_id": audit_event_id,
                 "infrastructure_mutation_authorized": False,
                 "external_publication_authorized": False,
@@ -202,15 +271,10 @@ class HouseholdRuntimeService:
 
     def actor_member_id(self, actor: str) -> str:
         with self._lock:
-            value = self.store.get_meta(HOUSEHOLD_BINDINGS_KEY)
-        if not isinstance(value, dict) or value.get("schema") != "home-center.household-actor-bindings.v1":
-            raise HouseholdRuntimeError("household_actor_not_bound")
-        bindings = value.get("bindings")
-        if not isinstance(bindings, list):
-            raise HouseholdRuntimeError("household_actor_not_bound")
-        for binding in bindings:
-            if isinstance(binding, dict) and binding.get("actor") == actor and isinstance(binding.get("member_id"), str):
-                return binding["member_id"]
+            _snapshot, bindings = self._read_state()
+            for binding in bindings:
+                if binding.actor == actor:
+                    return binding.member_id
         raise HouseholdRuntimeError("household_actor_not_bound")
 
     def plan_intent(self, *, actor: str, request: dict[str, Any], correlation_id: str) -> dict[str, object]:
@@ -218,11 +282,10 @@ class HouseholdRuntimeService:
         if set(request) != required or request.get("schema") != HOUSEHOLD_INTENT_REQUEST_SCHEMA:
             raise HouseholdRuntimeError("invalid_household_intent_request")
         with self._lock:
-            raw = self.store.get_meta(HOUSEHOLD_STATE_KEY)
-            if raw is None:
-                raise HouseholdRuntimeError("household_not_configured")
-            snapshot = _snapshot_from_dict(raw)
-            actor_member_id = self.actor_member_id(actor)
+            snapshot, bindings = self._read_state()
+            actor_member_id = next((item.member_id for item in bindings if item.actor == actor), None)
+            if actor_member_id is None:
+                raise HouseholdRuntimeError("household_actor_not_bound")
             try:
                 kind = HouseholdIntentKind(request["kind"])
                 role_raw = request.get("requested_role")
