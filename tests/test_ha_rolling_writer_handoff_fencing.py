@@ -79,6 +79,7 @@ class LeaseState:
     resource_version: int = 12
     holder_node_id: str | None = None
     revoked: bool = True
+    revoked_for_role_transition_id: str = "transition-2"
     state_id: str = ""
     production_mutation_enabled: bool = False
 
@@ -94,6 +95,7 @@ def lease_state(**changes) -> LeaseState:
         "resource_version": provisional.resource_version,
         "holder_node_id": provisional.holder_node_id,
         "revoked": provisional.revoked,
+        "revoked_for_role_transition_id": provisional.revoked_for_role_transition_id,
     }
     return replace(provisional, state_id=stable_id("ha-writer-lease", material))
 
@@ -218,6 +220,17 @@ class WriterHandoffFencingEvidenceTests(unittest.TestCase):
             build_writer_handoff_fencing_evidence(
                 assessment=assessment,
                 lease_authority=LeaseAuthority(lease_state()),
+            )
+
+    def test_revocation_for_different_role_transition_is_rejected(self) -> None:
+        state = lease_state(revoked_for_role_transition_id="transition-1")
+        with self.assertRaisesRegex(
+            HARollingWriterHandoffFencingError,
+            "lease_transition_binding_invalid",
+        ):
+            build_writer_handoff_fencing_evidence(
+                assessment=recovery_assessment(),
+                lease_authority=LeaseAuthority(state),
             )
 
     def test_revalidation_rejects_changed_lease_revision(self) -> None:
