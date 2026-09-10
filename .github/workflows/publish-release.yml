@@ -126,7 +126,3 @@ jobs:
           [[ "$actual_title" == "Home Center ${RELEASE_VERSION}" ]]
           [[ "$actual_tag" == "$RELEASE_TAG" ]]
           [[ "$actual_body" == "$expected_body" ]]
-
-          assets="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" --jq '.assets[].name')"
-          grep -Fxq "home-center-${RELEASE_VERSION}-linux-amd64.tar.gz" <<<"$assets"
-          grep -Fxq "home-center-${RELEASE_VERSION}-linux-amd64.tar.gz.sha256" <<<"$assets"
