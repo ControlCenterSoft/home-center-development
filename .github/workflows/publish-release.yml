@@ -38,11 +38,21 @@ jobs:
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
           notes="docs/releases/${version}.md"
           test -f "$notes"
+
+          if grep -Eiq 'development qualification candidate|development candidate|not (an )?official release|does not by itself authorize an official release' "$notes"; then
+            echo "Release notes still contain candidate-only status language: $notes" >&2
+            exit 1
+          fi
+          if ! grep -Eq '^Status: official release\.$' "$notes"; then
+            echo "Release notes must contain exact final status: Status: official release." >&2
+            exit 1
+          fi
+
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
           echo "notes=$notes" >> "$GITHUB_OUTPUT"
 
-      - name: Publish idempotently
+      - name: Publish idempotently and verify exact identity
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -50,21 +60,66 @@ jobs:
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
           RELEASE_NOTES: ${{ steps.release.outputs.notes }}
           RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+          RELEASE_ARTIFACT_POLICY: github-source-archives
         run: |
           set -euo pipefail
-          if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" >/dev/null 2>&1; then
-            echo "${RELEASE_TAG} is already published"
-            exit 0
-          fi
 
           tag_sha=""
           if existing_tag_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" --jq '.object.sha' 2>/dev/null)"; then
             tag_sha="$existing_tag_sha"
           fi
+
           if [[ -n "$tag_sha" && "$tag_sha" != "$RELEASE_SHA" ]]; then
-            echo "${RELEASE_TAG} already points to ${tag_sha}, expected ${RELEASE_SHA}" >&2
+            echo "${RELEASE_TAG} points to ${tag_sha}, expected exact release SHA ${RELEASE_SHA}" >&2
             exit 1
           fi
+
+          release_exists=false
+          if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" >/dev/null 2>&1; then
+            release_exists=true
+          fi
+
+          if [[ "$release_exists" == "true" ]]; then
+            if [[ -z "$tag_sha" ]]; then
+              echo "Release ${RELEASE_TAG} exists but its git tag cannot be resolved" >&2
+              exit 1
+            fi
+
+            release_title="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" --jq '.name')"
+            release_draft="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" --jq '.draft')"
+            release_prerelease="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" --jq '.prerelease')"
+            tarball_url="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" --jq '.tarball_url // ""')"
+            zipball_url="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" --jq '.zipball_url // ""')"
+
+            [[ "$release_title" == "Home Center ${RELEASE_VERSION}" ]] || {
+              echo "Existing release title does not match exact release identity" >&2
+              exit 1
+            }
+            [[ "$release_draft" == "false" && "$release_prerelease" == "false" ]] || {
+              echo "Existing release is draft or prerelease" >&2
+              exit 1
+            }
+
+            gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" --jq '.body' > existing-release-notes.txt
+            if ! cmp -s "$RELEASE_NOTES" existing-release-notes.txt; then
+              echo "Existing release body does not match release-final notes" >&2
+              exit 1
+            fi
+
+            if [[ "$RELEASE_ARTIFACT_POLICY" == "github-source-archives" ]]; then
+              [[ -n "$tarball_url" && -n "$zipball_url" ]] || {
+                echo "GitHub source archive URLs are missing" >&2
+                exit 1
+              }
+            else
+              echo "Unknown release artifact policy: $RELEASE_ARTIFACT_POLICY" >&2
+              exit 1
+            fi
+
+            echo "${RELEASE_TAG} already exists and matches exact release identity ${RELEASE_SHA}"
+            exit 0
+          fi
+
           if [[ -z "$tag_sha" ]]; then
             gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
               -f ref="refs/tags/${RELEASE_TAG}" \
@@ -76,3 +131,14 @@ jobs:
             --title "Home Center ${RELEASE_VERSION}" \
             --notes-file "$RELEASE_NOTES" \
             --verify-tag
+
+          published_tag_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" --jq '.object.sha')"
+          [[ "$published_tag_sha" == "$RELEASE_SHA" ]] || {
+            echo "Published tag identity mismatch: ${published_tag_sha} != ${RELEASE_SHA}" >&2
+            exit 1
+          }
+          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" --jq '.body' > published-release-notes.txt
+          cmp -s "$RELEASE_NOTES" published-release-notes.txt || {
+            echo "Published release body does not match release-final notes" >&2
+            exit 1
+          }
