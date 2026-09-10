@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/household-store.v1.schema.json",
+  "title": "Home Center Household Store Evidence v1",
+  "oneOf": [
+    {"$ref": "#/$defs/snapshot"},
+    {"$ref": "#/$defs/commit"}
+  ],
+  "$defs": {
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "snapshot_id", "resource_version", "household_id", "generation", "previous_snapshot_id", "household", "infrastructure_mutation_authorized"],
+      "properties": {
+        "schema": {"const": "home-center.household-snapshot.v1"},
+        "snapshot_id": {"type": "string", "pattern": "^hsnap-[a-f0-9]{24}$"},
+        "resource_version": {"type": "string", "pattern": "^hrv-[a-f0-9]{24}$"},
+        "household_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "generation": {"type": "integer", "minimum": 1},
+        "previous_snapshot_id": {"type": ["string", "null"]},
+        "household": {"type": "object"},
+        "infrastructure_mutation_authorized": {"const": false}
+      }
+    },
+    "commit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "commit_id", "operation", "household_id", "previous_resource_version", "resource_version", "generation", "snapshot_id", "infrastructure_mutation_authorized", "external_publication_authorized"],
+      "properties": {
+        "schema": {"const": "home-center.household-commit.v1"},
+        "commit_id": {"type": "string", "pattern": "^hcommit-[a-f0-9]{24}$"},
+        "operation": {"enum": ["create", "replace"]},
+        "household_id": {"type": "string", "minLength": 1, "maxLength": 256},
+        "previous_resource_version": {"type": ["string", "null"]},
+        "resource_version": {"type": "string", "pattern": "^hrv-[a-f0-9]{24}$"},
+        "generation": {"type": "integer", "minimum": 1},
+        "snapshot_id": {"type": "string", "pattern": "^hsnap-[a-f0-9]{24}$"},
+        "infrastructure_mutation_authorized": {"const": false},
+        "external_publication_authorized": {"const": false}
+      }
+    }
+  }
+}
