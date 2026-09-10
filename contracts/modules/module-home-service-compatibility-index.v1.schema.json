@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://home-center.local/contracts/module-home-service-compatibility-index.v1.schema.json",
+  "$id": "https://home-center.local/contracts/modules/module-home-service-compatibility-index.v1.schema.json",
   "title": "Home Center Module Home Service Compatibility Index v1",
   "type": "object",
   "additionalProperties": false,
