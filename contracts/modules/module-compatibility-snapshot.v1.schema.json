@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/modules/module-compatibility-snapshot.v1.schema.json",
+  "title": "Home Center module runtime compatibility snapshot v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "snapshot_id",
+    "home_center_version",
+    "architecture",
+    "operating_system",
+    "available_capabilities",
+    "installed_modules",
+    "installation_authorized",
+    "execution_authorized",
+    "production_mutation_enabled",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {
+      "const": "home-center.module-compatibility-snapshot.v1"
+    },
+    "snapshot_id": {
+      "type": "string",
+      "pattern": "^mcs-[0-9a-f]{24}$"
+    },
+    "home_center_version": {
+      "$ref": "#/$defs/semver"
+    },
+    "architecture": {
+      "$ref": "#/$defs/symbolicId"
+    },
+    "operating_system": {
+      "$ref": "#/$defs/symbolicId"
+    },
+    "available_capabilities": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/symbolicId"
+      }
+    },
+    "installed_modules": {
+      "$ref": "#/$defs/installedModules"
+    },
+    "installation_authorized": {
+      "const": false
+    },
+    "execution_authorized": {
+      "const": false
+    },
+    "production_mutation_enabled": {
+      "const": false
+    },
+    "external_publication_authorized": {
+      "const": false
+    }
+  },
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "moduleId": {
+      "type": "string",
+      "maxLength": 128,
+      "pattern": "^[a-z0-9](?:[a-z0-9.-]{0,126}[a-z0-9])?$"
+    },
+    "symbolicId": {
+      "type": "string",
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "installedModules": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/moduleId"
+          },
+          "version": {
+            "$ref": "#/$defs/semver"
+          }
+        }
+      }
+    }
+  }
+}
