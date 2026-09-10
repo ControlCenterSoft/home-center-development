@@ -2,9 +2,9 @@
 
 Home Center is an infrastructure-neutral platform for managing home and small-server infrastructure through a unified Web UI and API.
 
-## Active development repository
+## Product source boundary
 
-This repository is the authoritative workspace for active Home Center product development.
+This repository contains public, infrastructure-neutral Home Center product source and documentation.
 
 Home Center must be installable on a new or existing supported infrastructure without any dependency on a particular deployment. Product source must not hard-code real node names, domain names, directory identifiers, network addresses, credentials, certificates, or topology from an operator environment.
 
@@ -16,7 +16,7 @@ Home Center has two complementary user-interface levels: the full technical inte
 
 The authoritative architecture and release boundary for this interface are defined in [`docs/architecture/cozy-interface.md`](docs/architecture/cozy-interface.md).
 
-The core rule is that the user expresses a household intent while Home Center translates it into a safe policy/desired-state plan and executes it through the normal authorization, Change/Job, reconciliation, verification and recovery boundaries. The current 0.23 release scope is not expanded by this decision; the foundation starts with 0.24.
+The core rule is that the user expresses a household intent while Home Center translates it into a safe policy/desired-state plan and executes it through the normal authorization, Change/Job, reconciliation, verification and recovery boundaries. The published source line has advanced through 0.36.0; the separately published stable channel remains 0.15.0 until a newer stable release is completed. Household/Intent foundation starts with 0.26.0, and later user-facing capabilities are available only when explicitly published.
 
 From 0.24 onward, every new user-facing capability should define both its Full/Core representation and its Household/Intent representation, or explicitly document why the latter is not applicable.
 
@@ -27,9 +27,9 @@ Allowed here:
 - product source and Web UI;
 - portable deployment and enrollment logic;
 - schemas and API contracts;
-- tests and GitHub Actions CI;
+- tests and public quality checks;
 - infrastructure-neutral documentation and examples;
-- release and feature branches for active development.
+- release documentation and product examples.
 
 Not allowed here:
 
@@ -39,8 +39,8 @@ Not allowed here:
 - production acceptance evidence containing private infrastructure details;
 - internal server-only operational data.
 
-Those restricted operational materials remain outside the public product-development repository.
+Those restricted operational materials remain outside the public product source.
 
-## Development model
+## Quality boundary
 
-`main` is the infrastructure-neutral integration baseline. Active versions are developed in parallel release and feature branches. Every push and pull request is checked by the infrastructure-neutrality gate on GitHub-hosted runners.
+Changes to the public product source are required to pass repository quality, privacy and infrastructure-neutrality checks before they can be treated as release-ready.
