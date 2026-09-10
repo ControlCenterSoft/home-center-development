@@ -18,6 +18,13 @@ from .store import IdempotencyConflict, StateStore
 from .util import canonical_json, utc_now
 
 
+RECOVERY_RETRY_VERIFICATION_SCHEMA = (
+    "home-center.operation-recovery-retry-verification-receipt.v1"
+)
+RECOVERY_RETRY_COMPLETION_JOURNAL_SCHEMA = (
+    "home-center.operation-recovery-retry-completion-journal.v1"
+)
+
 OPERATION_JOB_SCHEMA = """
 CREATE TABLE IF NOT EXISTS operation_job_metadata (
     job_id TEXT PRIMARY KEY REFERENCES jobs(job_id) ON DELETE CASCADE,
@@ -40,6 +47,24 @@ CREATE TABLE IF NOT EXISTS operation_job_metadata (
 );
 CREATE INDEX IF NOT EXISTS idx_operation_job_state
     ON operation_job_metadata(target_node_id, service, state_version);
+CREATE TABLE IF NOT EXISTS operation_recovery_retry_completion_journal (
+    receipt_id TEXT PRIMARY KEY,
+    job_id TEXT NOT NULL REFERENCES operation_job_metadata(job_id) ON DELETE CASCADE,
+    receipt_sha256 TEXT NOT NULL UNIQUE,
+    receipt_json TEXT NOT NULL,
+    plan_id TEXT NOT NULL,
+    plan_sha256 TEXT NOT NULL,
+    from_state TEXT NOT NULL CHECK(from_state = 'rolling_back'),
+    to_state TEXT NOT NULL CHECK(to_state IN ('rolled_back','failed')),
+    from_state_version INTEGER NOT NULL CHECK(from_state_version >= 1),
+    to_state_version INTEGER NOT NULL CHECK(to_state_version = from_state_version + 1),
+    audit_event_id TEXT NOT NULL UNIQUE REFERENCES audit(event_id),
+    audit_entry_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE(job_id, to_state_version)
+);
+CREATE INDEX IF NOT EXISTS idx_operation_recovery_retry_completion_job
+    ON operation_recovery_retry_completion_journal(job_id, to_state_version);
 """
 
 
@@ -60,6 +85,10 @@ class OperationJobStateStore(StateStore):
 
     @staticmethod
     def _plan_sha256(value: dict[str, Any]) -> str:
+        return hashlib.sha256(canonical_json(value).encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _value_sha256(value: Any) -> str:
         return hashlib.sha256(canonical_json(value).encode("utf-8")).hexdigest()
 
     @staticmethod
@@ -132,6 +161,21 @@ class OperationJobStateStore(StateStore):
             (job_id,),
         ).fetchone()
 
+    def _operation_recovery_retry_completion_row(
+        self, receipt_id: str
+    ) -> sqlite3.Row | None:
+        return self._connection.execute(
+            """SELECT c.*,a.seq AS audit_seq,a.occurred_at AS audit_occurred_at,
+            a.actor AS audit_actor,a.action AS audit_action,a.target AS audit_target,
+            a.outcome AS audit_outcome,a.correlation_id AS audit_correlation_id,
+            a.details_json AS audit_details_json,a.previous_hash AS audit_previous_hash,
+            a.entry_hash AS current_audit_entry_hash
+            FROM operation_recovery_retry_completion_journal AS c
+            JOIN audit AS a ON a.event_id=c.audit_event_id
+            WHERE c.receipt_id=?""",
+            (receipt_id,),
+        ).fetchone()
+
     @classmethod
     def _decode_operation_job(cls, row: sqlite3.Row) -> dict[str, Any]:
         plan = json.loads(row["plan_json"])
@@ -172,10 +216,152 @@ class OperationJobStateStore(StateStore):
             "updated_at": row["updated_at"],
         }
 
+    @classmethod
+    def _decode_recovery_retry_completion_journal(
+        cls, row: sqlite3.Row
+    ) -> dict[str, Any]:
+        receipt = json.loads(row["receipt_json"])
+        receipt_sha256 = cls._value_sha256(receipt)
+        if receipt_sha256 != row["receipt_sha256"]:
+            raise RuntimeError("recovery retry completion receipt integrity mismatch")
+        if row["audit_entry_hash"] != row["current_audit_entry_hash"]:
+            raise RuntimeError("recovery retry completion audit binding mismatch")
+        for key, expected in (
+            ("receipt_id", row["receipt_id"]),
+            ("job_id", row["job_id"]),
+            ("plan_id", row["plan_id"]),
+            ("plan_sha256", row["plan_sha256"]),
+            ("from_state", row["from_state"]),
+            ("next_state", row["to_state"]),
+            ("from_state_version", row["from_state_version"]),
+            ("to_state_version", row["to_state_version"]),
+        ):
+            if receipt.get(key) != expected:
+                raise RuntimeError("recovery retry completion lineage mismatch")
+        audit_event = {
+            "seq": row["audit_seq"],
+            "event_id": row["audit_event_id"],
+            "occurred_at": row["audit_occurred_at"],
+            "actor": row["audit_actor"],
+            "action": row["audit_action"],
+            "target": row["audit_target"],
+            "outcome": row["audit_outcome"],
+            "correlation_id": row["audit_correlation_id"],
+            "details": json.loads(row["audit_details_json"]),
+            "previous_hash": row["audit_previous_hash"],
+            "entry_hash": row["current_audit_entry_hash"],
+        }
+        return {
+            "schema": RECOVERY_RETRY_COMPLETION_JOURNAL_SCHEMA,
+            "journal_id": f"oprecoveryjournal-{receipt_sha256[:24]}",
+            "receipt_id": row["receipt_id"],
+            "receipt_sha256": receipt_sha256,
+            "job_id": row["job_id"],
+            "plan_id": row["plan_id"],
+            "plan_sha256": row["plan_sha256"],
+            "from_state": row["from_state"],
+            "to_state": row["to_state"],
+            "from_state_version": row["from_state_version"],
+            "to_state_version": row["to_state_version"],
+            "audit_event_id": row["audit_event_id"],
+            "audit_entry_hash": row["audit_entry_hash"],
+            "audit_event": audit_event,
+            "created_at": row["created_at"],
+            "atomic_with_job_transition": True,
+            "single_use": True,
+            "contains_command_material": False,
+            "accepts_caller_argv": False,
+            "accepts_shell": False,
+            "grants_execution_authority": False,
+            "retry_authorized": False,
+            "rollback_authorized": False,
+            "production_mutation_enabled": False,
+        }
+
+    @classmethod
+    def _recovery_retry_completion_receipt(
+        cls,
+        *,
+        evidence: dict[str, Any] | None,
+        row: sqlite3.Row,
+        expected_state: OperationJobState,
+        expected_state_version: int,
+        target_state: OperationJobState,
+        next_state_version: int,
+        recovery_required: bool,
+    ) -> dict[str, Any] | None:
+        if expected_state != OperationJobState.ROLLING_BACK or target_state not in {
+            OperationJobState.ROLLED_BACK,
+            OperationJobState.FAILED,
+        }:
+            return None
+        if not isinstance(evidence, dict):
+            return None
+        receipt = evidence.get("recovery_retry_verification_receipt")
+        if receipt is None:
+            return None
+        if not isinstance(receipt, dict):
+            raise OperationCommandError("invalid_recovery_retry_completion_evidence")
+        expected = {
+            "schema": RECOVERY_RETRY_VERIFICATION_SCHEMA,
+            "job_id": row["job_id"],
+            "action_id": row["action_id"],
+            "plan_id": row["plan_id"],
+            "plan_sha256": row["plan_sha256"],
+            "target_node_id": row["target_node_id"],
+            "from_state": OperationJobState.ROLLING_BACK.value,
+            "next_state": target_state.value,
+            "from_state_version": expected_state_version,
+            "to_state_version": next_state_version,
+            "recovery_required": recovery_required,
+            "recovery_verified": not recovery_required,
+            "contains_command_material": False,
+            "accepts_caller_argv": False,
+            "accepts_shell": False,
+            "grants_execution_authority": False,
+            "production_mutation_enabled": False,
+        }
+        for key, value in expected.items():
+            if receipt.get(key) != value:
+                raise OperationCommandError("recovery_retry_completion_lineage_mismatch")
+        receipt_id = receipt.get("receipt_id")
+        if (
+            not isinstance(receipt_id, str)
+            or len(receipt_id) != 41
+            or not receipt_id.startswith("oprecoveryverify-")
+        ):
+            raise OperationCommandError("invalid_recovery_retry_completion_receipt_id")
+        try:
+            int(receipt_id[17:], 16)
+        except ValueError as exc:
+            raise OperationCommandError(
+                "invalid_recovery_retry_completion_receipt_id"
+            ) from exc
+        return receipt
+
     def operation_job(self, job_id: str) -> dict[str, Any] | None:
         with self._lock:
             row = self._operation_job_row(job_id)
         return self._decode_operation_job(row) if row else None
+
+    def operation_recovery_retry_completion_journal(
+        self, receipt_id: str
+    ) -> dict[str, Any] | None:
+        if (
+            not isinstance(receipt_id, str)
+            or len(receipt_id) != 41
+            or not receipt_id.startswith("oprecoveryverify-")
+        ):
+            raise OperationCommandError("invalid_recovery_retry_completion_receipt_id")
+        try:
+            int(receipt_id[17:], 16)
+        except ValueError as exc:
+            raise OperationCommandError(
+                "invalid_recovery_retry_completion_receipt_id"
+            ) from exc
+        with self._lock:
+            row = self._operation_recovery_retry_completion_row(receipt_id)
+        return self._decode_recovery_retry_completion_journal(row) if row else None
 
     def create_operation_job(
         self,
@@ -365,6 +551,15 @@ class OperationJobStateStore(StateStore):
                     recovery_required = True
 
                 next_version = expected_state_version + 1
+                completion_receipt = self._recovery_retry_completion_receipt(
+                    evidence=evidence,
+                    row=row,
+                    expected_state=expected_state,
+                    expected_state_version=expected_state_version,
+                    target_state=target_state,
+                    next_state_version=next_version,
+                    recovery_required=recovery_required,
+                )
                 audit_event_id = self._append_operation_audit_locked(
                     actor=row["initiator"],
                     action="operation.job.transition",
@@ -418,6 +613,36 @@ class OperationJobStateStore(StateStore):
                 )
                 if cursor.rowcount != 1:
                     raise OperationJobPreconditionFailed(job_id)
+                if completion_receipt is not None:
+                    audit_row = self._connection.execute(
+                        "SELECT entry_hash FROM audit WHERE event_id=?",
+                        (audit_event_id,),
+                    ).fetchone()
+                    if audit_row is None:
+                        raise RuntimeError("operation transition audit persistence failed")
+                    receipt_sha256 = self._value_sha256(completion_receipt)
+                    self._connection.execute(
+                        """INSERT INTO operation_recovery_retry_completion_journal(
+                        receipt_id,job_id,receipt_sha256,receipt_json,plan_id,plan_sha256,
+                        from_state,to_state,from_state_version,to_state_version,
+                        audit_event_id,audit_entry_hash,created_at
+                        ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                        (
+                            completion_receipt["receipt_id"],
+                            job_id,
+                            receipt_sha256,
+                            canonical_json(completion_receipt),
+                            row["plan_id"],
+                            row["plan_sha256"],
+                            expected_state.value,
+                            target_state.value,
+                            expected_state_version,
+                            next_version,
+                            audit_event_id,
+                            audit_row["entry_hash"],
+                            utc_now(),
+                        ),
+                    )
                 updated = self._operation_job_row(job_id)
                 self._connection.commit()
             except Exception:
