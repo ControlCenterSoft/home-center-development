@@ -1,0 +1,214 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://controlcentersoft.example/contracts/jobs/operation-rollback-execution-receipt.v1.schema.json",
+  "title": "Home Center Operation Rollback Execution Receipt v1",
+  "description": "Immutable sanitized evidence for one bounded rollback execution attempt.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "receipt_id",
+    "rollback_claim_id",
+    "verification_receipt_id",
+    "execution_receipt_id",
+    "job_id",
+    "action_id",
+    "plan_id",
+    "plan_sha256",
+    "worker_id",
+    "target_node_id",
+    "recovery_sha256",
+    "recovery_strategy",
+    "expected_active_state",
+    "started",
+    "timed_out",
+    "exit_code",
+    "elapsed_ms",
+    "rollback_succeeded",
+    "recovery_required",
+    "from_state",
+    "next_state",
+    "from_state_version",
+    "to_state_version",
+    "audit_event_id",
+    "verification_required",
+    "contains_command_material",
+    "accepts_caller_argv",
+    "accepts_shell",
+    "grants_execution_authority",
+    "production_mutation_enabled"
+  ],
+  "properties": {
+    "schema": {
+      "const": "home-center.operation-rollback-execution-receipt.v1"
+    },
+    "receipt_id": {
+      "type": "string",
+      "pattern": "^oprollbackexec-[a-f0-9]{24}$"
+    },
+    "rollback_claim_id": {
+      "type": "string",
+      "pattern": "^oprollback-[a-f0-9]{24}$"
+    },
+    "verification_receipt_id": {
+      "type": "string",
+      "pattern": "^opverify-[a-f0-9]{24}$"
+    },
+    "execution_receipt_id": {
+      "type": "string",
+      "pattern": "^opreceipt-[a-f0-9]{24}$"
+    },
+    "job_id": {
+      "type": "string",
+      "pattern": "^opjob-[a-f0-9]{24}$"
+    },
+    "action_id": {
+      "const": "service.restart.v1"
+    },
+    "plan_id": {
+      "type": "string",
+      "pattern": "^opcmd-[a-f0-9]{24}$"
+    },
+    "plan_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "worker_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64
+    },
+    "target_node_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64
+    },
+    "recovery_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "recovery_strategy": {
+      "const": "restore-observed-active-state"
+    },
+    "expected_active_state": {
+      "enum": [
+        "active",
+        "inactive"
+      ]
+    },
+    "started": {
+      "type": "boolean"
+    },
+    "timed_out": {
+      "type": "boolean"
+    },
+    "exit_code": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": -255,
+      "maximum": 255
+    },
+    "elapsed_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 15000
+    },
+    "rollback_succeeded": {
+      "type": "boolean"
+    },
+    "recovery_required": {
+      "type": "boolean"
+    },
+    "from_state": {
+      "const": "rolling_back"
+    },
+    "next_state": {
+      "enum": [
+        "rolling_back",
+        "failed"
+      ]
+    },
+    "from_state_version": {
+      "type": "integer",
+      "minimum": 5
+    },
+    "to_state_version": {
+      "type": "integer",
+      "minimum": 6
+    },
+    "audit_event_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "verification_required": {
+      "type": "boolean"
+    },
+    "contains_command_material": {
+      "const": false
+    },
+    "accepts_caller_argv": {
+      "const": false
+    },
+    "accepts_shell": {
+      "const": false
+    },
+    "grants_execution_authority": {
+      "const": false
+    },
+    "production_mutation_enabled": {
+      "const": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "rollback_succeeded": {
+            "const": true
+          }
+        },
+        "required": [
+          "rollback_succeeded"
+        ]
+      },
+      "then": {
+        "properties": {
+          "started": {
+            "const": true
+          },
+          "timed_out": {
+            "const": false
+          },
+          "exit_code": {
+            "const": 0
+          },
+          "recovery_required": {
+            "const": false
+          },
+          "verification_required": {
+            "const": true
+          },
+          "next_state": {
+            "const": "rolling_back"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "recovery_required": {
+            "const": true
+          },
+          "verification_required": {
+            "const": false
+          },
+          "next_state": {
+            "const": "failed"
+          }
+        }
+      }
+    }
+  ]
+}
