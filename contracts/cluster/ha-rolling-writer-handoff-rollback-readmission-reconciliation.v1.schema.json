@@ -1,0 +1,269 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "HA rolling writer handoff rollback readmission terminal reconciliation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "cluster_id",
+    "receipt_id",
+    "readmission_id",
+    "source_reconciliation_receipt_id",
+    "prior_admission_id",
+    "candidate_admission_id",
+    "observed_reconciliation_receipt_id",
+    "recovered_commit_receipt_id",
+    "recovered_consumption_id",
+    "rollback_writer_node_id",
+    "fenced_successor_node_id",
+    "member_node_ids",
+    "expected_role_assignment_id",
+    "expected_role_epoch",
+    "expected_role_resource_version",
+    "expected_role_journal_seq",
+    "expected_role_transition_id",
+    "target_role_assignment_id",
+    "target_role_epoch",
+    "observed_role_assignment_id",
+    "observed_role_epoch",
+    "observed_role_resource_version",
+    "observed_role_journal_seq",
+    "observed_role_transition_id",
+    "observed_writer_node_ids",
+    "outcome",
+    "reason",
+    "terminal_consumption_recovered",
+    "operator_recovery_closure_required",
+    "recovery_generation",
+    "maximum_recovery_generation",
+    "terminal_generation",
+    "further_readmission_authorized",
+    "fresh_admission_authorized",
+    "automatic_retry_authorized",
+    "execution_authorized",
+    "failover_authorized",
+    "writer_service_authorized",
+    "host_mutation_authorized",
+    "production_mutation_enabled"
+  ],
+  "properties": {
+    "schema": {
+      "const": "home-center.ha-rolling-writer-handoff-rollback-readmission-reconciliation.v1"
+    },
+    "cluster_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "receipt_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "readmission_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "source_reconciliation_receipt_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "prior_admission_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "candidate_admission_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "observed_reconciliation_receipt_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "recovered_commit_receipt_id": {
+      "$ref": "#/$defs/nullableIdentifier"
+    },
+    "recovered_consumption_id": {
+      "$ref": "#/$defs/nullableIdentifier"
+    },
+    "rollback_writer_node_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "fenced_successor_node_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "member_node_ids": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/identifier"
+      }
+    },
+    "expected_role_assignment_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "expected_role_epoch": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "expected_role_resource_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "expected_role_journal_seq": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "expected_role_transition_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "target_role_assignment_id": {
+      "$ref": "#/$defs/identifier"
+    },
+    "target_role_epoch": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "observed_role_assignment_id": {
+      "$ref": "#/$defs/nullableIdentifier"
+    },
+    "observed_role_epoch": {
+      "$ref": "#/$defs/nullableNonnegativeInteger"
+    },
+    "observed_role_resource_version": {
+      "$ref": "#/$defs/nullableNonnegativeInteger"
+    },
+    "observed_role_journal_seq": {
+      "$ref": "#/$defs/nullableNonnegativeInteger"
+    },
+    "observed_role_transition_id": {
+      "$ref": "#/$defs/nullableIdentifier"
+    },
+    "observed_writer_node_ids": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/identifier"
+      }
+    },
+    "outcome": {
+      "enum": [
+        "committed",
+        "definitely-not-applied",
+        "superseded",
+        "ambiguous"
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "terminal_consumption_recovered": {
+      "type": "boolean"
+    },
+    "operator_recovery_closure_required": {
+      "type": "boolean"
+    },
+    "recovery_generation": {
+      "const": 1
+    },
+    "maximum_recovery_generation": {
+      "const": 1
+    },
+    "terminal_generation": {
+      "const": true
+    },
+    "further_readmission_authorized": {
+      "const": false
+    },
+    "fresh_admission_authorized": {
+      "const": false
+    },
+    "automatic_retry_authorized": {
+      "const": false
+    },
+    "execution_authorized": {
+      "const": false
+    },
+    "failover_authorized": {
+      "const": false
+    },
+    "writer_service_authorized": {
+      "const": false
+    },
+    "host_mutation_authorized": {
+      "const": false
+    },
+    "production_mutation_enabled": {
+      "const": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "committed"
+          }
+        },
+        "required": [
+          "outcome"
+        ]
+      },
+      "then": {
+        "properties": {
+          "terminal_consumption_recovered": {
+            "const": true
+          },
+          "operator_recovery_closure_required": {
+            "const": false
+          },
+          "recovered_commit_receipt_id": {
+            "$ref": "#/$defs/identifier"
+          },
+          "recovered_consumption_id": {
+            "$ref": "#/$defs/identifier"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "terminal_consumption_recovered": {
+            "const": false
+          },
+          "operator_recovery_closure_required": {
+            "const": true
+          },
+          "recovered_commit_receipt_id": {
+            "type": "null"
+          },
+          "recovered_consumption_id": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"
+    },
+    "nullableIdentifier": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/identifier"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nullableNonnegativeInteger": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
