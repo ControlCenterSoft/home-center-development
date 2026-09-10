@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "home-center.operation-recovery-retry-claim.v1",
+  "title": "Home Center Operation Recovery Retry Claim",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "claim_id",
+    "admission_id",
+    "rollback_verification_receipt_id",
+    "rollback_execution_receipt_id",
+    "job_id",
+    "action_id",
+    "plan_id",
+    "plan_sha256",
+    "worker_id",
+    "target_node_id",
+    "recovery_sha256",
+    "retry_authorization_id",
+    "retry_correlation_id",
+    "retry_reason_sha256",
+    "failed_audit_event_id",
+    "state",
+    "from_state_version",
+    "to_state_version",
+    "audit_event_id",
+    "single_use",
+    "contains_command_material",
+    "accepts_caller_argv",
+    "accepts_shell",
+    "execution_authorized",
+    "production_mutation_enabled"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.operation-recovery-retry-claim.v1"},
+    "claim_id": {
+      "type": "string",
+      "pattern": "^oprecoveryclaim-[a-f0-9]{24}$"
+    },
+    "admission_id": {
+      "type": "string",
+      "pattern": "^oprecoveryretry-[a-f0-9]{24}$"
+    },
+    "rollback_verification_receipt_id": {
+      "type": "string",
+      "pattern": "^oprollbackverify-[a-f0-9]{24}$"
+    },
+    "rollback_execution_receipt_id": {
+      "type": "string",
+      "pattern": "^oprollbackexec-[a-f0-9]{24}$"
+    },
+    "job_id": {
+      "type": "string",
+      "pattern": "^opjob-[a-f0-9]{24}$"
+    },
+    "action_id": {"const": "service.restart.v1"},
+    "plan_id": {
+      "type": "string",
+      "pattern": "^opcmd-[a-f0-9]{24}$"
+    },
+    "plan_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "worker_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64
+    },
+    "target_node_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]{2,63}$"
+    },
+    "recovery_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "retry_authorization_id": {
+      "type": "string",
+      "pattern": "^opauth-[a-f0-9]{24}$"
+    },
+    "retry_correlation_id": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128
+    },
+    "retry_reason_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "failed_audit_event_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "state": {"const": "rolling_back"},
+    "from_state_version": {"type": "integer", "minimum": 1},
+    "to_state_version": {"type": "integer", "minimum": 2},
+    "audit_event_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "single_use": {"const": true},
+    "contains_command_material": {"const": false},
+    "accepts_caller_argv": {"const": false},
+    "accepts_shell": {"const": false},
+    "execution_authorized": {"const": false},
+    "production_mutation_enabled": {"const": false}
+  }
+}
