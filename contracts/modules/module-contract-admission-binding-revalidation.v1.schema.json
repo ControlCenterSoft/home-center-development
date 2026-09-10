@@ -1,0 +1,236 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "home-center.module-contract-admission-binding-revalidation.v1.schema.json",
+  "title": "Home Center Module Contract Admission Binding Revalidation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "revalidation_id",
+    "status",
+    "original_binding_id",
+    "fresh_binding_id",
+    "original_profile_id",
+    "fresh_profile_id",
+    "original_negotiation_decision_id",
+    "fresh_negotiation_decision_id",
+    "original_admission_decision_id",
+    "fresh_admission_decision_id",
+    "original_home_center_version",
+    "fresh_home_center_version",
+    "original_module_manifest_schema",
+    "fresh_module_manifest_schema",
+    "original_module_admission_schema",
+    "fresh_module_admission_schema",
+    "original_module_id",
+    "fresh_module_id",
+    "original_module_version",
+    "fresh_module_version",
+    "original_manifest_binding_sha256",
+    "fresh_manifest_binding_sha256",
+    "original_artifact_sha256",
+    "fresh_artifact_sha256",
+    "original_admission_status",
+    "fresh_admission_status",
+    "drift_reasons",
+    "admission_authorized",
+    "installation_authorized",
+    "execution_authorized",
+    "production_mutation_enabled",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {
+      "const": "home-center.module-contract-admission-binding-revalidation.v1"
+    },
+    "revalidation_id": {
+      "type": "string",
+      "pattern": "^mcabr-[0-9a-f]{24}$"
+    },
+    "status": {
+      "enum": [
+        "current",
+        "stale"
+      ]
+    },
+    "original_binding_id": {
+      "$ref": "#/$defs/bindingId"
+    },
+    "fresh_binding_id": {
+      "$ref": "#/$defs/bindingId"
+    },
+    "original_profile_id": {
+      "$ref": "#/$defs/profileId"
+    },
+    "fresh_profile_id": {
+      "$ref": "#/$defs/profileId"
+    },
+    "original_negotiation_decision_id": {
+      "$ref": "#/$defs/negotiationId"
+    },
+    "fresh_negotiation_decision_id": {
+      "$ref": "#/$defs/negotiationId"
+    },
+    "original_admission_decision_id": {
+      "$ref": "#/$defs/admissionId"
+    },
+    "fresh_admission_decision_id": {
+      "$ref": "#/$defs/admissionId"
+    },
+    "original_home_center_version": {
+      "$ref": "#/$defs/semver"
+    },
+    "fresh_home_center_version": {
+      "$ref": "#/$defs/semver"
+    },
+    "original_module_manifest_schema": {
+      "$ref": "#/$defs/schemaId"
+    },
+    "fresh_module_manifest_schema": {
+      "$ref": "#/$defs/schemaId"
+    },
+    "original_module_admission_schema": {
+      "$ref": "#/$defs/schemaId"
+    },
+    "fresh_module_admission_schema": {
+      "$ref": "#/$defs/schemaId"
+    },
+    "original_module_id": {
+      "$ref": "#/$defs/moduleId"
+    },
+    "fresh_module_id": {
+      "$ref": "#/$defs/moduleId"
+    },
+    "original_module_version": {
+      "$ref": "#/$defs/semver"
+    },
+    "fresh_module_version": {
+      "$ref": "#/$defs/semver"
+    },
+    "original_manifest_binding_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "fresh_manifest_binding_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "original_artifact_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "fresh_artifact_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "original_admission_status": {
+      "$ref": "#/$defs/admissionStatus"
+    },
+    "fresh_admission_status": {
+      "$ref": "#/$defs/admissionStatus"
+    },
+    "drift_reasons": {
+      "$ref": "#/$defs/driftReasons"
+    },
+    "admission_authorized": {
+      "const": false
+    },
+    "installation_authorized": {
+      "const": false
+    },
+    "execution_authorized": {
+      "const": false
+    },
+    "production_mutation_enabled": {
+      "const": false
+    },
+    "external_publication_authorized": {
+      "const": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "current"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "drift_reasons": {
+            "maxItems": 0
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "drift_reasons": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "bindingId": {
+      "type": "string",
+      "pattern": "^mcab-[0-9a-f]{24}$"
+    },
+    "profileId": {
+      "type": "string",
+      "pattern": "^mccp-[0-9a-f]{24}$"
+    },
+    "negotiationId": {
+      "type": "string",
+      "pattern": "^mcnd-[0-9a-f]{24}$"
+    },
+    "admissionId": {
+      "type": "string",
+      "pattern": "^madm-[0-9a-f]{24}$"
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "schemaId": {
+      "type": "string",
+      "pattern": "^home-center\\.[a-z0-9]+(?:-[a-z0-9]+)*\\.v[1-9][0-9]*$"
+    },
+    "moduleId": {
+      "type": "string",
+      "pattern": "^[a-z0-9](?:[a-z0-9.-]{0,126}[a-z0-9])?$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "admissionStatus": {
+      "enum": [
+        "compatible",
+        "blocked"
+      ]
+    },
+    "driftReason": {
+      "enum": [
+        "contract_profile_changed",
+        "contract_negotiation_changed",
+        "module_admission_changed",
+        "home_center_version_changed",
+        "module_manifest_contract_changed",
+        "module_admission_contract_changed",
+        "module_identity_changed",
+        "module_version_changed",
+        "manifest_binding_changed",
+        "artifact_changed",
+        "admission_status_changed",
+        "contract_admission_binding_evidence_changed"
+      ]
+    },
+    "driftReasons": {
+      "type": "array",
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/driftReason"
+      }
+    }
+  }
+}
