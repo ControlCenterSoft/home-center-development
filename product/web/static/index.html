@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="light">
   <meta name="theme-color" content="#f6f7f8">
   <title>Home Center</title>
-  <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
   <div class="app-shell">
@@ -15,7 +15,7 @@
         <span class="brand-mark" aria-hidden="true">HC</span>
         <div>
           <strong>Home Center</strong>
-          <small id="version">0.46.0</small>
+          <small id="version">0.47.0</small>
         </div>
       </div>
       <div class="mode-switch" role="tablist" aria-label="Режим интерфейса">
@@ -25,37 +25,88 @@
     </header>
 
     <main>
-      <section id="cozy-view" class="view cozy-view" aria-labelledby="cozy-title">
-        <div class="cozy-heading">
-          <div>
-            <span class="eyebrow">Уютный режим</span>
-            <h1 id="cozy-title">Домой</h1>
-            <p>Главное состояние дома без технических деталей. Для сложных настроек в любой момент можно перейти в полный режим.</p>
-          </div>
-          <span id="cozy-state" class="state-pill neutral">Проверяем дом</span>
-        </div>
+      <section id="cozy-view" class="view cozy-view" aria-label="Уютный интерфейс">
+        <nav class="cozy-nav" role="tablist" aria-label="Разделы Уютного интерфейса">
+          <button class="cozy-nav-button" type="button" role="tab" data-cozy-section="home" aria-controls="cozy-home">
+            <span aria-hidden="true">⌂</span><strong>Домой</strong>
+          </button>
+          <button class="cozy-nav-button" type="button" role="tab" data-cozy-section="family" aria-controls="cozy-family">
+            <span aria-hidden="true">♙</span><strong>Семья</strong>
+          </button>
+          <button class="cozy-nav-button" type="button" role="tab" data-cozy-section="house" aria-controls="cozy-house">
+            <span aria-hidden="true">◇</span><strong>Мой дом</strong>
+          </button>
+        </nav>
 
-        <div class="cozy-summary" aria-live="polite">
-          <article class="cozy-card primary-card">
-            <span class="card-kicker">Состояние</span>
-            <strong id="cozy-health">Подключаемся…</strong>
-            <p id="cozy-health-copy">Получаем актуальное состояние Home Center.</p>
-          </article>
-          <article class="cozy-card">
-            <span class="card-kicker">Серверы</span>
-            <strong id="cozy-nodes">—</strong>
-            <p>Home Center сам учитывает доступные узлы и их роли.</p>
-          </article>
-          <article class="cozy-card">
-            <span class="card-kicker">Возможности</span>
-            <strong id="cozy-capabilities">—</strong>
-            <p>Доступные домашние функции определяются автоматически.</p>
-          </article>
-        </div>
+        <div class="cozy-content">
+          <section id="cozy-home" class="cozy-panel" role="tabpanel" data-cozy-panel="home">
+            <div class="cozy-heading">
+              <div>
+                <span class="eyebrow">Уютный режим</span>
+                <h1>Домой</h1>
+                <p>Главное состояние дома без технических деталей. Если требуется диагностика или точная настройка, полный режим всегда доступен сверху.</p>
+              </div>
+              <span id="cozy-state" class="state-pill neutral">Проверяем дом</span>
+            </div>
 
-        <div class="cozy-next">
-          <strong>Меню «Уютный» подключено как основной пользовательский режим.</strong>
-          <p>Разделы «Домой», «Семья» и «Мой дом» разворачиваются в следующей границе релиза; переключение с полным интерфейсом уже работает и сохраняет выбор пользователя.</p>
+            <div class="cozy-summary" aria-live="polite">
+              <article class="cozy-card primary-card">
+                <span class="card-kicker">Состояние</span>
+                <strong id="cozy-health">Подключаемся…</strong>
+                <p id="cozy-health-copy">Получаем актуальное состояние Home Center.</p>
+              </article>
+              <article class="cozy-card">
+                <span class="card-kicker">Серверы</span>
+                <strong id="cozy-nodes">—</strong>
+                <p>Home Center сам учитывает доступные узлы и их роли.</p>
+              </article>
+              <article class="cozy-card">
+                <span class="card-kicker">Возможности</span>
+                <strong id="cozy-capabilities">—</strong>
+                <p>Доступные домашние функции определяются автоматически.</p>
+              </article>
+            </div>
+
+            <section class="cozy-block" aria-labelledby="attention-title">
+              <div class="section-heading cozy-section-heading">
+                <div>
+                  <span class="eyebrow">Сейчас важно</span>
+                  <h2 id="attention-title">Что требует внимания</h2>
+                </div>
+              </div>
+              <div id="cozy-attention" class="attention-list" aria-live="polite"></div>
+            </section>
+          </section>
+
+          <section id="cozy-family" class="cozy-panel" role="tabpanel" data-cozy-panel="family" hidden>
+            <div class="cozy-heading">
+              <div>
+                <span class="eyebrow">Люди и устройства</span>
+                <h1>Семья</h1>
+                <p>Человек — основная сущность. Устройства и итоговые правила Home Center привязываются к члену семьи, а не настраиваются по отдельности без необходимости.</p>
+              </div>
+            </div>
+
+            <div id="family-members" class="family-grid" aria-live="polite"></div>
+            <div class="action-card">
+              <div>
+                <strong>Добавить человека</strong>
+                <p>Role-driven provisioning и изменение инфраструктуры подключаются после UI-границы 0.47 через защищённый Household/Intent workflow.</p>
+              </div>
+              <button class="secondary-button" type="button" disabled aria-disabled="true">Скоро</button>
+            </div>
+          </section>
+
+          <section id="cozy-house" class="cozy-panel" role="tabpanel" data-cozy-panel="house" hidden>
+            <div class="cozy-heading">
+              <div>
+                <span class="eyebrow">Бытовое представление</span>
+                <h1>Мой дом</h1>
+                <p>Домашние функции показаны по назначению. Конкретные backend-технологии остаются скрыты и доступны только в полном режиме.</p>
+              </div>
+            </div>
+            <div id="home-services" class="home-service-grid" aria-live="polite"></div>
+          </section>
         </div>
       </section>
 
@@ -87,6 +138,6 @@
       </section>
     </main>
   </div>
-  <script src="app.js"></script>
+  <script src="/static/app.js"></script>
 </body>
 </html>
