@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://controlcentersoft.example/contracts/jobs/operation-recovery-retry-completion-journal.v1.schema.json",
+  "$id": "home-center.operation-recovery-retry-completion-journal.v1",
   "title": "Home Center recovery retry completion journal",
   "type": "object",
   "additionalProperties": false,
