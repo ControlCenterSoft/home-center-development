@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "home-center.operation-recovery-retry-terminal-lineage-revalidation.v1",
+  "title": "Home Center operation recovery retry terminal lineage revalidation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "revalidation_id",
+    "seal_id",
+    "seal_sha256",
+    "job_id",
+    "receipt_id",
+    "plan_id",
+    "target_node_id",
+    "sealed_job_state",
+    "sealed_job_state_version",
+    "observed_job_state",
+    "observed_job_state_version",
+    "observed_job_completion_sha256",
+    "observed_terminal_evidence_sha256",
+    "observed_completion_journal_sha256",
+    "observed_audit_event_sha256",
+    "status",
+    "reason",
+    "exact_seal_current",
+    "fresh_decision_required",
+    "immutable_evidence_only",
+    "contains_command_material",
+    "accepts_caller_argv",
+    "accepts_shell",
+    "grants_execution_authority",
+    "retry_authorized",
+    "rollback_authorized",
+    "production_mutation_enabled"
+  ],
+  "properties": {
+    "schema": {
+      "const": "home-center.operation-recovery-retry-terminal-lineage-revalidation.v1"
+    },
+    "revalidation_id": {
+      "type": "string",
+      "pattern": "^oprecoveryrevalidate-[0-9a-f]{24}$"
+    },
+    "seal_id": {
+      "type": "string",
+      "pattern": "^oprecoveryseal-[0-9a-f]{24}$"
+    },
+    "seal_sha256": {"$ref": "#/$defs/sha256"},
+    "job_id": {
+      "type": "string",
+      "pattern": "^opjob-[0-9a-f]{24}$"
+    },
+    "receipt_id": {
+      "type": "string",
+      "pattern": "^oprecoveryverify-[0-9a-f]{24}$"
+    },
+    "plan_id": {
+      "type": "string",
+      "pattern": "^opplan-[0-9a-f]{24}$"
+    },
+    "target_node_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "sealed_job_state": {
+      "type": "string",
+      "enum": ["rolled_back", "failed"]
+    },
+    "sealed_job_state_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "observed_job_state": {
+      "type": ["string", "null"]
+    },
+    "observed_job_state_version": {
+      "type": ["integer", "null"],
+      "minimum": 1
+    },
+    "observed_job_completion_sha256": {"$ref": "#/$defs/nullableSha256"},
+    "observed_terminal_evidence_sha256": {"$ref": "#/$defs/nullableSha256"},
+    "observed_completion_journal_sha256": {"$ref": "#/$defs/nullableSha256"},
+    "observed_audit_event_sha256": {"$ref": "#/$defs/nullableSha256"},
+    "status": {
+      "type": "string",
+      "enum": ["current", "superseded", "ambiguous"]
+    },
+    "reason": {
+      "type": "string",
+      "enum": [
+        "exact_terminal_lineage_current",
+        "durable_job_revision_advanced_after_seal",
+        "durable_terminal_material_unavailable",
+        "durable_lineage_changed_during_revalidation",
+        "durable_lineage_identity_mismatch",
+        "durable_terminal_material_unsafe",
+        "durable_job_revision_invalid",
+        "advanced_revision_without_intact_sealed_journal",
+        "durable_job_revision_regressed",
+        "sealed_terminal_digest_mismatch"
+      ]
+    },
+    "exact_seal_current": {"type": "boolean"},
+    "fresh_decision_required": {"type": "boolean"},
+    "immutable_evidence_only": {"const": true},
+    "contains_command_material": {"const": false},
+    "accepts_caller_argv": {"const": false},
+    "accepts_shell": {"const": false},
+    "grants_execution_authority": {"const": false},
+    "retry_authorized": {"const": false},
+    "rollback_authorized": {"const": false},
+    "production_mutation_enabled": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "current"}}},
+      "then": {
+        "properties": {
+          "reason": {"const": "exact_terminal_lineage_current"},
+          "exact_seal_current": {"const": true},
+          "fresh_decision_required": {"const": false}
+        }
+      },
+      "else": {
+        "properties": {
+          "exact_seal_current": {"const": false},
+          "fresh_decision_required": {"const": true}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"status": {"const": "superseded"}}},
+      "then": {
+        "properties": {
+          "reason": {"const": "durable_job_revision_advanced_after_seal"}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "nullableSha256": {
+      "anyOf": [
+        {"$ref": "#/$defs/sha256"},
+        {"type": "null"}
+      ]
+    }
+  }
+}
