@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://control-center.pro/contracts/jobs/operation-recovery-retry-terminal-lineage-seal.v1.schema.json",
+  "$id": "home-center.operation-recovery-retry-terminal-lineage-seal.v1",
   "title": "Home Center operation recovery retry terminal lineage seal v1",
   "type": "object",
   "additionalProperties": false,
