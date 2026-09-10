@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://control-center.pro/contracts/jobs/operation-verification-receipt.v1.schema.json",
+  "title": "Home Center bounded operation verification receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "receipt_id",
+    "execution_receipt_id",
+    "job_id",
+    "action_id",
+    "plan_id",
+    "plan_sha256",
+    "worker_id",
+    "target_node_id",
+    "verification_sha256",
+    "started",
+    "timed_out",
+    "exit_code",
+    "elapsed_ms",
+    "load_state",
+    "active_state",
+    "sub_state",
+    "unit_file_state",
+    "verified",
+    "from_state",
+    "next_state",
+    "from_state_version",
+    "to_state_version",
+    "audit_event_id",
+    "contains_command_material",
+    "accepts_caller_argv",
+    "accepts_shell",
+    "grants_execution_authority",
+    "production_mutation_enabled"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.operation-verification-receipt.v1"},
+    "receipt_id": {"type": "string", "pattern": "^opverify-[a-f0-9]{24}$"},
+    "execution_receipt_id": {
+      "type": "string",
+      "pattern": "^opreceipt-[a-f0-9]{24}$"
+    },
+    "job_id": {"type": "string", "pattern": "^opjob-[a-f0-9]{24}$"},
+    "action_id": {"const": "service.restart.v1"},
+    "plan_id": {"type": "string", "pattern": "^opcmd-[a-f0-9]{24}$"},
+    "plan_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "worker_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]{2,63}$"
+    },
+    "target_node_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]{2,63}$"
+    },
+    "verification_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "started": {"type": "boolean"},
+    "timed_out": {"type": "boolean"},
+    "exit_code": {
+      "oneOf": [
+        {"type": "integer", "minimum": -255, "maximum": 255},
+        {"type": "null"}
+      ]
+    },
+    "elapsed_ms": {"type": "integer", "minimum": 0, "maximum": 5000},
+    "load_state": {
+      "oneOf": [
+        {"type": "string", "pattern": "^[A-Za-z0-9_.@:-]{1,128}$"},
+        {"type": "null"}
+      ]
+    },
+    "active_state": {
+      "oneOf": [
+        {"type": "string", "pattern": "^[A-Za-z0-9_.@:-]{1,128}$"},
+        {"type": "null"}
+      ]
+    },
+    "sub_state": {
+      "oneOf": [
+        {"type": "string", "pattern": "^[A-Za-z0-9_.@:-]{1,128}$"},
+        {"type": "null"}
+      ]
+    },
+    "unit_file_state": {
+      "oneOf": [
+        {"type": "string", "pattern": "^[A-Za-z0-9_.@:-]{1,128}$"},
+        {"type": "null"}
+      ]
+    },
+    "verified": {"type": "boolean"},
+    "from_state": {"const": "verifying"},
+    "next_state": {"enum": ["succeeded", "rolling_back"]},
+    "from_state_version": {"type": "integer", "minimum": 3},
+    "to_state_version": {"type": "integer", "minimum": 4},
+    "audit_event_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "contains_command_material": {"const": false},
+    "accepts_caller_argv": {"const": false},
+    "accepts_shell": {"const": false},
+    "grants_execution_authority": {"const": false},
+    "production_mutation_enabled": {"const": false}
+  }
+}
