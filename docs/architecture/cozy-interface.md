@@ -25,6 +25,8 @@ Status: ACCEPTED / FUNDAMENTAL ARCHITECTURE DECISION
 - пользователь может перейти в «Полный» одним явным действием;
 - выбранный режим сохраняется для последующих открытий интерфейса;
 - переход между режимами не изменяет Desired State, права, политики или инфраструктуру;
+- режимы доступны только после штатной аутентификации;
+- обязательная смена первоначального пароля имеет приоритет над доступом к обоим режимам;
 - критическая диагностика и опасные операции не переносятся в «Уютный» как обычные бытовые действия.
 
 ## Основное меню «Уютный»
@@ -45,12 +47,19 @@ Status: ACCEPTED / FUNDAMENTAL ARCHITECTURE DECISION
 
 Базовые доменные сущности: `Household`, `FamilyMember`, `HouseholdRole`, `ManagedDevice`, `RolePreset`, `PolicyBundle`, `EffectivePolicy`, `UserIntent`, `RecommendedAction`.
 
+Первоначальный Household bootstrap является отдельной product-state операцией: он создаёт первый Household snapshot и серверную привязку текущего аутентифицированного actor к родителю. Он не является разрешением на инфраструктурную мутацию.
+
+Actor/member binding является серверным security boundary. Клиентский запрос не должен иметь возможность самостоятельно объявить себя другим `FamilyMember` для обхода household policy.
+
 ## Safety invariants
 
 Для «Уютного» обязательны:
 
 - safe-by-default;
 - default deny для неподтверждённых privileged-возможностей;
+- штатная аутентификация до чтения или изменения household state;
+- обязательная смена первоначального локального admin-пароля до обычной работы;
+- server-side actor/member binding для административных Household/Intent действий;
 - plan/desired-state до инфраструктурной мутации;
 - stale-state protection;
 - idempotency;
@@ -79,6 +88,8 @@ Status: ACCEPTED / FUNDAMENTAL ARCHITECTURE DECISION
 - **0.29–0.45** — параллельное развитие module/runtime, execution и других core boundaries; номера этих релизов уже заняты фактической разработкой;
 - **0.46.0** — пользовательская оболочка режимов и постоянное переключение «Уютный»/«Полный», сохранение выбора, «Уютный» по умолчанию;
 - **0.47.0** — первый полноценный mobile-first интерфейс «Уютный» с меню «Домой», «Семья», «Мой дом»;
-- **0.48+** — последовательное подключение реальных household actions: role-driven provisioning, учётные записи и профили, internet/DNS, лимиты, VPN, managed-device policies, домашние providers, рекомендации, QR-гости и безопасный auto-repair.
+- **0.48.0** — восстановленный authenticated UI boundary, обязательная смена первого пароля, persistent Household bootstrap, server-side actor/member binding, `GET /api/v1/household` и exact-state intent planning API; инфраструктурное выполнение остаётся запрещено;
+- **0.49.0** — подтверждаемое добавление `parent`/`child`/`guest` в Household product state с optimistic stale-state rejection и audit evidence;
+- **0.50+** — последовательное подключение PolicyBundle/EffectivePolicy к защищённому Desired State, затем provider-backed provisioning: учётные записи/профили, internet/DNS, лимиты, VPN, managed-device policies, домашние providers, рекомендации, QR-гости и безопасный auto-repair.
 
 Начиная с 0.46 каждая пользовательская capability должна определять техническое представление в Full/Core API, бытовое представление в Household/Intent API, mapping в Desired State, safety gates, permissions, post-condition verification и recovery behavior.
