@@ -1,46 +1,46 @@
 # Home Center
 
-Home Center is an infrastructure-neutral platform for managing home and small-server infrastructure through a unified Web UI and API.
+Home Center — инфраструктурно-независимая платформа управления домашней и небольшой серверной инфраструктурой через единый Web UI и API.
 
-## Product source boundary
+## Текущий релизный статус
 
-This repository contains public, infrastructure-neutral Home Center product source and documentation.
+- Последний официально опубликованный исходный релиз: **0.40.0**.
+- Отдельный stable-канал подтверждён до **0.15.0**.
+- Более новые возможности считаются доступными только в том канале, где соответствующая версия официально опубликована.
+- Предварительные кандидатные версии не должны описываться как уже доступные пользователю.
 
-Home Center must be installable on a new or existing supported infrastructure without any dependency on a particular deployment. Product source must not hard-code real node names, domain names, directory identifiers, network addresses, credentials, certificates, or topology from an operator environment.
+## Архитектурная граница продукта
 
-Runtime identity and topology are supplied by discovery, enrollment and deployment profiles. Directory integration is optional and configured by the administrator. Compute, storage, device, automation, certificate and remote-access providers are selected through capabilities and provider profiles rather than fixed hosts.
+Home Center должен устанавливаться на новую или существующую поддерживаемую инфраструктуру без зависимости от конкретных имён узлов, доменов, адресов, directory identifiers, credentials, сертификатов или заранее заданной топологии.
 
-## Product UX architecture
+Runtime identity и topology поступают через discovery, enrollment и deployment profiles. Directory integration является опциональной. Compute, storage, device, automation, certificate и remote-access возможности выбираются через типизированные capabilities и provider profiles.
 
-Home Center has two complementary user-interface levels: the full technical interface and the accepted mobile-first interface **«Уютный»**. «Уютный» is part of Home Center, not a separate product or theme.
+## Интерфейсы
 
-The authoritative architecture and release boundary for this interface are defined in [`docs/architecture/cozy-interface.md`](docs/architecture/cozy-interface.md).
+Home Center имеет два дополняющих уровня интерфейса: полный технический интерфейс и mobile-first интерфейс **«Уютный»**. «Уютный» — часть Home Center, а не отдельный продукт и не тема оформления.
 
-The core rule is that the user expresses a household intent while Home Center translates it into a safe policy/desired-state plan and executes it through the normal authorization, Change/Job, reconciliation, verification and recovery boundaries. The published source line has advanced through 0.39.0; the separately published stable channel remains 0.15.0 until a newer stable release is completed. Household/Intent foundation starts with 0.26.0, and later user-facing capabilities are available only when explicitly published.
+Каноническая архитектурная граница «Уютного» описана в `docs/architecture/cozy-interface.md`. Пользователь формулирует бытовое намерение, а Home Center преобразует его в безопасный policy/desired-state plan через обычные Identity/RBAC, Change/Job, verification и recovery boundaries.
 
-From 0.24 onward, every new user-facing capability should define both its Full/Core representation and its Household/Intent representation, or explicitly document why the latter is not applicable.
+Household/Intent foundation начинается в опубликованной исходной линии с 0.26.0. Пользовательские возможности последующих версий считаются доступными только после их официальной публикации.
 
-## Repository boundary
+## Основные требования безопасности
 
-Allowed here:
+- deny-by-default Identity/RBAC;
+- явное разделение Desired State и Actual State;
+- типизированные операции вместо generic shell/root API;
+- stale-state и tamper protection для подтверждений и evidence;
+- обязательный post-condition verification для изменяющих state операций;
+- Audit без credentials и секретов;
+- backup/recovery semantics для stateful данных;
+- infrastructure-neutral examples и deployment artifacts;
+- внешняя публикация, routing/NAT и provider execution только через отдельные явно разрешённые границы.
 
-- product source and Web UI;
-- portable deployment and enrollment logic;
-- schemas and API contracts;
-- tests and public quality checks;
-- infrastructure-neutral documentation and examples;
-- release documentation and product examples.
+## Первый вход
 
-Not allowed here:
+После чистой установки создаётся локальный пользователь `admin` с первоначальным паролем `admin`. При первом входе пароль необходимо сменить; до смены обычная работа запрещена. При обновлении установленный пользователем пароль сохраняется и не сбрасывается к первоначальному значению.
 
-- credentials, private keys or production certificates;
-- real deployment IP addresses, host names, directory SIDs or private realms;
-- operator-specific deployment overlays;
-- production acceptance evidence containing private infrastructure details;
-- internal server-only operational data.
+## Документация
 
-Those restricted operational materials remain outside the public product source.
+Продуктовая документация должна соответствовать фактически опубликованному состоянию релизов. Планируемые возможности должны быть явно отделены от выпущенных.
 
-## Quality boundary
-
-Changes to the public product source are required to pass repository quality, privacy and infrastructure-neutrality checks before they can be treated as release-ready.
+В документации запрещено публиковать credentials, private keys, реальные deployment identifiers, внутренние адреса, приватную топологию, персональные данные и сведения о внутренней инфраструктуре или методологии разработки.
