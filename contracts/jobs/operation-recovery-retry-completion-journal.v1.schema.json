@@ -1,0 +1,240 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://controlcentersoft.example/contracts/jobs/operation-recovery-retry-completion-journal.v1.schema.json",
+  "title": "Home Center recovery retry completion journal",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "journal_id",
+    "receipt_id",
+    "receipt_sha256",
+    "job_id",
+    "plan_id",
+    "plan_sha256",
+    "from_state",
+    "to_state",
+    "from_state_version",
+    "to_state_version",
+    "audit_event_id",
+    "audit_entry_hash",
+    "audit_event",
+    "created_at",
+    "atomic_with_job_transition",
+    "single_use",
+    "contains_command_material",
+    "accepts_caller_argv",
+    "accepts_shell",
+    "grants_execution_authority",
+    "retry_authorized",
+    "rollback_authorized",
+    "production_mutation_enabled"
+  ],
+  "properties": {
+    "schema": {
+      "const": "home-center.operation-recovery-retry-completion-journal.v1"
+    },
+    "journal_id": {
+      "type": "string",
+      "pattern": "^oprecoveryjournal-[a-f0-9]{24}$"
+    },
+    "receipt_id": {
+      "type": "string",
+      "pattern": "^oprecoveryverify-[a-f0-9]{24}$"
+    },
+    "receipt_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "job_id": {
+      "type": "string",
+      "pattern": "^opjob-[a-f0-9]{24}$"
+    },
+    "plan_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "plan_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "from_state": {
+      "const": "rolling_back"
+    },
+    "to_state": {
+      "enum": ["rolled_back", "failed"]
+    },
+    "from_state_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "to_state_version": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "audit_event_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "audit_entry_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "audit_event": {
+      "$ref": "#/$defs/audit_event"
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "atomic_with_job_transition": {
+      "const": true
+    },
+    "single_use": {
+      "const": true
+    },
+    "contains_command_material": {
+      "const": false
+    },
+    "accepts_caller_argv": {
+      "const": false
+    },
+    "accepts_shell": {
+      "const": false
+    },
+    "grants_execution_authority": {
+      "const": false
+    },
+    "retry_authorized": {
+      "const": false
+    },
+    "rollback_authorized": {
+      "const": false
+    },
+    "production_mutation_enabled": {
+      "const": false
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "audit_event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "seq",
+        "event_id",
+        "occurred_at",
+        "actor",
+        "action",
+        "target",
+        "outcome",
+        "correlation_id",
+        "details",
+        "previous_hash",
+        "entry_hash"
+      ],
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "event_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "occurred_at": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "action": {
+          "const": "operation.job.transition"
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "outcome": {
+          "enum": ["rolled_back", "failed"]
+        },
+        "correlation_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "details": {
+          "$ref": "#/$defs/audit_details"
+        },
+        "previous_hash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "entry_hash": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "audit_details": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "job_id",
+        "plan_id",
+        "request_sha256",
+        "plan_sha256",
+        "from_state",
+        "to_state",
+        "from_state_version",
+        "to_state_version",
+        "mutation_may_have_occurred",
+        "recovery_required"
+      ],
+      "properties": {
+        "job_id": {
+          "type": "string",
+          "pattern": "^opjob-[a-f0-9]{24}$"
+        },
+        "plan_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "request_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "plan_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "from_state": {
+          "const": "rolling_back"
+        },
+        "to_state": {
+          "enum": ["rolled_back", "failed"]
+        },
+        "from_state_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "to_state_version": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "mutation_may_have_occurred": {
+          "const": true
+        },
+        "recovery_required": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
