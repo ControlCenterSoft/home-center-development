@@ -1,0 +1,257 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/modules/module-admission-revalidation.v1.schema.json",
+  "title": "Home Center module admission exact-state revalidation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "revalidation_id",
+    "status",
+    "original_decision_id",
+    "fresh_decision_id",
+    "module_id",
+    "module_version",
+    "manifest_binding_sha256",
+    "provenance_statement_sha256",
+    "artifact_sha256",
+    "original_home_center_version",
+    "fresh_home_center_version",
+    "original_architecture",
+    "fresh_architecture",
+    "original_operating_system",
+    "fresh_operating_system",
+    "original_available_capabilities",
+    "fresh_available_capabilities",
+    "original_installed_modules",
+    "fresh_installed_modules",
+    "original_compatibility_status",
+    "fresh_compatibility_status",
+    "original_reasons",
+    "fresh_reasons",
+    "drift_reasons",
+    "installation_authorized",
+    "execution_authorized",
+    "production_mutation_enabled",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {
+      "const": "home-center.module-admission-revalidation.v1"
+    },
+    "revalidation_id": {
+      "type": "string",
+      "pattern": "^madr-[0-9a-f]{24}$"
+    },
+    "status": {
+      "enum": [
+        "current",
+        "stale"
+      ]
+    },
+    "original_decision_id": {
+      "type": "string",
+      "pattern": "^madm-[0-9a-f]{24}$"
+    },
+    "fresh_decision_id": {
+      "type": "string",
+      "pattern": "^madm-[0-9a-f]{24}$"
+    },
+    "module_id": {
+      "$ref": "#/$defs/moduleId"
+    },
+    "module_version": {
+      "$ref": "#/$defs/semver"
+    },
+    "manifest_binding_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "provenance_statement_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "artifact_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "original_home_center_version": {
+      "$ref": "#/$defs/semver"
+    },
+    "fresh_home_center_version": {
+      "$ref": "#/$defs/semver"
+    },
+    "original_architecture": {
+      "$ref": "#/$defs/symbolicId"
+    },
+    "fresh_architecture": {
+      "$ref": "#/$defs/symbolicId"
+    },
+    "original_operating_system": {
+      "$ref": "#/$defs/symbolicId"
+    },
+    "fresh_operating_system": {
+      "$ref": "#/$defs/symbolicId"
+    },
+    "original_available_capabilities": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/symbolicId"
+      }
+    },
+    "fresh_available_capabilities": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/symbolicId"
+      }
+    },
+    "original_installed_modules": {
+      "$ref": "#/$defs/installedModules"
+    },
+    "fresh_installed_modules": {
+      "$ref": "#/$defs/installedModules"
+    },
+    "original_compatibility_status": {
+      "enum": [
+        "compatible",
+        "blocked"
+      ]
+    },
+    "fresh_compatibility_status": {
+      "enum": [
+        "compatible",
+        "blocked"
+      ]
+    },
+    "original_reasons": {
+      "type": "array",
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "architecture_unsupported",
+          "capability_missing",
+          "conflict_present",
+          "dependency_unsatisfied",
+          "home_center_version_unsupported",
+          "operating_system_unsupported"
+        ]
+      }
+    },
+    "fresh_reasons": {
+      "type": "array",
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "architecture_unsupported",
+          "capability_missing",
+          "conflict_present",
+          "dependency_unsatisfied",
+          "home_center_version_unsupported",
+          "operating_system_unsupported"
+        ]
+      }
+    },
+    "drift_reasons": {
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "architecture_changed",
+          "capability_set_changed",
+          "compatibility_reasons_changed",
+          "compatibility_status_changed",
+          "decision_evidence_changed",
+          "home_center_version_changed",
+          "installed_module_set_changed",
+          "operating_system_changed"
+        ]
+      }
+    },
+    "installation_authorized": {
+      "const": false
+    },
+    "execution_authorized": {
+      "const": false
+    },
+    "production_mutation_enabled": {
+      "const": false
+    },
+    "external_publication_authorized": {
+      "const": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "current"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "drift_reasons": {
+            "maxItems": 0
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "drift_reasons": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "moduleId": {
+      "type": "string",
+      "maxLength": 128,
+      "pattern": "^[a-z0-9](?:[a-z0-9.-]{0,126}[a-z0-9])?$"
+    },
+    "symbolicId": {
+      "type": "string",
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "installedModules": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/moduleId"
+          },
+          "version": {
+            "$ref": "#/$defs/semver"
+          }
+        }
+      }
+    }
+  }
+}
