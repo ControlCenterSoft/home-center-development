@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://controlcentersoft.example/contracts/jobs/operation-recovery-retry-admission.v1.schema.json",
+  "title": "Home Center Operation Recovery Retry Admission v1",
+  "description": "Deterministic non-authoritative proof that one failed rollback verification is eligible for an explicitly re-authorized bounded retry.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "admission_id",
+    "rollback_verification_receipt_id",
+    "rollback_execution_receipt_id",
+    "job_id",
+    "action_id",
+    "plan_id",
+    "plan_sha256",
+    "target_node_id",
+    "recovery_sha256",
+    "failed_state",
+    "failed_state_version",
+    "failed_audit_event_id",
+    "retry_authorization_id",
+    "retry_correlation_id",
+    "retry_reason_sha256",
+    "retry_eligible",
+    "requires_new_worker_claim",
+    "state_transition_authorized",
+    "contains_command_material",
+    "accepts_caller_argv",
+    "accepts_shell",
+    "execution_authorized",
+    "production_mutation_enabled"
+  ],
+  "properties": {
+    "schema": {
+      "const": "home-center.operation-recovery-retry-admission.v1"
+    },
+    "admission_id": {
+      "type": "string",
+      "pattern": "^oprecoveryretry-[a-f0-9]{24}$"
+    },
+    "rollback_verification_receipt_id": {
+      "type": "string",
+      "pattern": "^oprollbackverify-[a-f0-9]{24}$"
+    },
+    "rollback_execution_receipt_id": {
+      "type": "string",
+      "pattern": "^oprollbackexec-[a-f0-9]{24}$"
+    },
+    "job_id": {
+      "type": "string",
+      "pattern": "^opjob-[a-f0-9]{24}$"
+    },
+    "action_id": {
+      "const": "service.restart.v1"
+    },
+    "plan_id": {
+      "type": "string",
+      "pattern": "^opcmd-[a-f0-9]{24}$"
+    },
+    "plan_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "target_node_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64
+    },
+    "recovery_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "failed_state": {
+      "const": "failed"
+    },
+    "failed_state_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "failed_audit_event_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "retry_authorization_id": {
+      "type": "string",
+      "pattern": "^opauth-[a-f0-9]{24}$"
+    },
+    "retry_correlation_id": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128
+    },
+    "retry_reason_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "retry_eligible": {
+      "const": true
+    },
+    "requires_new_worker_claim": {
+      "const": true
+    },
+    "state_transition_authorized": {
+      "const": false
+    },
+    "contains_command_material": {
+      "const": false
+    },
+    "accepts_caller_argv": {
+      "const": false
+    },
+    "accepts_shell": {
+      "const": false
+    },
+    "execution_authorized": {
+      "const": false
+    },
+    "production_mutation_enabled": {
+      "const": false
+    }
+  }
+}
