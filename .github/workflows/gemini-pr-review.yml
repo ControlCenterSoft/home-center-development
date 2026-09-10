@@ -20,199 +20,214 @@ concurrency:
 
 permissions:
   contents: read
-  issues: write
-  pull-requests: write
+  pull-requests: read
 
 jobs:
   review:
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (github.event.pull_request.head.repo.fork == false && github.event.pull_request.draft == false)
+      (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
-      - name: Decide whether AI review is needed
-        id: scope
+      - name: Resolve exact pull request identity
+        id: identity
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          EVENT_NAME: ${{ github.event_name }}
-          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
           REPOSITORY: ${{ github.repository }}
-          SUSPEND_TITLE: '[automation] Gemini API suspended after quota error'
+          EVENT_PR_NUMBER: ${{ github.event.pull_request.number }}
+          INPUT_PR_NUMBER: ${{ inputs.pr_number }}
         run: |
           set -euo pipefail
-          review=false
-          suspended=false
 
-          suspension_json="$(curl --fail-with-body --silent --show-error --get \
+          pr_number="${EVENT_PR_NUMBER:-${INPUT_PR_NUMBER:-}}"
+          if [[ ! "${pr_number}" =~ ^[0-9]+$ ]]; then
+            echo '::error title=Gemini identity::A valid pull request number is required.'
+            exit 1
+          fi
+
+          pr_json="$(curl --fail-with-body --silent --show-error \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${GH_TOKEN}" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            --data-urlencode "q=repo:${REPOSITORY} is:issue is:open in:title \"${SUSPEND_TITLE}\"" \
-            "https://api.github.com/search/issues")"
+            "https://api.github.com/repos/${REPOSITORY}/pulls/${pr_number}")"
 
-          if [[ "$(jq -r '.total_count' <<<"${suspension_json}")" -gt 0 ]]; then
-            suspended=true
-            echo "review=false" >> "${GITHUB_OUTPUT}"
-            echo "suspended=true" >> "${GITHUB_OUTPUT}"
-            exit 0
+          head_sha="$(jq -r '.head.sha' <<<"${pr_json}")"
+          base_sha="$(jq -r '.base.sha' <<<"${pr_json}")"
+          head_repo="$(jq -r '.head.repo.full_name' <<<"${pr_json}")"
+          state="$(jq -r '.state' <<<"${pr_json}")"
+          draft="$(jq -r '.draft' <<<"${pr_json}")"
+
+          if [[ "${head_repo}" != "${REPOSITORY}" ]]; then
+            echo '::error title=Gemini identity::Fork pull requests are not eligible for the secret-backed review gate.'
+            exit 1
+          fi
+          if [[ "${state}" != "open" || "${draft}" != "false" ]]; then
+            echo '::error title=Gemini identity::The pull request must be open and ready for review.'
+            exit 1
+          fi
+          if [[ ! "${head_sha}" =~ ^[0-9a-f]{40}$ || ! "${base_sha}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo '::error title=Gemini identity::GitHub returned an invalid head/base SHA.'
+            exit 1
           fi
 
-          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
-            echo "review=true" >> "${GITHUB_OUTPUT}"
-            echo "suspended=false" >> "${GITHUB_OUTPUT}"
-            exit 0
-          fi
+          echo "pr_number=${pr_number}" >> "${GITHUB_OUTPUT}"
+          echo "head_sha=${head_sha}" >> "${GITHUB_OUTPUT}"
+          echo "base_sha=${base_sha}" >> "${GITHUB_OUTPUT}"
 
-          page=1
-          while :; do
-            response="$(curl --fail-with-body --silent --show-error \
-              -H "Accept: application/vnd.github+json" \
-              -H "Authorization: Bearer ${GH_TOKEN}" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "https://api.github.com/repos/${REPOSITORY}/pulls/${PR_NUMBER}/files?per_page=100&page=${page}")"
-            count="$(jq 'length' <<<"${response}")"
-
-            while IFS= read -r file; do
-              case "${file}" in
-                docs/*|documentation/*|*.md|*.mdx|*.txt|LICENSE|LICENSE.*|*.png|*.jpg|*.jpeg|*.gif|*.svg|*.webp)
-                  ;;
-                *)
-                  review=true
-                  break
-                  ;;
-              esac
-            done < <(jq -r '.[].filename' <<<"${response}")
-
-            if [[ "${review}" == "true" || "${count}" -lt 100 ]]; then
-              break
-            fi
-            page=$((page + 1))
-          done
-
-          echo "review=${review}" >> "${GITHUB_OUTPUT}"
-          echo "suspended=${suspended}" >> "${GITHUB_OUTPUT}"
-
-      - name: Record suspended Gemini review
-        if: steps.scope.outputs.suspended == 'true'
-        run: echo 'Gemini is suspended after a quota-exhaustion incident. Development continues without Gemini until explicit owner instruction.' >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Record skipped Gemini review
-        if: github.event_name == 'pull_request' && steps.scope.outputs.suspended != 'true' && steps.scope.outputs.review != 'true'
-        run: echo 'Gemini review skipped because the PR changes only documentation or static assets.' >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Checkout repository
-        if: steps.scope.outputs.review == 'true'
+      - name: Checkout exact head and base
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
         with:
+          ref: ${{ steps.identity.outputs.head_sha }}
+          fetch-depth: 0
           persist-credentials: false
 
-      - name: Run Gemini pull request review
-        id: gemini_review
-        if: steps.scope.outputs.review == 'true'
-        continue-on-error: true
-        uses: google-github-actions/run-gemini-cli@v0
-        env:
-          GEMINI_CLI_TRUST_WORKSPACE: 'true'
-          GITHUB_TOKEN: ${{ github.token }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        with:
-          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
-          gemini_cli_version: ${{ vars.GEMINI_CLI_VERSION }}
-          gemini_model: gemini-3.8-flash
-          gemini_debug: ${{ fromJSON(vars.GEMINI_DEBUG || vars.ACTIONS_STEP_DEBUG || false) }}
-          workflow_name: home-center-gemini-review
-          github_pr_number: ${{ github.event.pull_request.number || inputs.pr_number }}
-          settings: |-
-            {
-              "model": {
-                "maxSessionTurns": 16
-              },
-              "telemetry": {
-                "enabled": false
-              },
-              "mcpServers": {
-                "github": {
-                  "command": "docker",
-                  "args": [
-                    "run",
-                    "-i",
-                    "--rm",
-                    "-e",
-                    "GITHUB_PERSONAL_ACCESS_TOKEN",
-                    "ghcr.io/github/github-mcp-server:v0.27.0"
-                  ],
-                  "includeTools": [
-                    "add_comment_to_pending_review",
-                    "pull_request_read",
-                    "pull_request_review_write"
-                  ],
-                  "env": {
-                    "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
-                  }
-                }
-              },
-              "tools": {
-                "core": []
-              }
-            }
-          extensions: |-
-            [
-              "https://github.com/gemini-cli-extensions/code-review"
-            ]
-          prompt: /pr-code-review
-
-      - name: Apply Gemini fail-open policy
-        if: always() && steps.scope.outputs.review == 'true'
+      - name: Prepare immutable local review evidence
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-          GEMINI_OUTCOME: ${{ steps.gemini_review.outcome }}
-          GEMINI_ERRORS: ${{ steps.gemini_review.outputs.gemini_errors }}
-          GEMINI_RESPONSE: ${{ steps.gemini_review.outputs.gemini_response }}
-          SUSPEND_TITLE: '[automation] Gemini API suspended after quota error'
+          EXPECTED_HEAD_SHA: ${{ steps.identity.outputs.head_sha }}
+          EXPECTED_BASE_SHA: ${{ steps.identity.outputs.base_sha }}
         run: |
           set -euo pipefail
 
-          if [[ "${GEMINI_OUTCOME}" == "success" ]]; then
-            exit 0
+          actual_head="$(git rev-parse HEAD)"
+          git cat-file -e "${EXPECTED_BASE_SHA}^{commit}"
+          if [[ "${actual_head}" != "${EXPECTED_HEAD_SHA}" ]]; then
+            echo '::error title=Gemini identity::Checked-out HEAD does not match the expected exact head SHA.'
+            exit 1
           fi
 
-          evidence="${GEMINI_ERRORS}"$'\n'"${GEMINI_RESPONSE}"
-          if grep -Eiq 'exhausted your daily quota|daily quota|quota[_ -]?exceeded|resource_exhausted|generate_content_free_tier_requests' <<<"${evidence}"; then
-            body='<!-- gemini-api-suspended:v1 -->
-Gemini PR review was automatically suspended after a recurrent quota-exhaustion error (HTTP 429 / daily quota).
-
-Development, qualification, CI/CD and releases must continue without Gemini. Missing Gemini evidence must not block promotion while this suspension is active.
-
-Resume Gemini only after an explicit instruction from the repository owner. Closing this issue without that instruction is not part of the automated workflow.'
-
-            existing="$(curl --fail-with-body --silent --show-error --get \
-              -H "Accept: application/vnd.github+json" \
-              -H "Authorization: Bearer ${GH_TOKEN}" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              --data-urlencode "q=repo:${REPOSITORY} is:issue is:open in:title \"${SUSPEND_TITLE}\"" \
-              "https://api.github.com/search/issues")"
-
-            if [[ "$(jq -r '.total_count' <<<"${existing}")" -eq 0 ]]; then
-              payload="$(jq -n --arg title "${SUSPEND_TITLE}" --arg body "${body}" '{title:$title, body:$body}')"
-              if ! curl --fail-with-body --silent --show-error \
-                -X POST \
-                -H "Accept: application/vnd.github+json" \
-                -H "Authorization: Bearer ${GH_TOKEN}" \
-                -H "X-GitHub-Api-Version: 2022-11-28" \
-                "https://api.github.com/repos/${REPOSITORY}/issues" \
-                -d "${payload}" >/dev/null; then
-                echo '::warning title=Gemini suspension marker::Could not create the suspension issue, but this run remains fail-open.'
-              fi
-            fi
-
-            echo 'Gemini quota exhaustion detected. Gemini is suspended; development continues without it until explicit owner instruction.' >> "$GITHUB_STEP_SUMMARY"
-            exit 0
+          mkdir -p .gemini review-evidence
+          if [[ -f GEMINI.md ]]; then
+            mv GEMINI.md "${RUNNER_TEMP}/GEMINI.md.project"
           fi
 
-          echo '::error title=Gemini review failed::Gemini failed for a reason other than the configured recurrent quota-exhaustion condition.'
-          exit 1
+          cat > review-evidence/identity.txt <<EOF
+          head_sha=${EXPECTED_HEAD_SHA}
+          base_sha=${EXPECTED_BASE_SHA}
+          EOF
+          git diff --no-ext-diff --find-renames --find-copies --stat "${EXPECTED_BASE_SHA}...${EXPECTED_HEAD_SHA}" > review-evidence/diff.stat
+          git diff --no-ext-diff --find-renames --find-copies --name-status "${EXPECTED_BASE_SHA}...${EXPECTED_HEAD_SHA}" > review-evidence/files.txt
+          git diff --no-ext-diff --find-renames --find-copies --unified=80 "${EXPECTED_BASE_SHA}...${EXPECTED_HEAD_SHA}" > review-evidence/diff.patch
+
+          cat > .gemini/settings.json <<'EOF'
+          {
+            "model": {
+              "maxSessionTurns": 32
+            },
+            "telemetry": {
+              "enabled": false
+            },
+            "tools": {
+              "core": [
+                "list_directory",
+                "read_file",
+                "glob",
+                "grep_search"
+              ]
+            }
+          }
+          EOF
+
+      - name: Install Gemini CLI
+        shell: bash
+        env:
+          GEMINI_CLI_VERSION: ${{ vars.GEMINI_CLI_VERSION }}
+        run: |
+          set -euo pipefail
+          version="${GEMINI_CLI_VERSION:-0.59.0}"
+          npm install --silent --no-audit --prefer-offline --global "@google/gemini-cli@${version}"
+          gemini --version
+
+      - name: Run and validate Gemini exact-SHA review
+        shell: bash
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_CLI_TRUST_WORKSPACE: 'true'
+          EXPECTED_HEAD_SHA: ${{ steps.identity.outputs.head_sha }}
+          EXPECTED_BASE_SHA: ${{ steps.identity.outputs.base_sha }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${GEMINI_API_KEY:-}" ]]; then
+            echo '::error title=Gemini review UNKNOWN/BLOCK::GEMINI_API_KEY is not configured for this repository.'
+            exit 1
+          fi
+
+          prompt="$(cat <<EOF
+          Perform an independent Home Center release-candidate review using only the checked-out local repository and the read-only local tools available to you.
+
+          Exact identity:
+          head_sha=${EXPECTED_HEAD_SHA}
+          base_sha=${EXPECTED_BASE_SHA}
+
+          Start by reading review-evidence/identity.txt, review-evidence/diff.stat, review-evidence/files.txt and review-evidence/diff.patch. These files were generated from the exact checked-out Git history before your review. Read additional repository files only when needed to assess that diff. Do not inspect .git or parent directories. Do not use network, GitHub, MCP, account, issue, approval, repository-mutation or file-write tools. Do not request or expose secrets or PII.
+
+          Assess correctness, regressions, security/privacy, infrastructure neutrality, tests, migration/upgrade implications, and release-note consistency. Deterministic CI is a separate authority; do not claim it passed unless that is evident in repository artifacts. Return BLOCK for any release-blocking finding; otherwise PASS.
+
+          Return ONLY this compact JSON object with exactly these keys and no markdown fences or extra text:
+          {\"verdict\":\"PASS|BLOCK\",\"head_sha\":\"${EXPECTED_HEAD_SHA}\",\"base_sha\":\"${EXPECTED_BASE_SHA}\",\"findings\":[\"concise finding\"]}
+          EOF
+          )"
+
+          stdout_file="$(mktemp)"
+          stderr_file="$(mktemp)"
+          trap 'rm -f "${stdout_file}" "${stderr_file}"' EXIT
+
+          if ! gemini --model gemini-3.8-flash --yolo --prompt "${prompt}" --output-format json >"${stdout_file}" 2>"${stderr_file}"; then
+            echo '::error title=Gemini review UNKNOWN/BLOCK::Gemini CLI/provider execution failed.'
+            safe_error="$(sed -E 's/(key|token|secret|password)=[^[:space:]]+/\1=[REDACTED]/Ig' "${stderr_file}" | head -c 2000)"
+            printf '%s\n' "${safe_error}"
+            printf '%s\n' "${safe_error}" >> "${GITHUB_STEP_SUMMARY}"
+            exit 1
+          fi
+
+          if ! jq -e 'type == "object"' "${stdout_file}" >/dev/null 2>&1; then
+            echo '::error title=Gemini review UNKNOWN/BLOCK::Gemini CLI returned malformed JSON output.'
+            exit 1
+          fi
+
+          response="$(jq -r '.response // empty' "${stdout_file}")"
+          response="$(printf '%s' "${response}" | sed -e '1{/^```json$/d;}' -e '1{/^```$/d;}' -e '${/^```$/d;}')"
+          if [[ -z "${response}" ]]; then
+            echo '::error title=Gemini review UNKNOWN/BLOCK::Gemini returned no final review response.'
+            exit 1
+          fi
+
+          if ! jq -e '
+            type == "object" and
+            (keys | sort) == ["base_sha","findings","head_sha","verdict"] and
+            (.verdict == "PASS" or .verdict == "BLOCK") and
+            (.head_sha | type == "string" and test("^[0-9a-f]{40}$")) and
+            (.base_sha | type == "string" and test("^[0-9a-f]{40}$")) and
+            (.findings | type == "array") and
+            all(.findings[]; type == "string" and length <= 500)
+          ' <<<"${response}" >/dev/null; then
+            echo '::error title=Gemini review UNKNOWN/BLOCK::Gemini returned an ambiguous or schema-invalid verdict.'
+            exit 1
+          fi
+
+          verdict="$(jq -r '.verdict' <<<"${response}")"
+          head_sha="$(jq -r '.head_sha' <<<"${response}")"
+          base_sha="$(jq -r '.base_sha' <<<"${response}")"
+
+          if [[ "${head_sha}" != "${EXPECTED_HEAD_SHA}" || "${base_sha}" != "${EXPECTED_BASE_SHA}" ]]; then
+            echo '::error title=Gemini review UNKNOWN/BLOCK::Gemini evidence does not match the exact current head/base SHA.'
+            exit 1
+          fi
+
+          {
+            echo '### Gemini exact-SHA verdict'
+            echo "- verdict: **${verdict}**"
+            echo "- head: \`${head_sha}\`"
+            echo "- base: \`${base_sha}\`"
+            echo '- findings:'
+            jq -r '.findings[] | "  - " + .' <<<"${response}"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+          if [[ "${verdict}" != "PASS" ]]; then
+            echo '::error title=Gemini review BLOCK::Gemini reported a release-blocking finding.'
+            exit 1
+          fi

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://controlcentersoft.example/contracts/market/home-service-transition-authorization.v1.schema.json",
+  "title": "Home Service Transition Authorization v1",
+  "description": "Explicit authorization bound to one prepared home-service transition commit.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "authorization_id",
+    "commit_id",
+    "decision_id",
+    "instance_id",
+    "expected_generation",
+    "expected_resource_version",
+    "allow_durable_commit",
+    "production_mutation_enabled"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.home-service-transition-authorization.v1"},
+    "authorization_id": {"type": "string", "minLength": 2, "maxLength": 128},
+    "commit_id": {"type": "string", "pattern": "^hstc-[a-f0-9]{24}$"},
+    "decision_id": {"type": "string", "pattern": "^hstd-[a-f0-9]{24}$"},
+    "instance_id": {"type": "string", "minLength": 2, "maxLength": 128},
+    "expected_generation": {"type": "integer", "minimum": 1},
+    "expected_resource_version": {"type": "string", "minLength": 2, "maxLength": 128},
+    "allow_durable_commit": {"const": true},
+    "production_mutation_enabled": {"const": true}
+  }
+}
