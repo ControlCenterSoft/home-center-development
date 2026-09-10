@@ -413,6 +413,26 @@ class OperationRollbackClaimTests(unittest.TestCase):
         with self.assertRaisesRegex(OperationRollbackClaimError, "operation_rollback_claim_stale"):
             revalidate_operation_rollback_claim(self.store, claim)
 
+    def test_revalidation_rejects_prior_evidence_drift_after_claim(self) -> None:
+        claim, _ = self.coordinator.claim(self.receipt.receipt_id, worker=self.worker)
+        row = self.store._operation_job_row(claim.job_id)
+        assert row is not None
+        job = self.store._decode_operation_job(row)
+        evidence = dict(job["evidence"])
+        execution = dict(evidence["execution_receipt"])
+        execution["plan_sha256"] = "0" * 64
+        evidence["execution_receipt"] = execution
+        self.store._connection.execute(
+            "UPDATE jobs SET evidence_json=? WHERE job_id=?",
+            (canonical_json(evidence), claim.job_id),
+        )
+        self.store._connection.commit()
+        with self.assertRaisesRegex(
+            OperationRollbackClaimError,
+            "operation_execution_receipt_plan_integrity_mismatch",
+        ):
+            revalidate_operation_rollback_claim(self.store, claim)
+
     def test_tampered_claim_storage_is_rejected(self) -> None:
         claim, _ = self.coordinator.claim(self.receipt.receipt_id, worker=self.worker)
         self.store._connection.execute(
