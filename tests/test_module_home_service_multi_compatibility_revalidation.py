@@ -35,7 +35,7 @@ def _hash(value: object) -> str:
 
 def _module_binding(
     *,
-    home_center_version: str = "0.49.0",
+    home_center_version: str = "0.46.0",
     module_version: str = "1.2.3",
     admission_status: str = "compatible",
 ) -> dict[str, object]:
@@ -101,7 +101,7 @@ def _single(
     service_id: str,
     contracts: tuple[str, ...],
     *,
-    home_center_version: str = "0.49.0",
+    home_center_version: str = "0.46.0",
     module_version: str = "1.2.3",
 ):
     return build_module_home_service_contract_requirement_set(
@@ -115,7 +115,7 @@ def _single(
 
 def _requirements(
     *,
-    home_center_version: str = "0.49.0",
+    home_center_version: str = "0.46.0",
     module_version: str = "1.2.3",
     zigbee_contract: str = "devices.zigbee.v1",
 ):
