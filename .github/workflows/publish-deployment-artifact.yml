@@ -23,7 +23,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: home-center-deployment-artifact-${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.event.workflow_run.head_sha }}
+  group: home-center-deployment-artifact-${{ github.repository }}
   cancel-in-progress: false
 
 jobs:
@@ -91,7 +91,34 @@ jobs:
               raise SystemExit('invalid_tag')
           PY
 
+      - name: Check existing immutable deployment assets
+        id: existing
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -Eeuo pipefail
+          version=${RELEASE_TAG#v}
+          artifact_name="home-center-${version}-linux-amd64.tar.gz"
+          sidecar_name="${artifact_name}.sha256"
+          existing=$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+          artifact_present=0
+          sidecar_present=0
+          grep -Fxq "$artifact_name" <<<"$existing" && artifact_present=1 || true
+          grep -Fxq "$sidecar_name" <<<"$existing" && sidecar_present=1 || true
+          if (( artifact_present == 1 && sidecar_present == 1 )); then
+            echo 'already_published=true' >> "$GITHUB_OUTPUT"
+            echo "deployment assets already published for ${RELEASE_TAG}; idempotent success"
+          elif (( artifact_present == 0 && sidecar_present == 0 )); then
+            echo 'already_published=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'partial deployment asset set detected; refusing mutation' >&2
+            exit 66
+          fi
+
       - name: Run release qualification tests
+        if: steps.existing.outputs.already_published != 'true'
         shell: bash
         env:
           PYTHONPATH: product/control-plane/src
@@ -102,6 +129,7 @@ jobs:
           for script in deploy/scripts/*.sh; do bash -n "$script"; done
 
       - name: Restore clean exact-tag worktree
+        if: steps.existing.outputs.already_published != 'true'
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -110,6 +138,7 @@ jobs:
           [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo 'release worktree remains dirty after cleanup' >&2; exit 66; }
 
       - name: Build deployment artifact
+        if: steps.existing.outputs.already_published != 'true'
         shell: bash
         env:
           HOME_CENTER_RELEASE_BUILD: "1"
@@ -118,6 +147,7 @@ jobs:
           bash deploy/scripts/build-deployment-artifact.sh "$RUNNER_TEMP/deployment-dist"
 
       - name: Validate artifact privacy and content
+        if: steps.existing.outputs.already_published != 'true'
         shell: bash
         env:
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
@@ -137,7 +167,8 @@ jobs:
             exit 66
           fi
 
-      - name: Refuse duplicate deployment assets
+      - name: Recheck duplicate deployment assets before publish
+        if: steps.existing.outputs.already_published != 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -149,11 +180,12 @@ jobs:
           sidecar_name="${artifact_name}.sha256"
           existing=$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
           if grep -Fxq "$artifact_name" <<<"$existing" || grep -Fxq "$sidecar_name" <<<"$existing"; then
-            echo 'deployment artifact already exists; immutable promotion refuses replacement' >&2
+            echo 'deployment asset appeared during qualification; refusing replacement' >&2
             exit 66
           fi
 
       - name: Publish immutable deployment assets
+        if: steps.existing.outputs.already_published != 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
