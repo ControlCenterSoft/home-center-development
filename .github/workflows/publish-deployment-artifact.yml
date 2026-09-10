@@ -101,6 +101,14 @@ jobs:
           python -m unittest discover -s tests -p 'test_*.py' -v
           for script in deploy/scripts/*.sh; do bash -n "$script"; done
 
+      - name: Restore clean exact-tag worktree
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git reset --hard HEAD
+          git clean -ffdx
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo 'release worktree remains dirty after cleanup' >&2; exit 66; }
+
       - name: Build deployment artifact
         shell: bash
         env:
