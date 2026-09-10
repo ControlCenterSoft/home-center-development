@@ -154,6 +154,29 @@ class RollingContinuationJournalTests(unittest.TestCase):
         ).fetchone()[0]
         self.assertEqual(0, count)
 
+    def test_single_node_has_no_continuation_consumption(self) -> None:
+        with (
+            patch.object(
+                guard,
+                "revalidate_rolling_recovery_retry_checkpoint",
+                return_value=self.checkpoint,
+            ),
+            patch.object(
+                guard,
+                "evaluate_next_rolling_step_after_recovery_retry",
+                side_effect=ValueError("single_node_has_no_next_rolling_step"),
+            ),
+            self.assertRaisesRegex(
+                ValueError,
+                "single_node_has_no_next_rolling_step",
+            ),
+        ):
+            self.journal.consume_after_recovery_retry(**self.inputs())
+        count = self.db.execute(
+            "SELECT COUNT(*) FROM hc_ha_rolling_retry_continuation"
+        ).fetchone()[0]
+        self.assertEqual(0, count)
+
     def test_role_failover_drift_fails_closed_before_consumption(self) -> None:
         with (
             patch.object(
