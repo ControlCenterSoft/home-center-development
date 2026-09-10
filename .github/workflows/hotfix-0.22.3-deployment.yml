@@ -1,9 +1,10 @@
 name: Promote Home Center 0.22.3 deployment hotfix
 
+# The 0.22.3 immutable deployment assets are already published. Keep this
+# one-shot workflow available only for explicit operator recovery/verification;
+# it must not run on later release promotions to main.
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 permissions:
   contents: write
