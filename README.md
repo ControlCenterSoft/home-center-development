@@ -16,7 +16,7 @@ Home Center has two complementary user-interface levels: the full technical inte
 
 The authoritative architecture and release boundary for this interface are defined in [`docs/architecture/cozy-interface.md`](docs/architecture/cozy-interface.md).
 
-The core rule is that the user expresses a household intent while Home Center translates it into a safe policy/desired-state plan and executes it through the normal authorization, Change/Job, reconciliation, verification and recovery boundaries. The published source line has advanced through 0.36.0; the separately published stable channel remains 0.15.0 until a newer stable release is completed. Household/Intent foundation starts with 0.26.0, and later user-facing capabilities are available only when explicitly published.
+The core rule is that the user expresses a household intent while Home Center translates it into a safe policy/desired-state plan and executes it through the normal authorization, Change/Job, reconciliation, verification and recovery boundaries. The published source line has advanced through 0.37.0; the separately published stable channel remains 0.15.0 until a newer stable release is completed. Household/Intent foundation starts with 0.26.0, and later user-facing capabilities are available only when explicitly published.
 
 From 0.24 onward, every new user-facing capability should define both its Full/Core representation and its Household/Intent representation, or explicitly document why the latter is not applicable.
 
