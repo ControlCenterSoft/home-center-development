@@ -347,10 +347,15 @@ def _validate_rolling_back_job(
     job: dict[str, Any],
     receipt: OperationVerificationReceipt,
     worker: OperationWorkerIdentity,
+    *,
+    expected_state_version: int | None = None,
+    rollback_claim: OperationRollbackClaim | None = None,
 ) -> tuple[str, str]:
     if job.get("state") != OperationJobState.ROLLING_BACK.value:
         raise OperationRollbackClaimError("operation_job_not_rolling_back")
-    if job.get("state_version") != receipt.to_state_version:
+    if expected_state_version is None:
+        expected_state_version = receipt.to_state_version
+    if job.get("state_version") != expected_state_version:
         raise OperationRollbackClaimError("operation_job_state_stale")
     if job.get("mutation_may_have_occurred") is not True:
         raise OperationRollbackClaimError("operation_job_mutation_evidence_missing")
@@ -363,12 +368,17 @@ def _validate_rolling_back_job(
         raise OperationRollbackClaimError("operation_worker_identity_mismatch")
 
     evidence = job.get("evidence")
-    if not isinstance(evidence, dict) or set(evidence) != {
+    expected_evidence = {
         "worker_claim",
         "execution_receipt",
         "verification_receipt",
-    }:
+    }
+    if rollback_claim is not None:
+        expected_evidence.add("rollback_claim")
+    if not isinstance(evidence, dict) or set(evidence) != expected_evidence:
         raise OperationRollbackClaimError("operation_verification_evidence_mismatch")
+    if rollback_claim is not None and evidence.get("rollback_claim") != rollback_claim.to_dict():
+        raise OperationRollbackClaimError("operation_rollback_claim_evidence_mismatch")
     if evidence.get("verification_receipt") != receipt.to_dict():
         raise OperationRollbackClaimError("operation_verification_receipt_evidence_mismatch")
     for name in ("worker_claim", "execution_receipt"):
@@ -517,17 +527,17 @@ def _revalidate_persisted_claim(
         or job.get("recovery_required") is not False
     ):
         raise OperationRollbackClaimError("operation_rollback_claim_stale")
-    recovery = job.get("recovery")
-    if not isinstance(recovery, dict):
-        raise OperationRollbackClaimError("operation_recovery_contract_mismatch")
-    recovery_sha256 = hashlib.sha256(canonical_json(recovery).encode("utf-8")).hexdigest()
+    recovery_sha256, expected_active_state = _validate_rolling_back_job(
+        job,
+        receipt,
+        OperationWorkerIdentity(claim.worker_id, claim.target_node_id),
+        expected_state_version=claim.to_state_version,
+        rollback_claim=claim,
+    )
     if recovery_sha256 != claim.recovery_sha256:
         raise OperationRollbackClaimError("operation_recovery_contract_drift")
-    if recovery.get("expected_active_state") != claim.expected_active_state:
+    if expected_active_state != claim.expected_active_state:
         raise OperationRollbackClaimError("operation_recovery_state_drift")
-    evidence = job.get("evidence")
-    if not isinstance(evidence, dict) or evidence.get("rollback_claim") != claim.to_dict():
-        raise OperationRollbackClaimError("operation_rollback_claim_evidence_mismatch")
 
 
 def _decode_claim(row: sqlite3.Row) -> OperationRollbackClaim:
