@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import pytest
+import unittest
 
 from home_center.home_services import HomeServiceCatalogError
 from home_center.household import FamilyMember, Household, HouseholdRole, ManagedDevice
@@ -18,55 +18,75 @@ def _household(*, child_enabled: bool = True) -> Household:
     )
 
 
-def test_create_is_deterministic_and_non_mutating() -> None:
-    left = HouseholdStore()
-    right = HouseholdStore()
+class HouseholdStoreTests(unittest.TestCase):
+    def test_create_is_deterministic_and_non_mutating(self) -> None:
+        left = HouseholdStore()
+        right = HouseholdStore()
 
-    left_commit = left.create(_household())
-    right_commit = right.create(_household())
+        left_commit = left.create(_household())
+        right_commit = right.create(_household())
 
-    assert left_commit == right_commit
-    snapshot = left.read("home-main")
-    assert snapshot.generation == 1
-    assert snapshot.previous_snapshot_id is None
-    assert snapshot.snapshot_id.startswith("hsnap-")
-    assert snapshot.resource_version.startswith("hrv-")
-    assert snapshot.infrastructure_mutation_authorized is False
-    assert left_commit.infrastructure_mutation_authorized is False
-    assert left_commit.external_publication_authorized is False
+        self.assertEqual(left_commit, right_commit)
+        snapshot = left.read("home-main")
+        self.assertEqual(1, snapshot.generation)
+        self.assertIsNone(snapshot.previous_snapshot_id)
+        self.assertTrue(snapshot.snapshot_id.startswith("hsnap-"))
+        self.assertTrue(snapshot.resource_version.startswith("hrv-"))
+        self.assertIs(snapshot.infrastructure_mutation_authorized, False)
+        self.assertIs(left_commit.infrastructure_mutation_authorized, False)
+        self.assertIs(left_commit.external_publication_authorized, False)
 
+    def test_replace_requires_exact_resource_version(self) -> None:
+        store = HouseholdStore()
+        first = store.create(_household())
 
-def test_replace_requires_exact_resource_version() -> None:
-    store = HouseholdStore()
-    first = store.create(_household())
+        second = store.replace(
+            _household(child_enabled=False),
+            expected_resource_version=first.resource_version,
+        )
+        snapshot = store.read("home-main")
 
-    second = store.replace(_household(child_enabled=False), expected_resource_version=first.resource_version)
-    snapshot = store.read("home-main")
+        self.assertEqual(2, second.generation)
+        self.assertEqual(first.resource_version, second.previous_resource_version)
+        self.assertEqual(2, snapshot.generation)
+        self.assertEqual(first.snapshot_id, snapshot.previous_snapshot_id)
+        self.assertIs(snapshot.household.member("child-1").enabled, False)
 
-    assert second.generation == 2
-    assert second.previous_resource_version == first.resource_version
-    assert snapshot.generation == 2
-    assert snapshot.previous_snapshot_id == first.snapshot_id
-    assert snapshot.household.member("child-1").enabled is False
+    def test_stale_replace_fails_closed_without_changing_state(self) -> None:
+        store = HouseholdStore()
+        first = store.create(_household())
+        store.replace(
+            _household(child_enabled=False),
+            expected_resource_version=first.resource_version,
+        )
+        before = store.read("home-main")
 
+        with self.assertRaisesRegex(
+            HomeServiceCatalogError,
+            "household_resource_version_conflict",
+        ):
+            store.replace(
+                _household(),
+                expected_resource_version=first.resource_version,
+            )
 
-def test_stale_replace_fails_closed_without_changing_state() -> None:
-    store = HouseholdStore()
-    first = store.create(_household())
-    store.replace(_household(child_enabled=False), expected_resource_version=first.resource_version)
-    before = store.read("home-main")
+        self.assertEqual(before, store.read("home-main"))
 
-    with pytest.raises(HomeServiceCatalogError, match="household_resource_version_conflict"):
-        store.replace(_household(), expected_resource_version=first.resource_version)
-
-    assert store.read("home-main") == before
-
-
-def test_duplicate_create_and_missing_read_fail_closed() -> None:
-    store = HouseholdStore()
-    store.create(_household())
-
-    with pytest.raises(HomeServiceCatalogError, match="household_already_exists"):
+    def test_duplicate_create_and_missing_read_fail_closed(self) -> None:
+        store = HouseholdStore()
         store.create(_household())
-    with pytest.raises(HomeServiceCatalogError, match="household_not_found"):
-        store.read("another-home")
+
+        with self.assertRaisesRegex(
+            HomeServiceCatalogError,
+            "household_already_exists",
+        ):
+            store.create(_household())
+        with self.assertRaisesRegex(
+            HomeServiceCatalogError,
+            "household_not_found",
+        ):
+            store.read("another-home")
+
+
+if __name__ == "__main__":
+    unittest.main()
