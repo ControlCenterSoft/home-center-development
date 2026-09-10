@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://control-center.pro/contracts/jobs/operation-recovery-retry-terminal-lineage-seal.v1.schema.json",
+  "title": "Home Center operation recovery retry terminal lineage seal v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "seal_id",
+    "checkpoint_id",
+    "checkpoint_sha256",
+    "receipt_id",
+    "receipt_sha256",
+    "job_id",
+    "job_state",
+    "job_state_version",
+    "plan_id",
+    "plan_sha256",
+    "target_node_id",
+    "terminal_evidence_sha256",
+    "job_completion_sha256",
+    "completion_journal_id",
+    "completion_journal_sha256",
+    "audit_event_id",
+    "audit_event_sha256",
+    "lineage_sha256",
+    "immutable_evidence_only",
+    "contains_command_material",
+    "accepts_caller_argv",
+    "accepts_shell",
+    "grants_execution_authority",
+    "retry_authorized",
+    "rollback_authorized",
+    "production_mutation_enabled"
+  ],
+  "properties": {
+    "schema": {
+      "const": "home-center.operation-recovery-retry-terminal-lineage-seal.v1"
+    },
+    "seal_id": {
+      "type": "string",
+      "pattern": "^oprecoveryseal-[0-9a-f]{24}$"
+    },
+    "checkpoint_id": {
+      "type": "string",
+      "pattern": "^oprecoveryreconcile-[0-9a-f]{24}$"
+    },
+    "checkpoint_sha256": {"$ref": "#/$defs/sha256"},
+    "receipt_id": {
+      "type": "string",
+      "pattern": "^oprecoveryverify-[0-9a-f]{24}$"
+    },
+    "receipt_sha256": {"$ref": "#/$defs/sha256"},
+    "job_id": {
+      "type": "string",
+      "pattern": "^opjob-[0-9a-f]{24}$"
+    },
+    "job_state": {
+      "type": "string",
+      "enum": ["rolled_back", "failed"]
+    },
+    "job_state_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "plan_id": {
+      "type": "string",
+      "pattern": "^opplan-[0-9a-f]{24}$"
+    },
+    "plan_sha256": {"$ref": "#/$defs/sha256"},
+    "target_node_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "terminal_evidence_sha256": {"$ref": "#/$defs/sha256"},
+    "job_completion_sha256": {"$ref": "#/$defs/sha256"},
+    "completion_journal_id": {
+      "type": "string",
+      "pattern": "^oprecoveryjournal-[0-9a-f]{24}$"
+    },
+    "completion_journal_sha256": {"$ref": "#/$defs/sha256"},
+    "audit_event_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "audit_event_sha256": {"$ref": "#/$defs/sha256"},
+    "lineage_sha256": {"$ref": "#/$defs/sha256"},
+    "immutable_evidence_only": {"const": true},
+    "contains_command_material": {"const": false},
+    "accepts_caller_argv": {"const": false},
+    "accepts_shell": {"const": false},
+    "grants_execution_authority": {"const": false},
+    "retry_authorized": {"const": false},
+    "rollback_authorized": {"const": false},
+    "production_mutation_enabled": {"const": false}
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}
