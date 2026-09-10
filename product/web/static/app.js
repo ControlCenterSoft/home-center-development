@@ -2,6 +2,7 @@ const $ = (selector) => document.querySelector(selector);
 const MODE_STORAGE_KEY = 'home-center.interface-mode';
 const SECTION_STORAGE_KEY = 'home-center.cozy-section';
 const VALID_SECTIONS = new Set(['home', 'family', 'house']);
+let pendingMemberProposal = null;
 
 const HOME_SERVICE_CATALOG = [
   {id: 'internet', title: 'Интернет', description: 'Подключение, DNS, VPN и доступ в сеть.', keywords: ['internet', 'network', 'dns', 'vpn', 'wireguard']},
@@ -55,11 +56,11 @@ function setMode(mode, {persistChoice = true} = {}) {
   const normalized = mode === 'full' ? 'full' : 'cozy';
   $('#cozy-view').hidden = normalized !== 'cozy';
   $('#full-view').hidden = normalized !== 'full';
-  for (const button of document.querySelectorAll('[data-mode]')) {
+  document.querySelectorAll('[data-mode]').forEach((button) => {
     const active = button.dataset.mode === normalized;
     button.setAttribute('aria-selected', String(active));
     button.classList.toggle('active', active);
-  }
+  });
   document.documentElement.dataset.interfaceMode = normalized;
   if (persistChoice) persist(MODE_STORAGE_KEY, normalized);
 }
@@ -101,8 +102,7 @@ async function loadProviders() {
     const labels = {local: 'Локальный администратор', ad: 'Доменная учётная запись'};
     const enabled = data.providers.filter((item) => item?.enabled === true && labels[item.id]);
     if (!enabled.length) return;
-    const select = $('#provider');
-    select.replaceChildren(...enabled.map((item) => {
+    $('#provider').replaceChildren(...enabled.map((item) => {
       const option = document.createElement('option');
       option.value = item.id;
       option.textContent = labels[item.id];
@@ -117,9 +117,7 @@ function fullNodeCard(node) {
   const name = document.createElement('strong');
   name.textContent = node.name || node.hostname || node.node_id || node.id || 'Узел';
   const meta = document.createElement('small');
-  const role = node.role || node.state || 'managed';
-  const address = node.address || node.management_address || 'адрес определяется при подключении';
-  meta.textContent = `${role} · ${address}`;
+  meta.textContent = `${node.role || node.state || 'managed'} · ${node.address || node.management_address || 'адрес определяется при подключении'}`;
   el.append(name, meta);
   return el;
 }
@@ -180,10 +178,11 @@ function renderAttention(nodes, unavailable) {
   if (!nodes.length) {
     root.append(attentionItem('Подключите сервер', 'После подключения Home Center автоматически покажет состояние дома и доступные возможности.'));
   } else if (unavailable.length) {
-    unavailable.slice(0, 3).forEach((node) => {
-      const name = node.name || node.hostname || node.node_id || node.id || 'Сервер';
-      root.append(attentionItem(name, 'Сервер требует внимания. Технические подробности доступны в полном интерфейсе.', 'warn'));
-    });
+    unavailable.slice(0, 3).forEach((node) => root.append(attentionItem(
+      node.name || node.hostname || node.node_id || node.id || 'Сервер',
+      'Сервер требует внимания. Технические подробности доступны в полном интерфейсе.',
+      'warn',
+    )));
   } else {
     root.append(attentionItem('Ничего срочного', 'Home Center не видит проблем, требующих немедленного действия.', 'good'));
   }
@@ -199,21 +198,15 @@ function renderHomeSummary(data) {
   if (!nodes.length) {
     $('#cozy-health').textContent = 'Нужна первичная настройка';
     $('#cozy-health-copy').textContent = 'Подключите первый сервер — Home Center заполнит состояние дома автоматически.';
-    state.textContent = 'Настройка';
-    state.className = 'state-pill neutral';
-    setServiceState('Сервис доступен', 'neutral');
+    state.textContent = 'Настройка'; state.className = 'state-pill neutral'; setServiceState('Сервис доступен', 'neutral');
   } else if (unavailable.length) {
     $('#cozy-health').textContent = 'Есть что проверить';
     $('#cozy-health-copy').textContent = `${unavailable.length} узл. требуют внимания. Подробности доступны в полном режиме.`;
-    state.textContent = 'Требует внимания';
-    state.className = 'state-pill warn';
-    setServiceState('Требует внимания', 'warn');
+    state.textContent = 'Требует внимания'; state.className = 'state-pill warn'; setServiceState('Требует внимания', 'warn');
   } else {
     $('#cozy-health').textContent = 'Дома всё в порядке';
     $('#cozy-health-copy').textContent = 'Подключённые серверы отвечают, Home Center получает актуальное состояние.';
-    state.textContent = 'Всё хорошо';
-    state.className = 'state-pill good';
-    setServiceState('Система в норме', 'good');
+    state.textContent = 'Всё хорошо'; state.className = 'state-pill good'; setServiceState('Система в норме', 'good');
   }
   renderAttention(nodes, unavailable);
 }
@@ -222,19 +215,25 @@ function roleLabel(role) {
   return ({parent: 'Родитель', child: 'Ребёнок', guest: 'Гость'})[role] || 'Член семьи';
 }
 
+function clearMemberConfirmation() {
+  pendingMemberProposal = null;
+  $('#member-confirm-card').hidden = true;
+  $('#member-confirm-message').textContent = '';
+  $('#member-confirm-copy').textContent = '—';
+}
+
 function renderFamily(runtimeState) {
   const root = $('#family-members');
-  const bootstrap = $('#household-bootstrap-card');
-  const addPerson = $('#add-person-card');
-  root.replaceChildren();
   const configured = runtimeState?.configured === true;
-  bootstrap.hidden = configured;
-  addPerson.hidden = !configured;
+  $('#household-bootstrap-card').hidden = configured;
+  $('#add-person-card').hidden = !configured;
+  root.replaceChildren();
 
   const household = configured ? runtimeState?.snapshot?.household : null;
   const members = Array.isArray(household?.members) ? household.members : [];
   const devices = Array.isArray(household?.devices) ? household.devices : [];
   if (!configured) {
+    clearMemberConfirmation();
     const empty = document.createElement('article');
     empty.className = 'family-card empty-family-card';
     const title = document.createElement('strong');
@@ -256,8 +255,7 @@ function renderFamily(runtimeState) {
     const name = document.createElement('strong');
     name.textContent = member.display_name || 'Член семьи';
     const meta = document.createElement('p');
-    const deviceCount = devices.filter((device) => device.member_id === member.member_id).length;
-    meta.textContent = `${roleLabel(member.role)} · устройств: ${deviceCount}`;
+    meta.textContent = `${roleLabel(member.role)} · устройств: ${devices.filter((device) => device.member_id === member.member_id).length}`;
     body.append(name, meta);
     card.append(avatar, body);
     root.append(card);
@@ -281,231 +279,145 @@ function renderHomeServices(data) {
     const card = document.createElement('article');
     card.className = 'home-service-card';
     const icon = document.createElement('span');
-    icon.className = 'service-icon';
-    icon.setAttribute('aria-hidden', 'true');
-    icon.textContent = service.title.slice(0, 1);
+    icon.className = 'service-icon'; icon.setAttribute('aria-hidden', 'true'); icon.textContent = service.title.slice(0, 1);
     const body = document.createElement('div');
-    const titleRow = document.createElement('div');
-    titleRow.className = 'service-title-row';
-    const title = document.createElement('strong');
-    title.textContent = service.title;
-    const badge = document.createElement('span');
-    badge.className = `service-state ${available ? 'available' : 'pending'}`;
-    badge.textContent = available ? 'Доступно' : 'Не подключено';
+    const titleRow = document.createElement('div'); titleRow.className = 'service-title-row';
+    const title = document.createElement('strong'); title.textContent = service.title;
+    const badge = document.createElement('span'); badge.className = `service-state ${available ? 'available' : 'pending'}`; badge.textContent = available ? 'Доступно' : 'Не подключено';
     titleRow.append(title, badge);
-    const copy = document.createElement('p');
-    copy.textContent = service.description;
-    body.append(titleRow, copy);
-    card.append(icon, body);
-    root.append(card);
+    const copy = document.createElement('p'); copy.textContent = service.description;
+    body.append(titleRow, copy); card.append(icon, body); root.append(card);
   });
 }
 
 function renderInfrastructure(data) {
-  renderNodes(data?.nodes || []);
-  renderCapabilities(data?.capabilities || []);
-  renderHomeSummary(data || {});
-  renderHomeServices(data || {});
+  renderNodes(data?.nodes || []); renderCapabilities(data?.capabilities || []); renderHomeSummary(data || {}); renderHomeServices(data || {});
   if (data?.version) setVersion(data.version);
 }
 
 function renderInfrastructureUnavailable(message) {
-  renderNodes([]);
-  renderCapabilities([]);
-  renderHomeServices({});
+  renderNodes([]); renderCapabilities([]); renderHomeServices({});
   $('#cozy-health').textContent = 'Данные инфраструктуры недоступны';
   $('#cozy-health-copy').textContent = message || 'Не удалось получить состояние. Откройте полный режим для диагностики.';
-  $('#cozy-nodes').textContent = '—';
-  $('#cozy-capabilities').textContent = '—';
-  $('#cozy-state').textContent = 'Нет данных';
-  $('#cozy-state').className = 'state-pill warn';
+  $('#cozy-nodes').textContent = '—'; $('#cozy-capabilities').textContent = '—';
+  $('#cozy-state').textContent = 'Нет данных'; $('#cozy-state').className = 'state-pill warn';
   $('#cozy-attention').replaceChildren(attentionItem('Нет актуальных данных', 'Повторите обновление или проверьте полный интерфейс.', 'warn'));
   setServiceState('Ошибка данных', 'warn');
 }
 
+async function refreshHousehold() {
+  const result = await request('/api/v1/household');
+  if (result.response.status === 401) { showAppView('#login-view'); return false; }
+  if (result.response.status === 403 && result.data?.error?.code === 'password_change_required') { showAppView('#password-view'); return false; }
+  if (!result.response.ok || !result.data) return false;
+  renderFamily(result.data);
+  return true;
+}
+
 async function loadWorkspace() {
   $('#dashboard-message').textContent = '';
-  const [infraResult, householdResult] = await Promise.allSettled([
-    request('/api/v1/infrastructure'),
-    request('/api/v1/household'),
-  ]);
-
+  const [infraResult, householdResult] = await Promise.allSettled([request('/api/v1/infrastructure'), request('/api/v1/household')]);
   const infra = infraResult.status === 'fulfilled' ? infraResult.value : null;
   const household = householdResult.status === 'fulfilled' ? householdResult.value : null;
   for (const item of [infra, household]) {
-    if (item?.response?.status === 401) {
-      showAppView('#login-view');
-      setServiceState('Нужен вход', 'warn');
-      return;
-    }
-    if (item?.response?.status === 403 && item?.data?.error?.code === 'password_change_required') {
-      showAppView('#password-view');
-      setServiceState('Смените пароль', 'warn');
-      return;
-    }
+    if (item?.response?.status === 401) { showAppView('#login-view'); setServiceState('Нужен вход', 'warn'); return; }
+    if (item?.response?.status === 403 && item?.data?.error?.code === 'password_change_required') { showAppView('#password-view'); setServiceState('Смените пароль', 'warn'); return; }
   }
-
   if (infra?.response?.ok && infra.data) renderInfrastructure(infra.data);
   else renderInfrastructureUnavailable(errorMessage(infra?.data, 'Не удалось получить состояние инфраструктуры.'));
-
-  if (household?.response?.ok && household.data) {
-    renderFamily(household.data);
-  } else {
-    renderFamily({configured: false});
-    $('#household-bootstrap-card').hidden = true;
-    const message = errorMessage(household?.data, 'Состояние семьи временно недоступно.');
-    $('#family-members').replaceChildren(attentionItem('Семья недоступна', message, 'warn'));
+  if (household?.response?.ok && household.data) renderFamily(household.data);
+  else {
+    renderFamily({configured: false}); $('#household-bootstrap-card').hidden = true;
+    $('#family-members').replaceChildren(attentionItem('Семья недоступна', errorMessage(household?.data, 'Состояние семьи временно недоступно.'), 'warn'));
   }
 }
 
 async function handleSession(data) {
-  if (data?.password_change_required) {
-    showAppView('#password-view');
-    setServiceState('Смените пароль', 'warn');
-    $('#current-password').focus();
-    return;
-  }
-  showAppView('#workspace-view');
-  setMode(getSavedMode(), {persistChoice: false});
-  setCozySection(getSavedSection(), {persistChoice: false});
-  setServiceState('Сервис доступен', 'good');
-  await loadWorkspace();
+  if (data?.password_change_required) { showAppView('#password-view'); setServiceState('Смените пароль', 'warn'); $('#current-password').focus(); return; }
+  showAppView('#workspace-view'); setMode(getSavedMode(), {persistChoice: false}); setCozySection(getSavedSection(), {persistChoice: false}); setServiceState('Сервис доступен', 'good'); await loadWorkspace();
 }
 
 async function checkSession() {
   try {
     const {response, data} = await request('/api/v1/session');
-    if (response.ok && data?.authenticated) {
-      await handleSession(data);
-      return;
-    }
+    if (response.ok && data?.authenticated) { await handleSession(data); return; }
     if (response.status !== 401) setServiceState('Сервис доступен', 'neutral');
-  } catch (_) {
-    setServiceState('Нет связи', 'bad');
-  }
-  showAppView('#login-view');
-  $('#password').focus();
+  } catch (_) { setServiceState('Нет связи', 'bad'); }
+  showAppView('#login-view'); $('#password').focus();
 }
 
-document.querySelectorAll('[data-mode]').forEach((button) => {
-  button.addEventListener('click', () => setMode(button.dataset.mode));
-});
-
-document.querySelectorAll('[data-cozy-section]').forEach((button) => {
-  button.addEventListener('click', () => setCozySection(button.dataset.cozySection));
-});
+document.querySelectorAll('[data-mode]').forEach((button) => button.addEventListener('click', () => setMode(button.dataset.mode)));
+document.querySelectorAll('[data-cozy-section]').forEach((button) => button.addEventListener('click', () => setCozySection(button.dataset.cozySection)));
 
 $('#login-form').addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const button = event.submitter;
-  const message = $('#login-message');
-  message.textContent = '';
-  button.disabled = true;
+  event.preventDefault(); const button = event.submitter; const message = $('#login-message'); message.textContent = ''; button.disabled = true;
   try {
-    const {response, data} = await request('/api/v1/session', {
-      method: 'POST',
-      body: JSON.stringify({
-        provider: $('#provider').value,
-        username: $('#username').value.trim(),
-        password: $('#password').value,
-      }),
-    });
-    if (!response.ok || !data?.authenticated) {
-      message.textContent = errorMessage(data, 'Не удалось выполнить вход.');
-      setServiceState('Вход отклонён', 'warn');
-      return;
-    }
-    $('#password').value = '';
-    await handleSession(data);
-  } catch (_) {
-    message.textContent = 'Home Center сейчас недоступен. Проверьте соединение и повторите попытку.';
-    setServiceState('Нет связи', 'bad');
-  } finally {
-    button.disabled = false;
-  }
+    const {response, data} = await request('/api/v1/session', {method: 'POST', body: JSON.stringify({provider: $('#provider').value, username: $('#username').value.trim(), password: $('#password').value})});
+    if (!response.ok || !data?.authenticated) { message.textContent = errorMessage(data, 'Не удалось выполнить вход.'); setServiceState('Вход отклонён', 'warn'); return; }
+    $('#password').value = ''; await handleSession(data);
+  } catch (_) { message.textContent = 'Home Center сейчас недоступен. Проверьте соединение и повторите попытку.'; setServiceState('Нет связи', 'bad'); }
+  finally { button.disabled = false; }
 });
 
 $('#password-form').addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const button = event.submitter;
-  const message = $('#password-message');
-  const currentPassword = $('#current-password').value;
-  const newPassword = $('#new-password').value;
-  const confirmPassword = $('#confirm-password').value;
-  message.textContent = '';
-  if (newPassword !== confirmPassword) {
-    message.textContent = 'Новые пароли не совпадают.';
-    return;
-  }
+  event.preventDefault(); const button = event.submitter; const message = $('#password-message'); const currentPassword = $('#current-password').value; const newPassword = $('#new-password').value; const confirmPassword = $('#confirm-password').value; message.textContent = '';
+  if (newPassword !== confirmPassword) { message.textContent = 'Новые пароли не совпадают.'; return; }
   button.disabled = true;
   try {
-    const {response, data} = await request('/api/v1/auth/local-admin/password/change', {
-      method: 'POST',
-      body: JSON.stringify({
-        schema: 'home-center.local-admin-password-change.v1',
-        current_password: currentPassword,
-        new_password: newPassword,
-      }),
-    });
-    if (!response.ok) {
-      message.textContent = errorMessage(data, 'Не удалось сменить пароль.');
-      return;
-    }
-    $('#current-password').value = '';
-    $('#new-password').value = '';
-    $('#confirm-password').value = '';
-    await checkSession();
-  } catch (_) {
-    message.textContent = 'Не удалось связаться с Home Center.';
-  } finally {
-    button.disabled = false;
-  }
+    const {response, data} = await request('/api/v1/auth/local-admin/password/change', {method: 'POST', body: JSON.stringify({schema: 'home-center.local-admin-password-change.v1', current_password: currentPassword, new_password: newPassword})});
+    if (!response.ok) { message.textContent = errorMessage(data, 'Не удалось сменить пароль.'); return; }
+    $('#current-password').value = ''; $('#new-password').value = ''; $('#confirm-password').value = ''; await checkSession();
+  } catch (_) { message.textContent = 'Не удалось связаться с Home Center.'; }
+  finally { button.disabled = false; }
 });
 
 $('#household-bootstrap-form').addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const button = event.submitter;
-  const message = $('#household-message');
-  const displayName = $('#parent-display-name').value.trim();
-  message.textContent = '';
-  button.disabled = true;
+  event.preventDefault(); const button = event.submitter; const message = $('#household-message'); const displayName = $('#parent-display-name').value.trim(); message.textContent = ''; button.disabled = true;
   try {
-    const {response, data} = await request('/api/v1/household/bootstrap', {
-      method: 'POST',
-      body: JSON.stringify({schema: 'home-center.household-bootstrap.v1', display_name: displayName}),
-    });
-    if (response.status === 401) {
-      showAppView('#login-view');
-      return;
+    const {response, data} = await request('/api/v1/household/bootstrap', {method: 'POST', body: JSON.stringify({schema: 'home-center.household-bootstrap.v1', display_name: displayName})});
+    if (response.status === 401) { showAppView('#login-view'); return; }
+    if (!response.ok) { message.textContent = errorMessage(data, 'Не удалось настроить семью.'); return; }
+    $('#parent-display-name').value = ''; await refreshHousehold(); setCozySection('family');
+  } catch (_) { message.textContent = 'Не удалось связаться с Home Center.'; }
+  finally { button.disabled = false; }
+});
+
+$('#member-plan-form').addEventListener('submit', async (event) => {
+  event.preventDefault(); const button = event.submitter; const message = $('#member-plan-message'); message.textContent = ''; clearMemberConfirmation(); button.disabled = true;
+  try {
+    const {response, data} = await request('/api/v1/household/members/plan', {method: 'POST', body: JSON.stringify({schema: 'home-center.household-member-add-plan.v1', display_name: $('#member-display-name').value.trim(), role: $('#member-role').value})});
+    if (!response.ok || !data?.proposal_id) { message.textContent = errorMessage(data, 'Не удалось подготовить изменение.'); return; }
+    pendingMemberProposal = data;
+    $('#member-confirm-copy').textContent = `${data.member.display_name} — ${roleLabel(data.member.role)}. Изменение относится к версии семьи ${data.generation} и будет применено только после подтверждения.`;
+    $('#member-confirm-card').hidden = false; $('#member-confirm-button').focus();
+  } catch (_) { message.textContent = 'Не удалось связаться с Home Center.'; }
+  finally { button.disabled = false; }
+});
+
+$('#member-cancel-button').addEventListener('click', () => clearMemberConfirmation());
+
+$('#member-confirm-button').addEventListener('click', async (event) => {
+  if (!pendingMemberProposal?.proposal_id) return;
+  const button = event.currentTarget; const message = $('#member-confirm-message'); message.textContent = ''; button.disabled = true;
+  try {
+    const {response, data} = await request('/api/v1/household/members/confirm', {method: 'POST', body: JSON.stringify({schema: 'home-center.household-member-add-confirm.v1', proposal_id: pendingMemberProposal.proposal_id, confirmed: true})});
+    if (response.status === 409 && data?.error?.code === 'household_member_change_stale') {
+      message.textContent = 'Семья изменилась после подготовки. Ничего не применено — сформируйте план заново.';
+      pendingMemberProposal = null; await refreshHousehold(); return;
     }
-    if (!response.ok) {
-      message.textContent = errorMessage(data, 'Не удалось настроить семью.');
-      return;
-    }
-    $('#parent-display-name').value = '';
-    const current = await request('/api/v1/household');
-    if (current.response.ok && current.data) renderFamily(current.data);
-    setCozySection('family');
-  } catch (_) {
-    message.textContent = 'Не удалось связаться с Home Center.';
-  } finally {
-    button.disabled = false;
-  }
+    if (!response.ok) { message.textContent = errorMessage(data, 'Не удалось применить изменение.'); return; }
+    clearMemberConfirmation(); $('#member-display-name').value = ''; $('#member-role').value = 'child'; await refreshHousehold();
+    $('#member-plan-message').textContent = data?.outcome === 'already-applied' ? 'Человек уже был добавлен ранее.' : 'Человек добавлен в семью.';
+  } catch (_) { message.textContent = 'Не удалось связаться с Home Center.'; }
+  finally { button.disabled = false; }
 });
 
 $('#logout-button').addEventListener('click', async () => {
   try { await request('/api/v1/session/logout', {method: 'POST'}); } catch (_) {}
-  showAppView('#login-view');
-  setServiceState('Нужен вход', 'neutral');
-  $('#password').value = '';
-  $('#password').focus();
+  clearMemberConfirmation(); showAppView('#login-view'); setServiceState('Нужен вход', 'neutral'); $('#password').value = ''; $('#password').focus();
 });
 
-$('#refresh-button').addEventListener('click', async (event) => {
-  const button = event.currentTarget;
-  button.disabled = true;
-  try { await loadWorkspace(); } finally { button.disabled = false; }
-});
+$('#refresh-button').addEventListener('click', async (event) => { const button = event.currentTarget; button.disabled = true; try { await loadWorkspace(); } finally { button.disabled = false; } });
 
 showAppView('#loading-view');
 Promise.allSettled([loadProviders(), checkSession()]);
