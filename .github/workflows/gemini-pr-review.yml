@@ -202,8 +202,9 @@ jobs:
             (.verdict == "PASS" or .verdict == "BLOCK") and
             (.head_sha | type == "string" and test("^[0-9a-f]{40}$")) and
             (.base_sha | type == "string" and test("^[0-9a-f]{40}$")) and
-            (.findings | type == "array") and
-            all(.findings[]; type == "string" and length <= 500)
+            (.findings | type == "array" and length <= 20) and
+            all(.findings[]; type == "string" and length <= 500) and
+            ((.verdict == "PASS") or (.findings | length >= 1))
           ' <<<"${response}" >/dev/null; then
             echo '::error title=Gemini review UNKNOWN/BLOCK::Gemini returned an ambiguous or schema-invalid verdict.'
             exit 1
@@ -217,6 +218,9 @@ jobs:
             echo '::error title=Gemini review UNKNOWN/BLOCK::Gemini evidence does not match the exact current head/base SHA.'
             exit 1
           fi
+
+          validated_response="$(jq -c '{verdict,head_sha,base_sha,findings}' <<<"${response}")"
+          printf 'Gemini validated exact-SHA review: %s\n' "${validated_response}"
 
           {
             echo '### Gemini exact-SHA verdict'
