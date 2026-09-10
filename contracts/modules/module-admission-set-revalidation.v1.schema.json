@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/modules/module-admission-set-revalidation.v1.schema.json",
+  "title": "Home Center module admission set revalidation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "revalidation_id", "status", "original_binding_id", "original_snapshot_id", "fresh_snapshot_id", "snapshot_drift_reasons", "members", "stale_module_ids", "installation_authorized", "execution_authorized", "production_mutation_enabled", "external_publication_authorized"],
+  "properties": {
+    "schema": {"const": "home-center.module-admission-set-revalidation.v1"},
+    "revalidation_id": {"type": "string", "pattern": "^masr-[0-9a-f]{24}$"},
+    "status": {"enum": ["current", "stale"]},
+    "original_binding_id": {"type": "string", "pattern": "^masb-[0-9a-f]{24}$"},
+    "original_snapshot_id": {"type": "string", "pattern": "^mcs-[0-9a-f]{24}$"},
+    "fresh_snapshot_id": {"type": "string", "pattern": "^mcs-[0-9a-f]{24}$"},
+    "snapshot_drift_reasons": {
+      "type": "array",
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {"enum": ["architecture_changed", "capability_set_changed", "home_center_version_changed", "installed_module_set_changed", "operating_system_changed", "snapshot_evidence_changed"]}
+    },
+    "members": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["module_id", "module_version", "original_decision_id", "fresh_decision_id", "status", "fresh_compatibility_status", "drift_reasons"],
+        "properties": {
+          "module_id": {"$ref": "#/$defs/moduleId"},
+          "module_version": {"$ref": "#/$defs/semver"},
+          "original_decision_id": {"type": "string", "pattern": "^madm-[0-9a-f]{24}$"},
+          "fresh_decision_id": {"type": "string", "pattern": "^madm-[0-9a-f]{24}$"},
+          "status": {"enum": ["current", "stale"]},
+          "fresh_compatibility_status": {"enum": ["compatible", "blocked"]},
+          "drift_reasons": {
+            "type": "array",
+            "maxItems": 7,
+            "uniqueItems": true,
+            "items": {"enum": ["architecture_changed", "capability_set_changed", "compatibility_reasons_changed", "compatibility_status_changed", "decision_evidence_changed", "home_center_version_changed", "installed_module_set_changed", "operating_system_changed"]}
+          }
+        }
+      }
+    },
+    "stale_module_ids": {"type": "array", "maxItems": 256, "uniqueItems": true, "items": {"$ref": "#/$defs/moduleId"}},
+    "installation_authorized": {"const": false},
+    "execution_authorized": {"const": false},
+    "production_mutation_enabled": {"const": false},
+    "external_publication_authorized": {"const": false}
+  },
+  "$defs": {
+    "semver": {"type": "string", "maxLength": 64, "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+    "moduleId": {"type": "string", "maxLength": 128, "pattern": "^[a-z0-9](?:[a-z0-9.-]{0,126}[a-z0-9])?$"}
+  }
+}

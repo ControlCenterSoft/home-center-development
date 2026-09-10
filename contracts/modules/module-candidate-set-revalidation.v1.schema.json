@@ -1,0 +1,265 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "home-center.module-candidate-set-revalidation.v1.schema.json",
+  "title": "Home Center Module Candidate Set Revalidation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "revalidation_id",
+    "status",
+    "original_candidate_set_id",
+    "fresh_candidate_set_id",
+    "original_snapshot_id",
+    "fresh_snapshot_id",
+    "original_home_center_version",
+    "fresh_home_center_version",
+    "original_architecture",
+    "fresh_architecture",
+    "original_operating_system",
+    "fresh_operating_system",
+    "original_available_capabilities",
+    "fresh_available_capabilities",
+    "original_installed_modules",
+    "fresh_installed_modules",
+    "original_planned_modules",
+    "fresh_planned_modules",
+    "original_candidates",
+    "fresh_candidates",
+    "original_blocked_modules",
+    "fresh_blocked_modules",
+    "stale_modules",
+    "drift_reasons",
+    "installation_authorized",
+    "execution_authorized",
+    "production_mutation_enabled",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {
+      "const": "home-center.module-candidate-set-revalidation.v1"
+    },
+    "revalidation_id": {
+      "type": "string",
+      "pattern": "^mcsr-[0-9a-f]{24}$"
+    },
+    "status": {
+      "enum": [
+        "current",
+        "stale"
+      ]
+    },
+    "original_candidate_set_id": {
+      "type": "string",
+      "pattern": "^mcsd-[0-9a-f]{24}$"
+    },
+    "fresh_candidate_set_id": {
+      "type": "string",
+      "pattern": "^mcsd-[0-9a-f]{24}$"
+    },
+    "original_snapshot_id": {
+      "type": "string",
+      "pattern": "^mcs-[0-9a-f]{24}$"
+    },
+    "fresh_snapshot_id": {
+      "type": "string",
+      "pattern": "^mcs-[0-9a-f]{24}$"
+    },
+    "original_home_center_version": {
+      "$ref": "#/$defs/semver"
+    },
+    "fresh_home_center_version": {
+      "$ref": "#/$defs/semver"
+    },
+    "original_architecture": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "fresh_architecture": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "original_operating_system": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "fresh_operating_system": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "original_available_capabilities": {
+      "$ref": "#/$defs/capabilities"
+    },
+    "fresh_available_capabilities": {
+      "$ref": "#/$defs/capabilities"
+    },
+    "original_installed_modules": {
+      "$ref": "#/$defs/modules"
+    },
+    "fresh_installed_modules": {
+      "$ref": "#/$defs/modules"
+    },
+    "original_planned_modules": {
+      "$ref": "#/$defs/plannedModules"
+    },
+    "fresh_planned_modules": {
+      "$ref": "#/$defs/plannedModules"
+    },
+    "original_candidates": {
+      "$ref": "#/$defs/candidates"
+    },
+    "fresh_candidates": {
+      "$ref": "#/$defs/candidates"
+    },
+    "original_blocked_modules": {
+      "$ref": "#/$defs/moduleIds"
+    },
+    "fresh_blocked_modules": {
+      "$ref": "#/$defs/moduleIds"
+    },
+    "stale_modules": {
+      "$ref": "#/$defs/moduleIds"
+    },
+    "drift_reasons": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "installation_authorized": {
+      "const": false
+    },
+    "execution_authorized": {
+      "const": false
+    },
+    "production_mutation_enabled": {
+      "const": false
+    },
+    "external_publication_authorized": {
+      "const": false
+    }
+  },
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "moduleId": {
+      "type": "string",
+      "pattern": "^[a-z0-9](?:[a-z0-9.-]{0,126}[a-z0-9])?$"
+    },
+    "capabilities": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "moduleVersion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/moduleId"
+        },
+        "version": {
+          "$ref": "#/$defs/semver"
+        }
+      }
+    },
+    "modules": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/$defs/moduleVersion"
+      }
+    },
+    "plannedModules": {
+      "type": "array",
+      "maxItems": 384,
+      "items": {
+        "$ref": "#/$defs/moduleVersion"
+      }
+    },
+    "moduleIds": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/moduleId"
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "module_id",
+        "module_version",
+        "decision_id",
+        "status",
+        "manifest_binding_sha256",
+        "artifact_sha256",
+        "reasons"
+      ],
+      "properties": {
+        "module_id": {
+          "$ref": "#/$defs/moduleId"
+        },
+        "module_version": {
+          "$ref": "#/$defs/semver"
+        },
+        "decision_id": {
+          "type": "string",
+          "pattern": "^madm-[0-9a-f]{24}$"
+        },
+        "status": {
+          "enum": [
+            "compatible",
+            "blocked"
+          ]
+        },
+        "manifest_binding_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "artifact_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "reasons": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        }
+      }
+    },
+    "candidates": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "$ref": "#/$defs/candidate"
+      }
+    }
+  }
+}
