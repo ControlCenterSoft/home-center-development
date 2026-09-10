@@ -1,0 +1,315 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://controlcenter.example/contracts/jobs/operation-recovery-retry-verification-receipt.v1.schema.json",
+  "title": "Home Center operation recovery retry verification receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "receipt_id",
+    "recovery_retry_execution_receipt_id",
+    "retry_claim_id",
+    "admission_id",
+    "rollback_verification_receipt_id",
+    "rollback_execution_receipt_id",
+    "job_id",
+    "action_id",
+    "plan_id",
+    "plan_sha256",
+    "worker_id",
+    "target_node_id",
+    "recovery_sha256",
+    "expected_active_state",
+    "verification_sha256",
+    "started",
+    "timed_out",
+    "exit_code",
+    "elapsed_ms",
+    "load_state",
+    "active_state",
+    "sub_state",
+    "unit_file_state",
+    "recovery_verified",
+    "recovery_required",
+    "from_state",
+    "next_state",
+    "from_state_version",
+    "to_state_version",
+    "contains_command_material",
+    "accepts_caller_argv",
+    "accepts_shell",
+    "grants_execution_authority",
+    "production_mutation_enabled"
+  ],
+  "properties": {
+    "schema": {
+      "const": "home-center.operation-recovery-retry-verification-receipt.v1"
+    },
+    "receipt_id": {
+      "type": "string",
+      "pattern": "^oprecoveryverify-[a-f0-9]{24}$"
+    },
+    "recovery_retry_execution_receipt_id": {
+      "type": "string",
+      "pattern": "^oprecoveryexec-[a-f0-9]{24}$"
+    },
+    "retry_claim_id": {
+      "type": "string",
+      "pattern": "^oprecoveryclaim-[a-f0-9]{24}$"
+    },
+    "admission_id": {
+      "type": "string",
+      "pattern": "^oprecoveryretry-[a-f0-9]{24}$"
+    },
+    "rollback_verification_receipt_id": {
+      "type": "string",
+      "pattern": "^oprollbackverify-[a-f0-9]{24}$"
+    },
+    "rollback_execution_receipt_id": {
+      "type": "string",
+      "pattern": "^oprollbackexec-[a-f0-9]{24}$"
+    },
+    "job_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "action_id": {
+      "const": "service.restart.v1"
+    },
+    "plan_id": {
+      "type": "string",
+      "pattern": "^opcmd-[a-f0-9]{24}$"
+    },
+    "plan_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "worker_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64
+    },
+    "target_node_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64
+    },
+    "recovery_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "expected_active_state": {
+      "enum": [
+        "active",
+        "inactive"
+      ]
+    },
+    "verification_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "started": {
+      "type": "boolean"
+    },
+    "timed_out": {
+      "type": "boolean"
+    },
+    "exit_code": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": -255,
+      "maximum": 255
+    },
+    "elapsed_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5000
+    },
+    "load_state": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[A-Za-z0-9_.@:+-]{1,64}$"
+    },
+    "active_state": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[A-Za-z0-9_.@:+-]{1,64}$"
+    },
+    "sub_state": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[A-Za-z0-9_.@:+-]{1,64}$"
+    },
+    "unit_file_state": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[A-Za-z0-9_.@:+-]{1,64}$"
+    },
+    "recovery_verified": {
+      "type": "boolean"
+    },
+    "recovery_required": {
+      "type": "boolean"
+    },
+    "from_state": {
+      "const": "rolling_back"
+    },
+    "next_state": {
+      "enum": [
+        "rolled_back",
+        "failed"
+      ]
+    },
+    "from_state_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "to_state_version": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "contains_command_material": {
+      "const": false
+    },
+    "accepts_caller_argv": {
+      "const": false
+    },
+    "accepts_shell": {
+      "const": false
+    },
+    "grants_execution_authority": {
+      "const": false
+    },
+    "production_mutation_enabled": {
+      "const": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "recovery_verified": {
+            "const": true
+          }
+        },
+        "required": [
+          "recovery_verified"
+        ]
+      },
+      "then": {
+        "properties": {
+          "recovery_required": {
+            "const": false
+          },
+          "next_state": {
+            "const": "rolled_back"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "recovery_verified": {
+            "const": false
+          }
+        },
+        "required": [
+          "recovery_verified"
+        ]
+      },
+      "then": {
+        "properties": {
+          "recovery_required": {
+            "const": true
+          },
+          "next_state": {
+            "const": "failed"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "started": {
+            "const": false
+          }
+        },
+        "required": [
+          "started"
+        ]
+      },
+      "then": {
+        "properties": {
+          "timed_out": {
+            "const": false
+          },
+          "exit_code": {
+            "const": null
+          },
+          "elapsed_ms": {
+            "const": 0
+          },
+          "load_state": {
+            "const": null
+          },
+          "active_state": {
+            "const": null
+          },
+          "sub_state": {
+            "const": null
+          },
+          "unit_file_state": {
+            "const": null
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "timed_out": {
+            "const": true
+          }
+        },
+        "required": [
+          "timed_out"
+        ]
+      },
+      "then": {
+        "properties": {
+          "started": {
+            "const": true
+          },
+          "exit_code": {
+            "const": null
+          },
+          "load_state": {
+            "const": null
+          },
+          "active_state": {
+            "const": null
+          },
+          "sub_state": {
+            "const": null
+          },
+          "unit_file_state": {
+            "const": null
+          }
+        }
+      }
+    }
+  ]
+}
