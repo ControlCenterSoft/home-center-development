@@ -1,0 +1,157 @@
+{
+  "$id": "https://home-center.example/contracts/modules/module-contract-negotiation-decision.v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "admission_authorized": {
+      "const": false
+    },
+    "decision_id": {
+      "pattern": "^mcnd-[0-9a-f]{24}$",
+      "type": "string"
+    },
+    "execution_authorized": {
+      "const": false
+    },
+    "external_publication_authorized": {
+      "const": false
+    },
+    "home_center_version": {
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+      "type": "string"
+    },
+    "installation_authorized": {
+      "const": false
+    },
+    "production_mutation_enabled": {
+      "const": false
+    },
+    "profile_id": {
+      "pattern": "^mccp-[0-9a-f]{24}$",
+      "type": "string"
+    },
+    "reasons": {
+      "items": {
+        "pattern": "^unsupported_contract:[a-z_]+:home-center\\.[a-z0-9]+(?:-[a-z0-9]+)*\\.v[1-9][0-9]*$",
+        "type": "string"
+      },
+      "maxItems": 11,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "requested_contracts": {
+      "additionalProperties": false,
+      "properties": {
+        "module_admission_decision": {
+          "pattern": "^home-center\\.[a-z0-9]+(?:-[a-z0-9]+)*\\.v[1-9][0-9]*$",
+          "type": "string"
+        },
+        "module_admission_revalidation": {
+          "pattern": "^home-center\\.[a-z0-9]+(?:-[a-z0-9]+)*\\.v[1-9][0-9]*$",
+          "type": "string"
+        },
+        "module_admission_set_revalidation": {
+          "pattern": "^home-center\\.[a-z0-9]+(?:-[a-z0-9]+)*\\.v[1-9][0-9]*$",
+          "type": "string"
+        },
+        "module_admission_snapshot_binding": {
+          "pattern": "^home-center\\.[a-z0-9]+(?:-[a-z0-9]+)*\\.v[1-9][0-9]*$",
+          "type": "string"
+        },
+        "module_candidate_set_decision": {
+          "pattern": "^home-center\\.[a-z0-9]+(?:-[a-z0-9]+)*\\.v[1-9][0-9]*$",
+          "type": "string"
+        },
+        "module_candidate_set_revalidation": {
+          "pattern": "^home-center\\.[a-z0-9]+(?:-[a-z0-9]+)*\\.v[1-9][0-9]*$",
+          "type": "string"
+        },
+        "module_compatibility_policy_snapshot": {
+          "pattern": "^home-center\\.[a-z0-9]+(?:-[a-z0-9]+)*\\.v[1-9][0-9]*$",
+          "type": "string"
+        },
+        "module_compatibility_snapshot": {
+          "pattern": "^home-center\\.[a-z0-9]+(?:-[a-z0-9]+)*\\.v[1-9][0-9]*$",
+          "type": "string"
+        },
+        "module_manifest": {
+          "pattern": "^home-center\\.[a-z0-9]+(?:-[a-z0-9]+)*\\.v[1-9][0-9]*$",
+          "type": "string"
+        },
+        "module_policy_candidate_set_decision": {
+          "pattern": "^home-center\\.[a-z0-9]+(?:-[a-z0-9]+)*\\.v[1-9][0-9]*$",
+          "type": "string"
+        },
+        "module_policy_candidate_set_revalidation": {
+          "pattern": "^home-center\\.[a-z0-9]+(?:-[a-z0-9]+)*\\.v[1-9][0-9]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "module_manifest",
+        "module_admission_decision"
+      ],
+      "type": "object"
+    },
+    "schema": {
+      "const": "home-center.module-contract-negotiation-decision.v1"
+    },
+    "status": {
+      "enum": [
+        "compatible",
+        "unsupported-contract"
+      ]
+    },
+    "unsupported_contracts": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "family": {
+            "enum": [
+              "module_manifest",
+              "module_admission_decision",
+              "module_admission_revalidation",
+              "module_compatibility_snapshot",
+              "module_admission_snapshot_binding",
+              "module_admission_set_revalidation",
+              "module_candidate_set_decision",
+              "module_candidate_set_revalidation",
+              "module_compatibility_policy_snapshot",
+              "module_policy_candidate_set_decision",
+              "module_policy_candidate_set_revalidation"
+            ]
+          },
+          "schema": {
+            "pattern": "^home-center\\.[a-z0-9]+(?:-[a-z0-9]+)*\\.v[1-9][0-9]*$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "family",
+          "schema"
+        ],
+        "type": "object"
+      },
+      "maxItems": 11,
+      "type": "array",
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "schema",
+    "decision_id",
+    "profile_id",
+    "home_center_version",
+    "status",
+    "requested_contracts",
+    "unsupported_contracts",
+    "reasons",
+    "admission_authorized",
+    "installation_authorized",
+    "execution_authorized",
+    "production_mutation_enabled",
+    "external_publication_authorized"
+  ],
+  "title": "Home Center Module Contract Negotiation Decision v1",
+  "type": "object"
+}
