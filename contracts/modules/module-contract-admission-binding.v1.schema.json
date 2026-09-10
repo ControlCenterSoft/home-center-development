@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.example/contracts/modules/module-contract-admission-binding.v1.schema.json",
+  "title": "Home Center Module Contract Admission Binding v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "binding_id",
+    "profile_id",
+    "negotiation_decision_id",
+    "admission_decision_id",
+    "home_center_version",
+    "module_manifest_schema",
+    "module_admission_schema",
+    "module_id",
+    "module_version",
+    "manifest_binding_sha256",
+    "artifact_sha256",
+    "admission_status",
+    "admission_authorized",
+    "installation_authorized",
+    "execution_authorized",
+    "production_mutation_enabled",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {
+      "const": "home-center.module-contract-admission-binding.v1"
+    },
+    "binding_id": {
+      "type": "string",
+      "pattern": "^mcab-[0-9a-f]{24}$"
+    },
+    "profile_id": {
+      "type": "string",
+      "pattern": "^mccp-[0-9a-f]{24}$"
+    },
+    "negotiation_decision_id": {
+      "type": "string",
+      "pattern": "^mcnd-[0-9a-f]{24}$"
+    },
+    "admission_decision_id": {
+      "type": "string",
+      "pattern": "^madm-[0-9a-f]{24}$"
+    },
+    "home_center_version": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "module_manifest_schema": {
+      "type": "string",
+      "maxLength": 128,
+      "pattern": "^home-center\\.[a-z0-9]+(?:-[a-z0-9]+)*\\.v[1-9][0-9]*$"
+    },
+    "module_admission_schema": {
+      "const": "home-center.module-admission-decision.v1"
+    },
+    "module_id": {
+      "type": "string",
+      "maxLength": 128,
+      "pattern": "^[a-z0-9](?:[a-z0-9.-]{0,126}[a-z0-9])?$"
+    },
+    "module_version": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "manifest_binding_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "artifact_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "admission_status": {
+      "enum": [
+        "compatible",
+        "blocked"
+      ]
+    },
+    "admission_authorized": {
+      "const": false
+    },
+    "installation_authorized": {
+      "const": false
+    },
+    "execution_authorized": {
+      "const": false
+    },
+    "production_mutation_enabled": {
+      "const": false
+    },
+    "external_publication_authorized": {
+      "const": false
+    }
+  }
+}
