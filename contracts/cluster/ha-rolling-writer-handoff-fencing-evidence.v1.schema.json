@@ -31,6 +31,7 @@
     "lease_resource_version",
     "lease_state_id",
     "lease_revoked",
+    "lease_revoked_for_role_transition_id",
     "fence_confirmed",
     "rollback_candidate_node_id",
     "rollback_admission_authorized",
@@ -161,6 +162,11 @@
     },
     "lease_revoked": {
       "const": true
+    },
+    "lease_revoked_for_role_transition_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
     },
     "fence_confirmed": {
       "const": true
