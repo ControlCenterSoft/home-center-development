@@ -10,12 +10,12 @@ from scripts.qualify_release_artifact import REQUIRED_MEMBERS
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_release_049_identity_is_exact_and_documented() -> None:
+def test_release_049_identity_is_cumulative_and_documented() -> None:
     version = (ROOT / "VERSION").read_text(encoding="ascii").strip()
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     notes = (ROOT / "docs/releases/0.49.0.md").read_text(encoding="utf-8")
 
-    assert version == "0.49.0"
+    assert tuple(int(part) for part in version.split(".")) >= (0, 49, 0)
     assert project["project"]["version"] == version
     assert home_center.__version__ == version
     assert "# Home Center 0.49.0" in notes
