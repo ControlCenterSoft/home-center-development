@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.invalid/contracts/cluster/ha-rolling-writer-handoff-rollback-reconciliation-receipt.v1.schema.json",
+  "title": "HA rolling writer handoff rollback reconciliation receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "cluster_id",
+    "receipt_id",
+    "admission_id",
+    "member_node_ids",
+    "rollback_writer_node_id",
+    "fenced_successor_node_id",
+    "expected_role_assignment_id",
+    "expected_role_epoch",
+    "expected_role_resource_version",
+    "expected_role_journal_seq",
+    "expected_role_transition_id",
+    "target_role_assignment_id",
+    "target_role_epoch",
+    "expected_rollback_transition_id",
+    "observed_role_assignment_id",
+    "observed_role_epoch",
+    "observed_role_resource_version",
+    "observed_role_journal_seq",
+    "observed_role_transition_id",
+    "observed_role_transition_kind",
+    "observed_writer_node_ids",
+    "rollback_transition_observed",
+    "outcome",
+    "reason",
+    "rollback_completed",
+    "fresh_admission_required",
+    "operator_reconciliation_required",
+    "fresh_admission_authorized",
+    "automatic_retry_authorized",
+    "execution_authorized",
+    "failover_authorized",
+    "writer_service_authorized",
+    "host_mutation_authorized",
+    "production_mutation_enabled"
+  ],
+  "properties": {
+    "schema": {
+      "const": "home-center.ha-rolling-writer-handoff-rollback-reconciliation-receipt.v1"
+    },
+    "cluster_id": {"$ref": "#/$defs/identifier"},
+    "receipt_id": {"$ref": "#/$defs/identifier"},
+    "admission_id": {"$ref": "#/$defs/identifier"},
+    "member_node_ids": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/identifier"}
+    },
+    "rollback_writer_node_id": {"$ref": "#/$defs/identifier"},
+    "fenced_successor_node_id": {"$ref": "#/$defs/identifier"},
+    "expected_role_assignment_id": {"$ref": "#/$defs/identifier"},
+    "expected_role_epoch": {"type": "integer", "minimum": 0},
+    "expected_role_resource_version": {"type": "integer", "minimum": 1},
+    "expected_role_journal_seq": {"type": "integer", "minimum": 1},
+    "expected_role_transition_id": {"$ref": "#/$defs/identifier"},
+    "target_role_assignment_id": {"$ref": "#/$defs/identifier"},
+    "target_role_epoch": {"type": "integer", "minimum": 1},
+    "expected_rollback_transition_id": {"$ref": "#/$defs/identifier"},
+    "observed_role_assignment_id": {
+      "anyOf": [
+        {"$ref": "#/$defs/identifier"},
+        {"type": "null"}
+      ]
+    },
+    "observed_role_epoch": {
+      "anyOf": [
+        {"type": "integer", "minimum": 0},
+        {"type": "null"}
+      ]
+    },
+    "observed_role_resource_version": {
+      "anyOf": [
+        {"type": "integer", "minimum": 1},
+        {"type": "null"}
+      ]
+    },
+    "observed_role_journal_seq": {
+      "anyOf": [
+        {"type": "integer", "minimum": 1},
+        {"type": "null"}
+      ]
+    },
+    "observed_role_transition_id": {
+      "anyOf": [
+        {"$ref": "#/$defs/identifier"},
+        {"type": "null"}
+      ]
+    },
+    "observed_role_transition_kind": {
+      "anyOf": [
+        {"enum": ["bootstrap", "election", "failover", "recovery", "rollback"]},
+        {"type": "null"}
+      ]
+    },
+    "observed_writer_node_ids": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/identifier"}
+    },
+    "rollback_transition_observed": {"type": "boolean"},
+    "outcome": {
+      "enum": ["committed", "definitely-not-applied", "superseded", "ambiguous"]
+    },
+    "reason": {
+      "enum": [
+        "exact_rollback_transition_current",
+        "exact_precommit_revision_current",
+        "rollback_transition_superseded",
+        "competing_transition_superseded_admission",
+        "current_role_journal_evidence_missing",
+        "role_revision_regressed",
+        "role_revision_counters_inconsistent",
+        "role_revision_not_classifiable",
+        "writer_cardinality_unsafe",
+        "role_authority_unavailable"
+      ]
+    },
+    "rollback_completed": {"type": "boolean"},
+    "fresh_admission_required": {"type": "boolean"},
+    "operator_reconciliation_required": {"type": "boolean"},
+    "fresh_admission_authorized": {"const": false},
+    "automatic_retry_authorized": {"const": false},
+    "execution_authorized": {"const": false},
+    "failover_authorized": {"const": false},
+    "writer_service_authorized": {"const": false},
+    "host_mutation_authorized": {"const": false},
+    "production_mutation_enabled": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"outcome": {"const": "committed"}},
+        "required": ["outcome"]
+      },
+      "then": {
+        "properties": {
+          "rollback_completed": {"const": true},
+          "fresh_admission_required": {"const": false},
+          "operator_reconciliation_required": {"const": false}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"outcome": {"const": "definitely-not-applied"}},
+        "required": ["outcome"]
+      },
+      "then": {
+        "properties": {
+          "rollback_completed": {"const": false},
+          "fresh_admission_required": {"const": true},
+          "operator_reconciliation_required": {"const": false}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"outcome": {"enum": ["superseded", "ambiguous"]}},
+        "required": ["outcome"]
+      },
+      "then": {
+        "properties": {
+          "rollback_completed": {"const": false},
+          "fresh_admission_required": {"const": false},
+          "operator_reconciliation_required": {"const": true}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"
+    }
+  }
+}
