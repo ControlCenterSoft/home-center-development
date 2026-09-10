@@ -28,6 +28,7 @@ class HAWriterLeaseStateView(Protocol):
     resource_version: int
     holder_node_id: str | None
     revoked: bool
+    revoked_for_role_transition_id: str
     state_id: str
     production_mutation_enabled: bool
 
@@ -68,6 +69,7 @@ class WriterHandoffFencingEvidence:
     lease_resource_version: int
     lease_state_id: str
     lease_revoked: bool
+    lease_revoked_for_role_transition_id: str
     fence_confirmed: bool
     rollback_candidate_node_id: str
     rollback_admission_authorized: bool = False
@@ -105,6 +107,7 @@ class WriterHandoffFencingEvidence:
             "lease_resource_version": self.lease_resource_version,
             "lease_state_id": self.lease_state_id,
             "lease_revoked": self.lease_revoked,
+            "lease_revoked_for_role_transition_id": self.lease_revoked_for_role_transition_id,
             "fence_confirmed": self.fence_confirmed,
             "rollback_candidate_node_id": self.rollback_candidate_node_id,
             "rollback_admission_authorized": self.rollback_admission_authorized,
@@ -241,6 +244,7 @@ def _lease_material(state: HAWriterLeaseStateView) -> dict[str, object]:
         "resource_version": state.resource_version,
         "holder_node_id": state.holder_node_id,
         "revoked": state.revoked,
+        "revoked_for_role_transition_id": state.revoked_for_role_transition_id,
     }
 
 
@@ -249,6 +253,7 @@ def _verify_lease_state(
     *,
     cluster_id: str,
     successor_writer_node_id: str,
+    assessment_role_transition_id: str,
 ) -> None:
     if state.production_mutation_enabled:
         raise HARollingWriterHandoffFencingError(
@@ -284,6 +289,10 @@ def _verify_lease_state(
         raise HARollingWriterHandoffFencingError(
             "rolling_writer_handoff_fencing_lease_not_revoked"
         )
+    if state.revoked_for_role_transition_id != assessment_role_transition_id:
+        raise HARollingWriterHandoffFencingError(
+            "rolling_writer_handoff_fencing_lease_transition_binding_invalid"
+        )
     if state.holder_node_id is not None:
         raise HARollingWriterHandoffFencingError(
             "rolling_writer_handoff_fencing_lease_holder_present"
@@ -317,6 +326,10 @@ def _verify_evidence(evidence: WriterHandoffFencingEvidence) -> None:
     if not evidence.lease_revoked or not evidence.fence_confirmed:
         raise HARollingWriterHandoffFencingError(
             "rolling_writer_handoff_fencing_evidence_not_confirmed"
+        )
+    if evidence.lease_revoked_for_role_transition_id != evidence.role_transition_id:
+        raise HARollingWriterHandoffFencingError(
+            "rolling_writer_handoff_fencing_evidence_transition_binding_invalid"
         )
     if evidence.rollback_candidate_node_id != evidence.previous_writer_node_id:
         raise HARollingWriterHandoffFencingError(
@@ -362,6 +375,7 @@ def build_writer_handoff_fencing_evidence(
         before,
         cluster_id=assessment.cluster_id,
         successor_writer_node_id=assessment.successor_writer_node_id,
+        assessment_role_transition_id=assessment.role_transition_id,
     )
     after = lease_authority.state_for(
         cluster_id=assessment.cluster_id,
@@ -371,6 +385,7 @@ def build_writer_handoff_fencing_evidence(
         after,
         cluster_id=assessment.cluster_id,
         successor_writer_node_id=assessment.successor_writer_node_id,
+        assessment_role_transition_id=assessment.role_transition_id,
     )
     if not _same_lease_revision(before, after):
         raise HARollingWriterHandoffFencingError(
@@ -403,6 +418,7 @@ def build_writer_handoff_fencing_evidence(
         lease_resource_version=after.resource_version,
         lease_state_id=after.state_id,
         lease_revoked=after.revoked,
+        lease_revoked_for_role_transition_id=after.revoked_for_role_transition_id,
         fence_confirmed=True,
         rollback_candidate_node_id=assessment.previous_writer_node_id,
     )
