@@ -295,6 +295,7 @@ def _validate_pending_job(
     if job.get("recovery_required") is not False:
         raise OperationRollbackVerificationReceiptError("recovery_already_required")
     _validate_job_lineage(job, execution, include_verification=False)
+    _validate_recovery_contract(job, execution)
     return _verification_sha256(job, execution)
 
 
@@ -313,6 +314,7 @@ def _validate_final_job(
     if job.get("recovery_required") is not receipt.recovery_required:
         raise OperationRollbackVerificationReceiptError("recovery_state_mismatch")
     _validate_job_lineage(job, execution, include_verification=True, receipt=receipt)
+    _validate_recovery_contract(job, execution, receipt=receipt)
     if _verification_sha256(job, execution) != receipt.verification_sha256:
         raise OperationRollbackVerificationReceiptError("verification_contract_drift")
     result = job.get("result")
@@ -320,14 +322,6 @@ def _validate_final_job(
         receipt
     ):
         raise OperationRollbackVerificationReceiptError("verification_result_mismatch")
-    recovery = job.get("recovery")
-    expected = {
-        "receipt_id": receipt.receipt_id,
-        "recovery_verified": receipt.recovery_verified,
-        "recovery_required": receipt.recovery_required,
-    }
-    if not isinstance(recovery, dict) or recovery.get("verification") != expected:
-        raise OperationRollbackVerificationReceiptError("recovery_evidence_mismatch")
     audit_event_id = job.get("last_audit_event_id")
     if not isinstance(audit_event_id, str) or not audit_event_id:
         raise OperationRollbackVerificationReceiptError("transition_audit_missing")
@@ -465,6 +459,46 @@ def _validate_prior_evidence(
         raise OperationRollbackVerificationReceiptError("unsafe_execution_evidence")
     if verification.get("grants_execution_authority") is not False:
         raise OperationRollbackVerificationReceiptError("unsafe_verification_evidence")
+
+
+def _validate_recovery_contract(
+    job: dict[str, Any],
+    execution: OperationRollbackExecutionReceipt,
+    *,
+    receipt: OperationRollbackVerificationReceipt | None = None,
+) -> None:
+    recovery = job.get("recovery")
+    if not isinstance(recovery, dict):
+        raise OperationRollbackVerificationReceiptError("operation_recovery_missing")
+    base = dict(recovery)
+    verification = base.pop("verification", None)
+    if receipt is None:
+        if verification is not None:
+            raise OperationRollbackVerificationReceiptError("premature_recovery_verification")
+    else:
+        expected_verification = {
+            "receipt_id": receipt.receipt_id,
+            "recovery_verified": receipt.recovery_verified,
+            "recovery_required": receipt.recovery_required,
+        }
+        if verification != expected_verification:
+            raise OperationRollbackVerificationReceiptError("recovery_evidence_mismatch")
+    verb = "start" if execution.expected_active_state == "active" else "stop"
+    expected = {
+        "strategy": "restore-observed-active-state",
+        "argv": [SYSTEMCTL, verb, job["service"]],
+        "timeout_seconds": 15,
+        "expected_active_state": execution.expected_active_state,
+        "verification_required": True,
+    }
+    if base != expected:
+        raise OperationRollbackVerificationReceiptError("operation_recovery_contract_mismatch")
+    digest = hashlib.sha256(canonical_json(base).encode("utf-8")).hexdigest()
+    if digest != execution.recovery_sha256:
+        raise OperationRollbackVerificationReceiptError("operation_recovery_integrity_mismatch")
+    plan = job.get("plan")
+    if not isinstance(plan, dict) or plan.get("recovery") != expected:
+        raise OperationRollbackVerificationReceiptError("operation_plan_recovery_mismatch")
 
 
 def _verification_sha256(
