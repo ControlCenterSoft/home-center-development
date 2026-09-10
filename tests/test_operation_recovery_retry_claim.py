@@ -364,6 +364,31 @@ class OperationRecoveryRetryClaimTests(unittest.TestCase):
                 worker=self.worker,
             )
 
+    def test_explicit_revalidation_rejects_recovery_drift_after_claim(self) -> None:
+        claim, _ = self._claim()
+        current = self.store.operation_job(self.job["job_id"])
+        assert current is not None
+        recovery = dict(current["recovery"])
+        recovery["timeout_seconds"] = 999
+        with self.store._lock, self.store._connection:
+            self.store._connection.execute(
+                "UPDATE jobs SET recovery_json=? WHERE job_id=?",
+                (canonical_json(recovery), self.job["job_id"]),
+            )
+        with self.assertRaisesRegex(
+            OperationRecoveryRetryClaimError,
+            "operation_recovery_evidence_drift",
+        ):
+            revalidate_operation_recovery_retry_claim(
+                self.store,
+                claim,
+                self.admission,
+                self.receipt,
+                self.execution,
+                self.request,
+                worker=self.worker,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
