@@ -74,7 +74,21 @@ Household/Intent foundation должна включать или семанти�
 
 Опубликованный исходный релиз Home Center — `0.23.0`. Он завершает сформированный durable home-service transition scope и не включает Household/Intent foundation.
 
-Существующие development-кандидаты `0.24.0` и `0.25.0` уже имеют фактический scope в линии durable transition: `0.24.0` добавляет read-back verification и audited apply boundary, а `0.25.0` — completion audit для результата verification. Поэтому архитектурные этапы Household/Intent foundation, полноценного mobile-first «Уютного», role-driven provisioning, рекомендаций, QR-гостей и безопасного auto-repair не закрепляются за уже занятыми номерами версий до появления соответствующего фактического состава кода и отдельной публикации.
+Подтверждённая кандидатная линия после `0.23.0` имеет следующий фактический состав:
+
+- `0.24.0` — read-back verification и audited apply boundary для durable transition;
+- `0.25.0` — completion audit результата read-back verification;
+- `0.26.0` — Household/Intent foundation: Household, FamilyMember, ManagedDevice, роли `parent`/`child`/`guest`, RolePreset/EffectivePolicy и side-effect-free intent planning;
+- `0.27.0` — versioned Household persistence с generation/resource version и optimistic concurrency;
+- `0.28.0` — exact-state Household/Intent proposal с привязкой к snapshot/generation/resource version и fail-closed stale-state revalidation;
+- `0.29.0` — fail-closed compatibility admission для проверенных Module Manifest v2 artifacts; результат остаётся evidence-only и не разрешает installation/execution;
+- `0.30.0` — exact-state revalidation ранее сформированного module-admission decision относительно свежего runtime compatibility state;
+- `0.31.0` — канонический runtime compatibility snapshot и детерминированная привязка набора module-admission decisions к одному точному состоянию;
+- `0.32.0` — batch exact-state revalidation полного module-admission set, ранее привязанного к каноническому runtime compatibility snapshot.
+
+Версии `0.24.0`–`0.32.0` являются кандидатами и не считаются пользовательски доступными до отдельной официальной публикации. Контракты `0.29.0`–`0.32.0` являются доказательными и не дают права устанавливать модуль, выполнять provider code, изменять сервисы, сеть или внешнюю публикацию.
+
+Полноценный mobile-first UI «Домой»/«Семья»/«Мой дом», role-driven provisioning, рекомендации, QR-гости, безопасный auto-repair и дальнейший UX/security hardening остаются последующими этапами. Их номера версий фиксируются только вместе с соответствующим фактическим составом реализации.
 
 Архитектурное решение «Уютного» не меняет acceptance boundary существующих кандидатов. Каждая новая пользовательская capability должна определить Full/Core representation, Household/Intent representation либо явное N/A, mapping intent/policy → Desired State, permissions/safety gates, post-condition verification и recovery behavior.
 
