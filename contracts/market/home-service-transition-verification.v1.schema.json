@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://controlcentersoft.example/contracts/market/home-service-transition-verification.v1.schema.json",
+  "title": "Home Service Transition Verification v1",
+  "description": "Read-only evidence that durable instance state still matches an apply receipt exactly.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "verification_id",
+    "receipt_id",
+    "authorization_id",
+    "commit_id",
+    "decision_id",
+    "instance_id",
+    "expected_state",
+    "expected_generation",
+    "expected_resource_version",
+    "observed_state",
+    "observed_generation",
+    "observed_resource_version",
+    "status",
+    "mismatch_codes",
+    "evidence_record_only",
+    "verified",
+    "further_mutation_authorized",
+    "production_mutation_enabled"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.home-service-transition-verification.v1"},
+    "verification_id": {"type": "string", "pattern": "^hstv-[a-f0-9]{24}$"},
+    "receipt_id": {"type": "string", "pattern": "^hstr-[a-f0-9]{24}$"},
+    "authorization_id": {"type": "string", "minLength": 2, "maxLength": 128},
+    "commit_id": {"type": "string", "pattern": "^hstc-[a-f0-9]{24}$"},
+    "decision_id": {"type": "string", "pattern": "^hstd-[a-f0-9]{24}$"},
+    "instance_id": {"type": "string", "minLength": 2, "maxLength": 128},
+    "expected_state": {"enum": ["planned", "installed", "configured", "ready", "degraded", "removed"]},
+    "expected_generation": {"type": "integer", "minimum": 2},
+    "expected_resource_version": {"type": "string", "pattern": "^rv:instance:[a-f0-9]{24}$"},
+    "observed_state": {
+      "oneOf": [
+        {"enum": ["planned", "installed", "configured", "ready", "degraded", "removed"]},
+        {"type": "null"}
+      ]
+    },
+    "observed_generation": {"type": ["integer", "null"], "minimum": 1},
+    "observed_resource_version": {
+      "oneOf": [
+        {"type": "string", "pattern": "^rv:instance:[a-f0-9]{24}$"},
+        {"type": "null"}
+      ]
+    },
+    "status": {"enum": ["verified", "drifted"]},
+    "mismatch_codes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "instance_not_found",
+          "state_mismatch",
+          "generation_mismatch",
+          "resource_version_mismatch"
+        ]
+      }
+    },
+    "evidence_record_only": {"const": true},
+    "verified": {"type": "boolean"},
+    "further_mutation_authorized": {"const": false},
+    "production_mutation_enabled": {"const": false}
+  }
+}
