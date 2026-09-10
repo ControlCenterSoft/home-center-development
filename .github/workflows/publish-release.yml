@@ -27,6 +27,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Validate release inputs
@@ -38,11 +39,21 @@ jobs:
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
           notes="docs/releases/${version}.md"
           test -f "$notes"
+
+          if ! grep -Eq '^Status: official release\.?$' "$notes"; then
+            echo "Release notes must contain an exact official-release status" >&2
+            exit 1
+          fi
+          if grep -Eiq 'qualification candidate|ready for qualification|development candidate|source-development package' "$notes"; then
+            echo "Release notes still contain candidate-only wording" >&2
+            exit 1
+          fi
+
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
           echo "notes=$notes" >> "$GITHUB_OUTPUT"
 
-      - name: Publish idempotently
+      - name: Publish or repair metadata idempotently
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -52,27 +63,70 @@ jobs:
           RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
+
+          release_exists=false
           if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" >/dev/null 2>&1; then
-            echo "${RELEASE_TAG} is already published"
-            exit 0
+            release_exists=true
           fi
 
           tag_sha=""
           if existing_tag_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" --jq '.object.sha' 2>/dev/null)"; then
             tag_sha="$existing_tag_sha"
           fi
-          if [[ -n "$tag_sha" && "$tag_sha" != "$RELEASE_SHA" ]]; then
-            echo "${RELEASE_TAG} already points to ${tag_sha}, expected ${RELEASE_SHA}" >&2
-            exit 1
-          fi
-          if [[ -z "$tag_sha" ]]; then
-            gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
-              -f ref="refs/tags/${RELEASE_TAG}" \
-              -f sha="$RELEASE_SHA" >/dev/null
+
+          if [[ "$release_exists" == true ]]; then
+            if [[ -z "$tag_sha" ]]; then
+              echo "Existing release ${RELEASE_TAG} has no matching Git tag" >&2
+              exit 1
+            fi
+
+            if [[ "$tag_sha" != "$RELEASE_SHA" ]]; then
+              git fetch --no-tags origin "$tag_sha" "$RELEASE_SHA"
+              if ! git merge-base --is-ancestor "$tag_sha" "$RELEASE_SHA"; then
+                echo "Existing tag ${RELEASE_TAG} is not an ancestor of current release SHA" >&2
+                exit 1
+              fi
+
+              unexpected="$(git diff --name-only "$tag_sha" "$RELEASE_SHA" -- | grep -Ev "^(docs/releases/${RELEASE_VERSION}\.md|\.github/workflows/publish-release\.yml)$" || true)"
+              if [[ -n "$unexpected" ]]; then
+                echo "Existing tag differs from current SHA outside the guarded metadata-repair allowlist:" >&2
+                printf '%s\n' "$unexpected" >&2
+                exit 1
+              fi
+              echo "Keeping immutable product tag ${RELEASE_TAG} at ${tag_sha}; only guarded release metadata changed"
+            fi
+
+            gh release edit "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Home Center ${RELEASE_VERSION}" \
+              --notes-file "$RELEASE_NOTES"
+          else
+            if [[ -n "$tag_sha" && "$tag_sha" != "$RELEASE_SHA" ]]; then
+              echo "${RELEASE_TAG} already points to ${tag_sha}, expected ${RELEASE_SHA}" >&2
+              exit 1
+            fi
+            if [[ -z "$tag_sha" ]]; then
+              gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+                -f ref="refs/tags/${RELEASE_TAG}" \
+                -f sha="$RELEASE_SHA" >/dev/null
+            fi
+
+            gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Home Center ${RELEASE_VERSION}" \
+              --notes-file "$RELEASE_NOTES" \
+              --verify-tag
           fi
 
-          gh release create "$RELEASE_TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "Home Center ${RELEASE_VERSION}" \
-            --notes-file "$RELEASE_NOTES" \
-            --verify-tag
+          actual_title="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" --jq '.name')"
+          actual_tag="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" --jq '.tag_name')"
+          actual_body="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" --jq '.body')"
+          expected_body="$(cat "$RELEASE_NOTES")"
+
+          [[ "$actual_title" == "Home Center ${RELEASE_VERSION}" ]]
+          [[ "$actual_tag" == "$RELEASE_TAG" ]]
+          [[ "$actual_body" == "$expected_body" ]]
+
+          assets="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" --jq '.assets[].name')"
+          grep -Fxq "home-center-${RELEASE_VERSION}-linux-amd64.tar.gz" <<<"$assets"
+          grep -Fxq "home-center-${RELEASE_VERSION}-linux-amd64.tar.gz.sha256" <<<"$assets"
