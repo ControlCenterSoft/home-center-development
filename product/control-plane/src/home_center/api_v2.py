@@ -10,6 +10,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from .api import RuntimeRequestHandler
+from .household_device_enrollment_runtime import HouseholdDeviceEnrollmentRuntimeError
 from .household_device_management_runtime import HouseholdDeviceManagementRuntimeError
 from .household_device_runtime import HouseholdDeviceRuntimeError
 from .household_runtime import HouseholdRuntimeError
@@ -156,6 +157,8 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
             "/api/v1/household/devices/plan",
             "/api/v1/household/devices/confirm",
             "/api/v1/household/devices/management/plan",
+            "/api/v1/household/devices/enrollment/plan",
+            "/api/v1/household/devices/enrollment/confirm",
         }
         if path not in household_posts:
             super().do_POST()
@@ -224,14 +227,35 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
                 )
                 self._json(HTTPStatus.OK, value)
                 return
-            value = self.runtime.household_device_management.plan(
+            if path == "/api/v1/household/devices/management/plan":
+                value = self.runtime.household_device_management.plan(
+                    actor=actor,
+                    request=body,
+                    correlation_id=correlation_id,
+                )
+                self._json(HTTPStatus.OK, value)
+                return
+            if path == "/api/v1/household/devices/enrollment/plan":
+                value = self.runtime.household_device_enrollment.plan(
+                    actor=actor,
+                    request=body,
+                    correlation_id=correlation_id,
+                )
+                self._json(HTTPStatus.OK, value)
+                return
+            value = self.runtime.household_device_enrollment.confirm(
                 actor=actor,
                 request=body,
                 correlation_id=correlation_id,
             )
             self._json(HTTPStatus.OK, value)
             return
-        except (HouseholdRuntimeError, HouseholdDeviceRuntimeError, HouseholdDeviceManagementRuntimeError) as exc:
+        except (
+            HouseholdRuntimeError,
+            HouseholdDeviceRuntimeError,
+            HouseholdDeviceManagementRuntimeError,
+            HouseholdDeviceEnrollmentRuntimeError,
+        ) as exc:
             conflict_codes = {
                 "household_already_configured",
                 "household_intent_target_exists",
@@ -239,6 +263,7 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
                 "household_member_change_stale",
                 "household_device_already_exists",
                 "household_device_change_stale",
+                "household_device_enrollment_stale",
             }
             forbidden_codes = {
                 "household_actor_not_bound",
@@ -248,6 +273,7 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
                 "household_device_change_not_authorized",
                 "household_device_change_actor_mismatch",
                 "household_device_management_not_authorized",
+                "household_device_enrollment_actor_mismatch",
             }
             not_found_codes = {
                 "household_not_configured",
@@ -255,6 +281,7 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
                 "household_member_proposal_not_found",
                 "household_device_proposal_not_found",
                 "household_device_not_found",
+                "household_device_enrollment_proposal_not_found",
             }
             if exc.code in conflict_codes:
                 status = HTTPStatus.CONFLICT
