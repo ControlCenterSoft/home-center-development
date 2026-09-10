@@ -1,46 +1,67 @@
 # Home Center
 
-Home Center is an infrastructure-neutral platform for managing home and small-server infrastructure through a unified Web UI and API.
+Home Center — инфраструктурно-независимая платформа управления домашней и небольшой серверной инфраструктурой через единый Web-интерфейс и API.
 
-## Active development repository
+**Последний опубликованный исходный релиз:** `0.23.0`.
 
-This repository is the authoritative workspace for active Home Center product development.
+Отдельный стабильный бинарный канал распространения пока подтверждён до `0.15.0`; это отдельная более ранняя линия распространения и её возможности нельзя автоматически приравнивать к исходному релизу `0.23.0`.
 
-Home Center must be installable on a new or existing supported infrastructure without any dependency on a particular deployment. Product source must not hard-code real node names, domain names, directory identifiers, network addresses, credentials, certificates, or topology from an operator environment.
+## Назначение
 
-Runtime identity and topology are supplied by discovery, enrollment and deployment profiles. Directory integration is optional and configured by the administrator. Compute, storage, device, automation, certificate and remote-access providers are selected through capabilities and provider profiles rather than fixed hosts.
+Home Center объединяет управление узлами, сервисами и домашними инфраструктурными модулями в одной модели. Продукт рассчитан на установку в новой или существующей поддерживаемой среде и не требует заранее заданных имён серверов, доменов, сетевых адресов или конкретной топологии.
 
-## Product UX architecture
+Идентичность узлов и фактическая топология определяются при установке, обнаружении и подключении узлов. Интеграция с каталогом пользователей является настраиваемой возможностью. Вычислительные, дисковые, сетевые, автоматизационные и другие providers выбираются по поддерживаемым возможностям, а не по жёстко заданным хостам.
 
-Home Center has two complementary user-interface levels: the full technical interface and the accepted mobile-first interface **«Уютный»**. «Уютный» is part of Home Center, not a separate product or theme.
+## Архитектурные принципы
 
-The authoritative architecture and release boundary for this interface are defined in [`docs/architecture/cozy-interface.md`](docs/architecture/cozy-interface.md).
+- самостоятельная single-node установка остаётся полноценным способом использования продукта;
+- multi-node/HA считается поддержанным только для тех ролей и версий, где опубликован и проверен соответствующий failure/recovery профиль;
+- Desired State и Actual State разделены: изменение сначала планируется и проверяется, затем выполняется через контролируемый путь;
+- длительные операции оформляются как управляемые Jobs с проверяемым состоянием и идемпотентностью;
+- дополнительные домашние возможности поставляются через Market-модули и не должны размывать границы Core;
+- внешняя публикация, NAT/port-forwarding и другие рискованные функции не включаются неявно.
 
-The core rule is that the user expresses a household intent while Home Center translates it into a safe policy/desired-state plan and executes it through the normal authorization, Change/Job, reconciliation, verification and recovery boundaries. The current 0.23 release scope is not expanded by this decision; the foundation starts with 0.24.
+## Пользовательские интерфейсы
 
-From 0.24 onward, every new user-facing capability should define both its Full/Core representation and its Household/Intent representation, or explicitly document why the latter is not applicable.
+Home Center имеет два взаимодополняющих интерфейса: **«Полный»** для профессионального управления и mobile-first **«Уютный»** для повседневных домашних сценариев. «Уютный» является частью Home Center, а не отдельным продуктом или темой оформления.
 
-## Repository boundary
+«Уютный» работает через Household/Intent model и общий безопасный путь Desired/Actual State, Change/Job, Audit, post-condition verification и recovery. Подробное архитектурное решение: [`docs/architecture/cozy-interface.md`](docs/architecture/cozy-interface.md).
 
-Allowed here:
+Фактическая кандидатная линия после опубликованного `0.23.0` уже использует версии `0.24.0`–`0.33.0`; поэтому этапы «Уютного» должны описываться по реальному составу конкретной версии, а не по старой предварительной нумерации.
 
-- product source and Web UI;
-- portable deployment and enrollment logic;
-- schemas and API contracts;
-- tests and GitHub Actions CI;
-- infrastructure-neutral documentation and examples;
-- release and feature branches for active development.
+## Опубликованный релиз 0.23.0
 
-Not allowed here:
+`0.23.0` продолжает безопасный lifecycle домашних сервисов после линии 0.22 и добавляет явную authorization/receipt модель durable transition, точный compare-and-swap commit и детерминированный apply receipt. Публикация исходного релиза не означает автоматическое разрешение произвольных инфраструктурных изменений.
 
-- credentials, private keys or production certificates;
-- real deployment IP addresses, host names, directory SIDs or private realms;
-- operator-specific deployment overlays;
-- production acceptance evidence containing private infrastructure details;
-- internal server-only operational data.
+## Кандидатная линия после 0.23.0
 
-Those restricted operational materials remain outside the public product-development repository.
+Подготовленные версии после `0.23.0` остаются предварительными до отдельной официальной публикации. В частности:
 
-## Development model
+- `0.24.0` — read-back verification и audited apply boundary;
+- `0.25.0` — completion audit;
+- `0.26.0` — Household/Intent foundation;
+- `0.27.0` — versioned Household persistence;
+- `0.28.0` — exact-state Household/Intent proposal и stale-state revalidation;
+- `0.29.0`–`0.33.0` — последовательное развитие fail-closed compatibility/admission evidence для Module Manifest v2 и наборов кандидатов.
 
-`main` is the infrastructure-neutral integration baseline. Active versions are developed in parallel release and feature branches. Every push and pull request is checked by the infrastructure-neutrality gate on GitHub-hosted runners.
+Эти capability считаются доступными пользователю только после официальной публикации соответствующей версии. Evidence-only контракты не являются разрешением на installation, execution или production mutation.
+
+## Market и deployment
+
+Зафиксированные направления Home Center Market включают Yandex Smart Home integration, TorrServer, torrent client, ZigBee coordinator/bridge, Minecraft Server, Android MDM и дополнительные домашние сервисы через единый module contract.
+
+Windows deployment stack предусматривает PXE/iPXE, WinPE/wimboot, Unattend и post-install bootstrap; автоматизация установки программного обеспечения строится через поддерживаемые механизмы, включая Ansible/WinRM/PSRP и пакетные providers. Наличие направления в roadmap не означает, что оно уже входит в текущий опубликованный релиз.
+
+## Первый вход
+
+После чистой установки создаётся локальный пользователь `admin` с первоначальным паролем `admin`. При первом входе пользователь обязан сменить пароль; до смены обычная работа запрещена. При обновлении существующий пароль администратора сохраняется и не заменяется первоначальным значением.
+
+## Безопасность
+
+Home Center не предоставляет generic shell как пользовательский API. Опасные действия должны быть типизированы, ограничены ресурсом, предварительно проверены и иметь понятный путь проверки результата и восстановления. Значения секретов не должны становиться durable evidence.
+
+## Документация
+
+Описание опубликованного релиза: [`docs/releases/0.23.0.md`](docs/releases/0.23.0.md).
+
+Функции более новых версий считаются предварительными до официальной публикации соответствующего релиза и не должны описываться как доступные в `0.23.0` или в отдельном stable-binary канале `0.15.0`.
