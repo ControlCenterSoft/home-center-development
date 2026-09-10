@@ -390,6 +390,16 @@ class OperationRollbackVerificationReceiptTests(unittest.TestCase):
                 self.execution, worker=self.worker, observation=self._observation()
             )
 
+    def test_recovery_contract_drift_is_rejected(self) -> None:
+        self.store.job["recovery"]["timeout_seconds"] = 30
+        with self.assertRaisesRegex(
+            OperationRollbackVerificationReceiptError,
+            "operation_recovery_contract_mismatch",
+        ):
+            self.coordinator.record(
+                self.execution, worker=self.worker, observation=self._observation()
+            )
+
     def test_prior_evidence_drift_is_rejected(self) -> None:
         self.store.job["evidence"]["execution_receipt"]["target_node_id"] = "home-node-b"
         with self.assertRaisesRegex(
