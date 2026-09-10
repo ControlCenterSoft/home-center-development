@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://control-center.pro/contracts/jobs/operation-rollback-claim.v1.schema.json",
+  "title": "Home Center bounded operation rollback claim",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "claim_id",
+    "verification_receipt_id",
+    "execution_receipt_id",
+    "job_id",
+    "action_id",
+    "plan_id",
+    "plan_sha256",
+    "worker_id",
+    "target_node_id",
+    "recovery_sha256",
+    "recovery_strategy",
+    "expected_active_state",
+    "state",
+    "from_state_version",
+    "to_state_version",
+    "audit_event_id",
+    "verification_required",
+    "contains_command_material",
+    "accepts_caller_argv",
+    "accepts_shell",
+    "execution_authorized",
+    "production_mutation_enabled"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.operation-rollback-claim.v1"},
+    "claim_id": {"type": "string", "pattern": "^oprollback-[a-f0-9]{24}$"},
+    "verification_receipt_id": {
+      "type": "string",
+      "pattern": "^opverify-[a-f0-9]{24}$"
+    },
+    "execution_receipt_id": {
+      "type": "string",
+      "pattern": "^opreceipt-[a-f0-9]{24}$"
+    },
+    "job_id": {"type": "string", "pattern": "^opjob-[a-f0-9]{24}$"},
+    "action_id": {"const": "service.restart.v1"},
+    "plan_id": {"type": "string", "pattern": "^opcmd-[a-f0-9]{24}$"},
+    "plan_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "worker_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]{2,63}$"
+    },
+    "target_node_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]{2,63}$"
+    },
+    "recovery_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "recovery_strategy": {"const": "restore-observed-active-state"},
+    "expected_active_state": {"enum": ["active", "inactive"]},
+    "state": {"const": "rolling_back"},
+    "from_state_version": {"type": "integer", "minimum": 4},
+    "to_state_version": {"type": "integer", "minimum": 5},
+    "audit_event_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "verification_required": {"const": true},
+    "contains_command_material": {"const": false},
+    "accepts_caller_argv": {"const": false},
+    "accepts_shell": {"const": false},
+    "execution_authorized": {"const": false},
+    "production_mutation_enabled": {"const": false}
+  }
+}
