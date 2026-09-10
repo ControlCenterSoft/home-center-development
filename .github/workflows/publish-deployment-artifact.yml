@@ -11,32 +11,58 @@ on:
         description: Type PROMOTE to publish the deployment artifact
         required: true
         type: string
+  workflow_run:
+    workflows:
+      - Publish official release
+    types:
+      - completed
+    branches:
+      - main
 
 permissions:
   contents: write
 
 concurrency:
-  group: home-center-deployment-artifact-${{ inputs.release_tag }}
+  group: home-center-deployment-artifact-${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.event.workflow_run.head_sha }}
   cancel-in-progress: false
 
 jobs:
   promote:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Validate promotion request
+      - name: Checkout release-event context
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve promotion request
+        id: release
         shell: bash
         env:
-          RELEASE_TAG: ${{ inputs.release_tag }}
+          EVENT_NAME: ${{ github.event_name }}
+          REQUESTED_RELEASE_TAG: ${{ inputs.release_tag }}
           CONFIRMATION: ${{ inputs.confirmation }}
         run: |
           set -Eeuo pipefail
-          [[ "$CONFIRMATION" == PROMOTE ]] || { echo 'confirmation must be PROMOTE' >&2; exit 64; }
-          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'release_tag must be vMAJOR.MINOR.PATCH' >&2; exit 64; }
+          if [[ "$EVENT_NAME" == workflow_dispatch ]]; then
+            [[ "$CONFIRMATION" == PROMOTE ]] || { echo 'confirmation must be PROMOTE' >&2; exit 64; }
+            release_tag="$REQUESTED_RELEASE_TAG"
+          else
+            version="$(tr -d '[:space:]' < VERSION)"
+            [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'VERSION must be MAJOR.MINOR.PATCH' >&2; exit 64; }
+            release_tag="v${version}"
+          fi
+          [[ "$release_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'release_tag must be vMAJOR.MINOR.PATCH' >&2; exit 64; }
+          echo "tag=$release_tag" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Checkout exact stable release
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: ${{ inputs.release_tag }}
+          ref: ${{ steps.release.outputs.tag }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -49,7 +75,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.release_tag }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
         run: |
           set -Eeuo pipefail
           tag_commit=$(git rev-list -n1 "$RELEASE_TAG")
@@ -84,7 +110,7 @@ jobs:
       - name: Validate artifact privacy and content
         shell: bash
         env:
-          RELEASE_TAG: ${{ inputs.release_tag }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
         run: |
           set -Eeuo pipefail
           version=${RELEASE_TAG#v}
@@ -104,7 +130,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.release_tag }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
         run: |
           set -Eeuo pipefail
           version=${RELEASE_TAG#v}
@@ -120,7 +146,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.release_tag }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
         run: |
           set -Eeuo pipefail
           version=${RELEASE_TAG#v}
