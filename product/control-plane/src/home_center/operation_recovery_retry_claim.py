@@ -428,18 +428,32 @@ def _validate_failed_job(
         raise OperationRecoveryRetryClaimError("rollback_execution_evidence_mismatch")
     if evidence["rollback_verification_receipt"] != receipt.to_dict():
         raise OperationRecoveryRetryClaimError("rollback_verification_evidence_mismatch")
+    _validate_recovery_lineage(
+        job,
+        recovery_sha256=admission.recovery_sha256,
+        receipt=receipt,
+    )
 
+
+def _validate_recovery_lineage(
+    job: dict[str, Any],
+    *,
+    recovery_sha256: str,
+    receipt: OperationRollbackVerificationReceipt,
+) -> None:
     plan = job.get("plan")
     if not isinstance(plan, dict):
         raise OperationRecoveryRetryClaimError("operation_plan_missing")
     plan_sha256 = hashlib.sha256(canonical_json(plan).encode("utf-8")).hexdigest()
-    if plan_sha256 != admission.plan_sha256:
+    if plan_sha256 != job.get("plan_sha256"):
         raise OperationRecoveryRetryClaimError("operation_plan_integrity_mismatch")
     recovery = plan.get("recovery")
     if not isinstance(recovery, dict):
         raise OperationRecoveryRetryClaimError("operation_recovery_contract_missing")
-    recovery_sha256 = hashlib.sha256(canonical_json(recovery).encode("utf-8")).hexdigest()
-    if recovery_sha256 != admission.recovery_sha256:
+    actual_recovery_sha256 = hashlib.sha256(
+        canonical_json(recovery).encode("utf-8")
+    ).hexdigest()
+    if actual_recovery_sha256 != recovery_sha256:
         raise OperationRecoveryRetryClaimError("operation_recovery_contract_drift")
 
     current_recovery = job.get("recovery")
@@ -549,6 +563,15 @@ def _revalidate_persisted_claim(
     }
     if set(evidence) != expected_keys:
         raise OperationRecoveryRetryClaimError("operation_recovery_evidence_shape_mismatch")
+    if evidence.get("rollback_execution_receipt") != execution.to_dict():
+        raise OperationRecoveryRetryClaimError("rollback_execution_evidence_mismatch")
+    if evidence.get("rollback_verification_receipt") != receipt.to_dict():
+        raise OperationRecoveryRetryClaimError("rollback_verification_evidence_mismatch")
+    _validate_recovery_lineage(
+        job,
+        recovery_sha256=claim.recovery_sha256,
+        receipt=receipt,
+    )
 
 
 def _decode_claim(row: sqlite3.Row) -> OperationRecoveryRetryClaim:
