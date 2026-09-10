@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
+import types
+from dataclasses import fields
+from typing import Any, TypeVar, Union, get_args, get_origin, get_type_hints
 
 from .operation_recovery_retry_admission import OperationRecoveryRetryAdmission
 from .operation_recovery_retry_completion_reconciliation import (
@@ -19,6 +21,7 @@ from .operation_recovery_retry_verification_receipt import (
 )
 from .operation_rollback_execution_receipt import OperationRollbackExecutionReceipt
 from .operation_rollback_verification_receipt import OperationRollbackVerificationReceipt
+from .util import canonical_json
 
 
 class OperationRecoveryRetryTerminalReconciliationError(RuntimeError):
@@ -90,17 +93,29 @@ _OPTIONAL_STRING_FIELDS = (
     "sub_state",
     "unit_file_state",
 )
+_REQUIRED_EVIDENCE_KEYS = frozenset(
+    {
+        "worker_claim",
+        "execution_receipt",
+        "verification_receipt",
+        "rollback_claim",
+        "rollback_execution_receipt",
+        "rollback_verification_receipt",
+        "recovery_retry_admission",
+        "recovery_retry_claim",
+        "recovery_retry_execution_receipt",
+        "recovery_retry_verification_receipt",
+    }
+)
+
+_T = TypeVar("_T")
 
 
 def assess_operation_recovery_retry_completion_from_job(
     store: OperationRecoveryRetryCompletionReconciliationStore,
     job_id: str,
-    execution: OperationRecoveryRetryExecutionReceipt,
-    admission: OperationRecoveryRetryAdmission,
-    prior_verification: OperationRollbackVerificationReceipt,
-    prior_execution: OperationRollbackExecutionReceipt,
 ) -> OperationRecoveryRetryCompletionReconciliation:
-    """Reconcile one terminal job using only its durable verification receipt."""
+    """Reconcile one terminal job using only its durable evidence lineage."""
 
     if not isinstance(job_id, str) or not job_id:
         raise OperationRecoveryRetryTerminalReconciliationError("invalid_job_id")
@@ -112,7 +127,9 @@ def assess_operation_recovery_retry_completion_from_job(
         raise OperationRecoveryRetryTerminalReconciliationError(
             "operation_job_missing"
         )
-    receipt = _receipt_from_terminal_job(job, job_id)
+    receipt, execution, admission, prior_verification, prior_execution = (
+        _lineage_from_terminal_job(job, job_id)
+    )
     return assess_operation_recovery_retry_verification_completion(
         store,
         receipt,
@@ -121,6 +138,190 @@ def assess_operation_recovery_retry_completion_from_job(
         prior_verification,
         prior_execution,
     )
+
+
+def _lineage_from_terminal_job(
+    job: dict[str, Any],
+    job_id: str,
+) -> tuple[
+    OperationRecoveryRetryVerificationReceipt,
+    OperationRecoveryRetryExecutionReceipt,
+    OperationRecoveryRetryAdmission,
+    OperationRollbackVerificationReceipt,
+    OperationRollbackExecutionReceipt,
+]:
+    if not isinstance(job, dict) or job.get("job_id") != job_id:
+        raise OperationRecoveryRetryTerminalReconciliationError(
+            "operation_job_identity_mismatch"
+        )
+    if job.get("state") not in {"rolled_back", "failed"}:
+        raise OperationRecoveryRetryTerminalReconciliationError(
+            "operation_job_not_terminal"
+        )
+    evidence = job.get("evidence")
+    if not isinstance(evidence, dict):
+        raise OperationRecoveryRetryTerminalReconciliationError(
+            "operation_evidence_missing"
+        )
+    if set(evidence) != _REQUIRED_EVIDENCE_KEYS:
+        raise OperationRecoveryRetryTerminalReconciliationError(
+            "operation_evidence_shape_mismatch"
+        )
+
+    receipt = _receipt_from_terminal_job(job, job_id)
+    execution = _typed_evidence(
+        evidence,
+        "recovery_retry_execution_receipt",
+        OperationRecoveryRetryExecutionReceipt,
+    )
+    admission = _typed_evidence(
+        evidence,
+        "recovery_retry_admission",
+        OperationRecoveryRetryAdmission,
+    )
+    prior_verification = _typed_evidence(
+        evidence,
+        "rollback_verification_receipt",
+        OperationRollbackVerificationReceipt,
+    )
+    prior_execution = _typed_evidence(
+        evidence,
+        "rollback_execution_receipt",
+        OperationRollbackExecutionReceipt,
+    )
+    _validate_terminal_lineage(
+        job,
+        receipt,
+        execution,
+        admission,
+        prior_verification,
+        prior_execution,
+    )
+    return (
+        receipt,
+        execution,
+        admission,
+        prior_verification,
+        prior_execution,
+    )
+
+
+def _typed_evidence(
+    evidence: dict[str, Any],
+    key: str,
+    expected_type: type[_T],
+) -> _T:
+    raw = evidence.get(key)
+    if not isinstance(raw, dict):
+        raise OperationRecoveryRetryTerminalReconciliationError(
+            f"{key}_missing"
+        )
+
+    init_fields = tuple(field.name for field in fields(expected_type) if field.init)
+    type_hints = get_type_hints(expected_type)
+    try:
+        values = {name: raw[name] for name in init_fields}
+    except KeyError as exc:
+        raise OperationRecoveryRetryTerminalReconciliationError(
+            f"{key}_shape_mismatch"
+        ) from exc
+
+    for name, value in values.items():
+        annotation = type_hints.get(name, Any)
+        if not _value_matches_type(value, annotation):
+            raise OperationRecoveryRetryTerminalReconciliationError(
+                f"{key}_type_mismatch"
+            )
+
+    try:
+        candidate = expected_type(**values)
+    except (TypeError, ValueError, RuntimeError) as exc:
+        raise OperationRecoveryRetryTerminalReconciliationError(
+            f"{key}_invalid"
+        ) from exc
+
+    to_dict = getattr(candidate, "to_dict", None)
+    if not callable(to_dict):
+        raise TypeError(f"{expected_type.__name__} does not provide to_dict")
+    try:
+        rebuilt = to_dict()
+        if canonical_json(rebuilt) != canonical_json(raw):
+            raise OperationRecoveryRetryTerminalReconciliationError(
+                f"{key}_roundtrip_mismatch"
+            )
+    except OperationRecoveryRetryTerminalReconciliationError:
+        raise
+    except (TypeError, ValueError) as exc:
+        raise OperationRecoveryRetryTerminalReconciliationError(
+            f"{key}_invalid"
+        ) from exc
+    return candidate
+
+
+def _value_matches_type(value: Any, annotation: Any) -> bool:
+    if annotation is Any:
+        return True
+    if annotation is bool:
+        return isinstance(value, bool)
+    if annotation is int:
+        return isinstance(value, int) and not isinstance(value, bool)
+    if annotation is str:
+        return isinstance(value, str)
+    if annotation is type(None):
+        return value is None
+
+    origin = get_origin(annotation)
+    if origin in {types.UnionType, Union}:
+        return any(_value_matches_type(value, item) for item in get_args(annotation))
+    return True
+
+
+def _validate_terminal_lineage(
+    job: dict[str, Any],
+    receipt: OperationRecoveryRetryVerificationReceipt,
+    execution: OperationRecoveryRetryExecutionReceipt,
+    admission: OperationRecoveryRetryAdmission,
+    prior_verification: OperationRollbackVerificationReceipt,
+    prior_execution: OperationRollbackExecutionReceipt,
+) -> None:
+    for candidate in (execution, admission, prior_verification, prior_execution):
+        for name in (
+            "job_id",
+            "action_id",
+            "plan_id",
+            "plan_sha256",
+            "target_node_id",
+        ):
+            if getattr(candidate, name, None) != job.get(name):
+                raise OperationRecoveryRetryTerminalReconciliationError(
+                    "durable_terminal_lineage_mismatch"
+                )
+
+    if (
+        receipt.recovery_retry_execution_receipt_id != execution.receipt_id
+        or receipt.retry_claim_id != execution.retry_claim_id
+        or receipt.admission_id != admission.admission_id
+        or execution.admission_id != admission.admission_id
+        or receipt.rollback_verification_receipt_id != prior_verification.receipt_id
+        or execution.rollback_verification_receipt_id
+        != prior_verification.receipt_id
+        or admission.rollback_verification_receipt_id
+        != prior_verification.receipt_id
+        or receipt.rollback_execution_receipt_id != prior_execution.receipt_id
+        or execution.rollback_execution_receipt_id != prior_execution.receipt_id
+        or admission.rollback_execution_receipt_id != prior_execution.receipt_id
+        or prior_verification.rollback_execution_receipt_id
+        != prior_execution.receipt_id
+        or receipt.worker_id != execution.worker_id
+        or receipt.recovery_sha256 != execution.recovery_sha256
+        or receipt.recovery_sha256 != admission.recovery_sha256
+        or receipt.recovery_sha256 != prior_verification.recovery_sha256
+        or receipt.recovery_sha256 != prior_execution.recovery_sha256
+        or receipt.from_state_version != execution.to_state_version
+    ):
+        raise OperationRecoveryRetryTerminalReconciliationError(
+            "durable_terminal_lineage_mismatch"
+        )
 
 
 def _receipt_from_terminal_job(
@@ -199,7 +400,7 @@ def _receipt_from_terminal_job(
 
     values = {name: raw[name] for name in _RECEIPT_INIT_FIELDS}
     receipt = OperationRecoveryRetryVerificationReceipt(**values)
-    if receipt.to_dict() != raw:
+    if canonical_json(receipt.to_dict()) != canonical_json(raw):
         raise OperationRecoveryRetryTerminalReconciliationError(
             "recovery_retry_verification_receipt_roundtrip_mismatch"
         )
