@@ -299,6 +299,7 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
                 "device_management_provider_resolution_stale",
                 "device_management_provider_selection_stale",
                 "device_management_provider_not_available",
+                "device_management_provider_already_selected",
             }
             forbidden_codes = {
                 "household_actor_not_bound",
@@ -335,6 +336,7 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
                 "duplicate_device_management_enrollment_mode",
                 "invalid_device_management_provider_readiness",
                 "device_management_provider_selection_state_invalid",
+                "device_management_provider_selection_binding_invalid",
                 "device_management_provider_selection_receipt_invalid",
                 "device_management_provider_selection_evidence_rejected",
             }
