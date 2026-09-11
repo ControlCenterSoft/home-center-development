@@ -51,6 +51,9 @@ REQUIRED_MEMBERS = frozenset(
         "home_center/device_management_provider_runtime.py",
         "home_center/device_management_provider_selection.py",
         "home_center/device_management_provider_selection_runtime.py",
+        "home_center/device_management_enrollment_execution.py",
+        "home_center/device_management_enrollment_execution_runtime.py",
+        "home_center/api_v3.py",
         "home_center/module_home_service_multi_compatibility.py",
         "home_center/module_home_service_multi_compatibility_revalidation.py",
         "home_center/module_home_service_compatibility_state.py",
@@ -122,16 +125,12 @@ def qualify(wheel: Path, *, repository_root: Path) -> dict[str, Any]:
         raise QualificationError("release_version_invalid") from exc
     if release_version != expected_version:
         raise QualificationError("project_release_version_mismatch")
-    runtime_version = _runtime_version(
-        repository_root / "product/control-plane/src/home_center/__init__.py"
-    )
+    runtime_version = _runtime_version(repository_root / "product/control-plane/src/home_center/__init__.py")
     if runtime_version != expected_version:
         raise QualificationError("project_runtime_version_mismatch")
 
     release_notes = repository_root / f"docs/releases/{expected_version}.md"
-    if not release_notes.is_file() or f"# Home Center {expected_version}" not in release_notes.read_text(
-        encoding="utf-8"
-    ):
+    if not release_notes.is_file() or f"# Home Center {expected_version}" not in release_notes.read_text(encoding="utf-8"):
         raise QualificationError("release_notes_identity_mismatch")
 
     try:
@@ -139,10 +138,7 @@ def qualify(wheel: Path, *, repository_root: Path) -> dict[str, Any]:
             members = archive.namelist()
             if len(members) != len(set(members)):
                 raise QualificationError("duplicate_archive_member")
-            if any(
-                name.startswith("/") or ".." in PurePosixPath(name).parts
-                for name in members
-            ):
+            if any(name.startswith("/") or ".." in PurePosixPath(name).parts for name in members):
                 raise QualificationError("unsafe_archive_member")
             if REQUIRED_MEMBERS.difference(members):
                 raise QualificationError("required_runtime_member_missing")
