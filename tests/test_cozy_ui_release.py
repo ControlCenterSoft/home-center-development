@@ -6,6 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / "product" / "web" / "static"
+API = ROOT / "product" / "control-plane" / "src" / "home_center" / "api.py"
 
 
 class CozyUiReleaseTests(unittest.TestCase):
@@ -13,6 +14,7 @@ class CozyUiReleaseTests(unittest.TestCase):
         self.html = (STATIC / "index.html").read_text(encoding="utf-8")
         self.javascript = (STATIC / "app.js").read_text(encoding="utf-8")
         self.css = (STATIC / "app.css").read_text(encoding="utf-8")
+        self.api = API.read_text(encoding="utf-8")
 
     def test_cozy_and_full_modes_are_present(self) -> None:
         for marker in (
@@ -28,6 +30,12 @@ class CozyUiReleaseTests(unittest.TestCase):
         self.assertIn("Уютный", self.html)
         self.assertIn("Полный", self.html)
 
+    def test_static_asset_links_match_server_route(self) -> None:
+        self.assertIn('href="/static/app.css"', self.html)
+        self.assertIn('src="/static/app.js"', self.html)
+        self.assertIn('path.startswith("/static/")', self.api)
+        self.assertIn('path.removeprefix("/static/")', self.api)
+
     def test_cozy_mode_is_safe_default_and_browser_local(self) -> None:
         self.assertIn("home-center.interface-mode", self.javascript)
         self.assertIn("return 'cozy'", self.javascript)
@@ -37,7 +45,16 @@ class CozyUiReleaseTests(unittest.TestCase):
     def test_mode_switch_has_no_mutation_request(self) -> None:
         self.assertIn("setMode(button.dataset.mode)", self.javascript)
         self.assertIn("fetch('/api/v1/infrastructure'", self.javascript)
-        for method in ("method: 'POST'", 'method: "POST"', "method: 'PUT'", "method: 'PATCH'", "method: 'DELETE'"):
+        for method in (
+            "method: 'POST'",
+            'method: "POST"',
+            "method: 'PUT'",
+            'method: "PUT"',
+            "method: 'PATCH'",
+            'method: "PATCH"',
+            "method: 'DELETE'",
+            'method: "DELETE"',
+        ):
             with self.subTest(method=method):
                 self.assertNotIn(method, self.javascript)
 
