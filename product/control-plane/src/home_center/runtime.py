@@ -15,6 +15,7 @@ from .automation_execution import AutomationPlanningService
 from .auth import LoginRateLimiter, SessionManager
 from .certificate_api import CertificateLifecycleApi, runtime_certificate_records
 from .config import Config
+from .device_management_provider_runtime import DeviceManagementProviderRuntimeService
 from .external_access import ExternalAccessPolicy, ExternalRequestRateLimiter
 from .household_device_enrollment_runtime import HouseholdDeviceEnrollmentRuntimeService
 from .household_device_management_runtime import HouseholdDeviceManagementRuntimeService
@@ -69,6 +70,7 @@ class Runtime:
         self.household_devices = HouseholdDeviceRuntimeService(self.store)
         self.household_device_management = HouseholdDeviceManagementRuntimeService(self.store)
         self.household_device_enrollment = HouseholdDeviceEnrollmentRuntimeService(self.store)
+        self.device_management_providers = DeviceManagementProviderRuntimeService(self.store)
         self.reconciler = Reconciler(config, self.store)
 
     def actor_requires_password_change(self, actor: str) -> bool:
@@ -182,7 +184,7 @@ class Runtime:
             profile_version: str | int = 2
             nodes = value.get("nodes")
         else:
-            metadata = value.get("metadata")
+            metadata = value.get("metadata)
             specification = value.get("spec")
             if not isinstance(metadata, dict) or not isinstance(specification, dict):
                 raise ValueError("invalid v1 deployment profile shape")
