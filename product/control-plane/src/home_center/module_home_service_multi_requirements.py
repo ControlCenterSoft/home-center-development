@@ -6,6 +6,7 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
+from itertools import islice
 from typing import Any, Iterable, Mapping
 
 from .module_home_service_contract_requirements import (
@@ -151,7 +152,8 @@ def _requirement_sets(
     if isinstance(values, (str, bytes)):
         _reject("service_requirement_sets_rejected")
     try:
-        raw = tuple(values)
+        iterator = iter(values)
+        raw = tuple(islice(iterator, 65))
     except TypeError as exc:
         raise ModuleHomeServiceMultiRequirementError(
             "service_requirement_sets_rejected"
