@@ -42,6 +42,44 @@ class HouseholdSnapshot:
     schema: str = field(default=HOUSEHOLD_SNAPSHOT_SCHEMA, init=False)
     infrastructure_mutation_authorized: bool = field(default=False, init=False)
 
+    def __post_init__(self) -> None:
+        """Fail closed when callers attempt to construct forged snapshot evidence.
+
+        Household snapshots are content-addressed evidence, not plain transport
+        records. Keeping the invariant on the value object itself prevents pure
+        planning code from accidentally accepting a manually constructed snapshot
+        whose ids do not correspond to the embedded Household state.
+        """
+
+        if not isinstance(self.household, Household):
+            raise TypeError("invalid_household")
+        household_id = _identifier(self.household_id, "invalid_household_id")
+        if household_id != self.household.household_id:
+            raise HomeServiceCatalogError("household_identity_conflict")
+        if (
+            isinstance(self.generation, bool)
+            or not isinstance(self.generation, int)
+            or not 1 <= self.generation <= MAX_GENERATION
+        ):
+            raise HomeServiceCatalogError("invalid_household_generation")
+        if self.generation == 1:
+            if self.previous_snapshot_id is not None:
+                raise HomeServiceCatalogError("invalid_household_previous_snapshot")
+            previous_snapshot_id = None
+        else:
+            previous_snapshot_id = _identifier(
+                self.previous_snapshot_id,
+                "invalid_household_previous_snapshot",
+            )
+        snapshot_id = _identifier(self.snapshot_id, "invalid_household_snapshot_id")
+        resource_version = _identifier(
+            self.resource_version,
+            "invalid_household_resource_version",
+        )
+        digest = _canonical_digest(self.household, self.generation, previous_snapshot_id)
+        if snapshot_id != "hsnap-" + digest[:24] or resource_version != "hrv-" + digest[24:48]:
+            raise HomeServiceCatalogError("household_snapshot_evidence_mismatch")
+
     def to_dict(self) -> dict[str, object]:
         return {
             "schema": self.schema,
