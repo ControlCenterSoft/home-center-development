@@ -4,6 +4,7 @@ import pytest
 
 from home_center.device_management_enrollment_execution_runtime import (
     CANCEL_ACTION,
+    RETRY_ACTION,
     START_ACTION,
     DeviceManagementEnrollmentExecutionRuntimeError,
 )
@@ -69,6 +70,34 @@ def test_failed_start_cannot_be_bypassed_with_fresh_start_key() -> None:
             actor="local-admin:admin",
             request={"plan_id": PLAN_ID, "idempotency_key": "fresh-key"},
             correlation_id="fresh-start",
+        )
+
+
+def test_retry_cannot_select_older_safe_failure_after_newer_ambiguous_failure() -> None:
+    jobs = [
+        {
+            "job_id": "job-newer", "job_type": RETRY_ACTION, "state": "failed",
+            "idempotency_key": "retry-1", "preflight": {"plan_id": PLAN_ID},
+            "result": {"retry_safe": False},
+        },
+        {
+            "job_id": "job-older", "job_type": START_ACTION, "state": "failed",
+            "idempotency_key": "start-1", "preflight": {"plan_id": PLAN_ID},
+            "result": {"retry_safe": True},
+        },
+    ]
+    service = Harness({"receipt": None, "cancel_receipt": None}, jobs)
+    with pytest.raises(DeviceManagementEnrollmentExecutionRuntimeError, match="retry_not_allowed"):
+        service.retry(
+            actor="local-admin:admin",
+            request={"plan_id": PLAN_ID, "failed_job_id": "job-older", "idempotency_key": "retry-2"},
+            correlation_id="unsafe-old-retry",
+        )
+    with pytest.raises(DeviceManagementEnrollmentExecutionRuntimeError, match="retry_not_safe"):
+        service.retry(
+            actor="local-admin:admin",
+            request={"plan_id": PLAN_ID, "failed_job_id": "job-newer", "idempotency_key": "retry-2"},
+            correlation_id="ambiguous-new-retry",
         )
 
 
