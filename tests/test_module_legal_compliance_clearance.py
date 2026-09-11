@@ -55,10 +55,27 @@ class ModuleLegalComplianceClearanceTests(unittest.TestCase):
         self.assertEqual(result.status, BLOCKED)
         self.assertEqual(result.reasons, ("redistribution-prohibited",))
 
-    def test_notice_and_source_offer_are_explicit_obligations(self) -> None:
+    def test_notice_and_source_offer_require_review_until_fulfilled(self) -> None:
         result = evaluate_module_legal_compliance_clearance(_evidence(notice_required=True, source_offer_required=True))
-        self.assertEqual(result.status, CLEAR)
+        self.assertEqual(result.status, REVIEW_REQUIRED)
+        self.assertEqual(
+            result.reasons,
+            ("notice-obligation-pending", "source-offer-obligation-pending"),
+        )
         self.assertEqual(result.obligations, ("notice-required", "source-offer-required"))
+        self.assertFalse(result.release_authorized)
+        self.assertFalse(result.external_publication_authorized)
+
+    def test_pending_obligation_does_not_weaken_blocked_disposition(self) -> None:
+        result = evaluate_module_legal_compliance_clearance(
+            _evidence(redistribution_disposition="prohibited", notice_required=True)
+        )
+        self.assertEqual(result.status, BLOCKED)
+        self.assertEqual(
+            result.reasons,
+            ("redistribution-prohibited", "notice-obligation-pending"),
+        )
+        self.assertEqual(result.obligations, ("notice-required",))
 
     def test_tampered_evidence_is_rejected(self) -> None:
         payload = _evidence().to_dict()
