@@ -4,11 +4,10 @@ Home Center — инфраструктурно-независимая платф
 
 ## Текущий релизный статус
 
-- Последний официально опубликованный canonical/source release в этом репозитории: **0.41.0**.
-- Отдельный полноценный PUBLIC STABLE RELEASE подтверждён до **0.15.0** и опубликован в [`ControlCenterSoft/home-center-stable`](https://github.com/ControlCenterSoft/home-center-stable).
-- Версия **0.41.0** пока не является public stable: для неё требуется отдельный завершённый public export/release cycle.
-- Более новые возможности считаются доступными только в том канале, где соответствующая версия официально опубликована.
-- Предварительные development-версии не должны описываться как уже доступные пользователю.
+- Последний официально опубликованный canonical/source release: **0.41.0**.
+- Полноценный **PUBLIC STABLE RELEASE 0.41.0** опубликован в [`ControlCenterSoft/home-center-stable`](https://github.com/ControlCenterSoft/home-center-stable): актуальны stable/default branch, tag `v0.41.0`, официальный GitHub Release и предусмотренные public artifacts/manifest/checksums/SBOM/acceptance evidence.
+- Канонический `v0.41.0` соответствует development commit `27f2ee8dae2729cf034f57b8fed29ad99b62a95e`; public stable использует отдельный подтверждённый export mapping, поэтому SHA public tree не обязан совпадать с canonical SHA.
+- Более новые development-возможности считаются доступными только после собственной release qualification и официальной публикации соответствующей release identity.
 
 Home Center 0.41.0 добавляет evidence-only exact-state revalidation ранее сформированного module/Home Service contract binding. Revalidation возвращает детерминированный `current`/`stale` результат, отклоняет повреждённые исходные данные fail-closed и не предоставляет authority на admission, installation, execution, production mutation или external publication.
 
