@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 
 from .api import RuntimeRequestHandler
 from .device_management_provider_runtime import DeviceManagementProviderRuntimeError
+from .device_management_provider_selection_runtime import DeviceManagementProviderSelectionRuntimeError
 from .household_device_enrollment_runtime import HouseholdDeviceEnrollmentRuntimeError
 from .household_device_management_runtime import HouseholdDeviceManagementRuntimeError
 from .household_device_runtime import HouseholdDeviceRuntimeError
@@ -161,6 +162,8 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
             "/api/v1/household/devices/enrollment/plan",
             "/api/v1/household/devices/enrollment/confirm",
             "/api/v1/household/devices/enrollment/provider-resolution/plan",
+            "/api/v1/household/devices/enrollment/provider-selection/plan",
+            "/api/v1/household/devices/enrollment/provider-selection/confirm",
         }
         if path not in household_posts:
             super().do_POST()
@@ -214,26 +217,62 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
                 self._json(HTTPStatus.OK, value)
                 return
             if path == "/api/v1/household/devices/plan":
-                value = self.runtime.household_devices.plan_device_add(actor=actor, request=body, correlation_id=correlation_id)
+                value = self.runtime.household_devices.plan_device_add(
+                    actor=actor,
+                    request=body,
+                    correlation_id=correlation_id,
+                )
                 self._json(HTTPStatus.OK, value)
                 return
             if path == "/api/v1/household/devices/confirm":
-                value = self.runtime.household_devices.confirm_device_add(actor=actor, request=body, correlation_id=correlation_id)
+                value = self.runtime.household_devices.confirm_device_add(
+                    actor=actor,
+                    request=body,
+                    correlation_id=correlation_id,
+                )
                 self._json(HTTPStatus.OK, value)
                 return
             if path == "/api/v1/household/devices/management/plan":
-                value = self.runtime.household_device_management.plan(actor=actor, request=body, correlation_id=correlation_id)
+                value = self.runtime.household_device_management.plan(
+                    actor=actor,
+                    request=body,
+                    correlation_id=correlation_id,
+                )
                 self._json(HTTPStatus.OK, value)
                 return
             if path == "/api/v1/household/devices/enrollment/plan":
-                value = self.runtime.household_device_enrollment.plan(actor=actor, request=body, correlation_id=correlation_id)
+                value = self.runtime.household_device_enrollment.plan(
+                    actor=actor,
+                    request=body,
+                    correlation_id=correlation_id,
+                )
                 self._json(HTTPStatus.OK, value)
                 return
             if path == "/api/v1/household/devices/enrollment/confirm":
-                value = self.runtime.household_device_enrollment.confirm(actor=actor, request=body, correlation_id=correlation_id)
+                value = self.runtime.household_device_enrollment.confirm(
+                    actor=actor,
+                    request=body,
+                    correlation_id=correlation_id,
+                )
                 self._json(HTTPStatus.OK, value)
                 return
-            value = self.runtime.device_management_providers.plan(
+            if path == "/api/v1/household/devices/enrollment/provider-resolution/plan":
+                value = self.runtime.device_management_providers.plan(
+                    actor=actor,
+                    request=body,
+                    correlation_id=correlation_id,
+                )
+                self._json(HTTPStatus.OK, value)
+                return
+            if path == "/api/v1/household/devices/enrollment/provider-selection/plan":
+                value = self.runtime.device_management_provider_selection.plan(
+                    actor=actor,
+                    request=body,
+                    correlation_id=correlation_id,
+                )
+                self._json(HTTPStatus.OK, value)
+                return
+            value = self.runtime.device_management_provider_selection.confirm(
                 actor=actor,
                 request=body,
                 correlation_id=correlation_id,
@@ -246,6 +285,7 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
             HouseholdDeviceManagementRuntimeError,
             HouseholdDeviceEnrollmentRuntimeError,
             DeviceManagementProviderRuntimeError,
+            DeviceManagementProviderSelectionRuntimeError,
         ) as exc:
             conflict_codes = {
                 "household_already_configured",
@@ -255,6 +295,11 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
                 "household_device_already_exists",
                 "household_device_change_stale",
                 "household_device_enrollment_stale",
+                "household_device_enrollment_not_confirmed",
+                "device_management_provider_resolution_stale",
+                "device_management_provider_selection_stale",
+                "device_management_provider_not_available",
+                "device_management_provider_already_selected",
             }
             forbidden_codes = {
                 "household_actor_not_bound",
@@ -265,6 +310,7 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
                 "household_device_change_actor_mismatch",
                 "household_device_management_not_authorized",
                 "household_device_enrollment_actor_mismatch",
+                "device_management_provider_selection_actor_mismatch",
             }
             not_found_codes = {
                 "household_not_configured",
@@ -273,6 +319,26 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
                 "household_device_proposal_not_found",
                 "household_device_not_found",
                 "household_device_enrollment_proposal_not_found",
+                "device_management_provider_selection_proposal_not_found",
+            }
+            unavailable_codes = {
+                "household_state_invalid",
+                "household_device_enrollment_state_invalid",
+                "household_device_enrollment_receipt_invalid",
+                "invalid_device_management_provider_catalog",
+                "unsupported_device_management_provider_catalog",
+                "invalid_device_management_provider_profile",
+                "duplicate_device_management_provider_id",
+                "invalid_device_management_provider_name",
+                "invalid_device_management_provider_platforms",
+                "duplicate_device_management_provider_platform",
+                "invalid_device_management_enrollment_modes",
+                "duplicate_device_management_enrollment_mode",
+                "invalid_device_management_provider_readiness",
+                "device_management_provider_selection_state_invalid",
+                "device_management_provider_selection_binding_invalid",
+                "device_management_provider_selection_receipt_invalid",
+                "device_management_provider_selection_evidence_rejected",
             }
             if exc.code in conflict_codes:
                 status = HTTPStatus.CONFLICT
@@ -280,6 +346,8 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
                 status = HTTPStatus.FORBIDDEN
             elif exc.code in not_found_codes:
                 status = HTTPStatus.NOT_FOUND
+            elif exc.code in unavailable_codes:
+                status = HTTPStatus.SERVICE_UNAVAILABLE
             else:
                 status = HTTPStatus.BAD_REQUEST
             self.runtime.store.audit(
@@ -300,4 +368,9 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
                 correlation_id=correlation_id,
                 details={"reason": "invalid_household_request", "path": path},
             )
-            self._error(HTTPStatus.BAD_REQUEST, "invalid_household_request", "Некорректный запрос семьи", correlation_id)
+            self._error(
+                HTTPStatus.BAD_REQUEST,
+                "invalid_household_request",
+                "Некорректный запрос семьи",
+                correlation_id,
+            )
