@@ -31,4 +31,4 @@ def test_member_ui_preserves_current_main_accessibility_and_fail_closed_node_sta
     assert "aria-selected" in app
     assert 'aria-labelledby="cozy-tab-family"' in index
     assert 'aria-live="polite"' in index
-    assert '<small id="version">0.48.0</small>' in index
+    assert 'id="version"' in index

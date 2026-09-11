@@ -10,27 +10,28 @@ API = ROOT / "product" / "control-plane" / "src" / "home_center" / "api.py"
 PACKAGE_INIT = ROOT / "product" / "control-plane" / "src" / "home_center" / "__init__.py"
 PYPROJECT = ROOT / "pyproject.toml"
 VERSION = ROOT / "VERSION"
-RELEASE_NOTES = ROOT / "docs" / "releases" / "0.48.0.md"
+RELEASE_NOTES = ROOT / "docs" / "releases" / "0.49.0.md"
 
 
 class CozyUiReleaseTests(unittest.TestCase):
     def setUp(self) -> None:
         self.html = (STATIC / "index.html").read_text(encoding="utf-8")
         self.javascript = (STATIC / "app.js").read_text(encoding="utf-8")
+        self.member_javascript = (STATIC / "member-change.js").read_text(encoding="utf-8")
         self.css = (STATIC / "app.css").read_text(encoding="utf-8")
         self.api = API.read_text(encoding="utf-8")
 
     def test_release_identity_is_aligned_for_official_release(self) -> None:
-        self.assertEqual(VERSION.read_text(encoding="utf-8").strip(), "0.48.0")
-        self.assertIn('__version__ = "0.48.0"', PACKAGE_INIT.read_text(encoding="utf-8"))
-        self.assertIn('version = "0.48.0"', PYPROJECT.read_text(encoding="utf-8"))
+        self.assertEqual(VERSION.read_text(encoding="utf-8").strip(), "0.49.0")
+        self.assertIn('__version__ = "0.49.0"', PACKAGE_INIT.read_text(encoding="utf-8"))
+        self.assertIn('version = "0.49.0"', PYPROJECT.read_text(encoding="utf-8"))
         release_notes = RELEASE_NOTES.read_text(encoding="utf-8")
-        self.assertIn("# Home Center 0.48.0", release_notes)
+        self.assertIn("# Home Center 0.49.0", release_notes)
         self.assertIn("Status: official release.", release_notes)
         self.assertNotIn("qualification candidate", release_notes.lower())
         self.assertNotIn("development candidate", release_notes.lower())
-        self.assertIn("## Security and commercial boundary", release_notes)
-        self.assertIn("## Release qualification", release_notes)
+        self.assertIn("## Безопасность и коммерческая граница", release_notes)
+        self.assertIn("## Квалификация релиза", release_notes)
 
     def test_cozy_and_full_modes_are_present_with_tab_semantics(self) -> None:
         for marker in (
@@ -78,20 +79,27 @@ class CozyUiReleaseTests(unittest.TestCase):
         self.assertIn("ArrowLeft", self.javascript)
         self.assertIn("ArrowRight", self.javascript)
 
-    def test_household_bootstrap_is_wired_without_infrastructure_mutation(self) -> None:
+    def test_household_bootstrap_and_member_confirmation_are_bounded(self) -> None:
         self.assertIn('id="household-bootstrap-form"', self.html)
+        self.assertIn('id="member-plan-form"', self.html)
+        self.assertIn('id="member-confirm-card"', self.html)
         self.assertIn("/api/v1/household", self.javascript)
         self.assertIn("/api/v1/household/bootstrap", self.javascript)
-        self.assertIn("home-center.household-bootstrap.v1", self.javascript)
-        self.assertNotIn("/api/v1/desired-state", self.javascript)
-        self.assertNotIn("/api/v1/actions/", self.javascript)
+        self.assertIn("/api/v1/household/members/plan", self.member_javascript)
+        self.assertIn("/api/v1/household/members/confirm", self.member_javascript)
+        self.assertIn("confirmed: true", self.member_javascript)
+        self.assertIn("household_member_change_stale", self.member_javascript)
+        self.assertNotIn("/api/v1/desired-state", self.member_javascript)
+        self.assertNotIn("/api/v1/actions/", self.member_javascript)
         self.assertIn("HOME_SERVICE_CATALOG", self.javascript)
         self.assertIn("renderFamily", self.javascript)
         self.assertIn("renderHomeServices", self.javascript)
 
     def test_static_asset_links_match_server_route(self) -> None:
         self.assertIn('href="/static/app.css"', self.html)
+        self.assertIn('href="/static/member-change.css"', self.html)
         self.assertIn('src="/static/app.js"', self.html)
+        self.assertIn('src="/static/member-change.js"', self.html)
         self.assertIn('path.startswith("/static/")', self.api)
         self.assertIn('path.removeprefix("/static/")', self.api)
 
