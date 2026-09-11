@@ -71,6 +71,9 @@ jobs:
           python-version: "3.12"
           cache: ""
 
+      - name: Install release qualification dependencies
+        run: python -m pip install 'pytest>=8,<9' 'jsonschema>=4.23,<5'
+
       - name: Verify stable release and exact source identity
         shell: bash
         env:
