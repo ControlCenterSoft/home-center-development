@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 import threading
 from typing import Any
@@ -34,7 +35,9 @@ from .store import StateStore
 PROVIDER_SELECTION_PLAN_REQUEST_SCHEMA = "home-center.device-management-provider-selection-plan-request.v1"
 PROVIDER_SELECTION_CONFIRM_REQUEST_SCHEMA = "home-center.device-management-provider-selection-confirm-request.v1"
 PROVIDER_SELECTION_STATE_SCHEMA = "home-center.device-management-provider-selection-state.v1"
+PROVIDER_SELECTION_BINDING_SCHEMA = "home-center.device-management-provider-selection-binding.v1"
 PROVIDER_SELECTION_KEY_PREFIX = "cozy.household.device-provider-selection."
+PROVIDER_SELECTION_BINDING_KEY_PREFIX = "cozy.household.device-provider-selection-binding."
 PROVIDER_SELECTION_ID = re.compile(r"^dmpsel-[0-9a-f]{24}$")
 
 
@@ -50,8 +53,17 @@ def _selection_key(proposal_id: object) -> str:
     return PROVIDER_SELECTION_KEY_PREFIX + proposal_id
 
 
+def _binding_key(enrollment_proposal_id: object) -> str:
+    try:
+        enrollment_proposal_key(enrollment_proposal_id)
+    except HouseholdDeviceEnrollmentRuntimeError as exc:
+        raise DeviceManagementProviderSelectionRuntimeError(exc.code) from exc
+    digest = hashlib.sha256(str(enrollment_proposal_id).encode("utf-8")).hexdigest()[:32]
+    return PROVIDER_SELECTION_BINDING_KEY_PREFIX + digest
+
+
 class DeviceManagementProviderSelectionRuntimeService:
-    """Persist explicit provider choice evidence without credentials or execution authority."""
+    """Persist one explicit provider choice per enrollment without execution authority."""
 
     def __init__(self, store: StateStore) -> None:
         self.store = store
@@ -159,6 +171,28 @@ class DeviceManagementProviderSelectionRuntimeService:
         replay["outcome"] = "already-confirmed"
         return replay
 
+    def _read_binding(
+        self,
+        enrollment_proposal_id: object,
+    ) -> tuple[DeviceManagementProviderSelectionProposal, dict[str, object]] | None:
+        value = self.store.get_meta(_binding_key(enrollment_proposal_id))
+        if value is None:
+            return None
+        if (
+            not isinstance(value, dict)
+            or set(value) != {"schema", "proposal", "receipt"}
+            or value.get("schema") != PROVIDER_SELECTION_BINDING_SCHEMA
+        ):
+            raise DeviceManagementProviderSelectionRuntimeError("device_management_provider_selection_binding_invalid")
+        try:
+            proposal = provider_selection_proposal_from_dict(value.get("proposal"))
+        except DeviceManagementProviderSelectionError as exc:
+            raise DeviceManagementProviderSelectionRuntimeError(exc.code) from exc
+        if proposal.enrollment_proposal_id != enrollment_proposal_id:
+            raise DeviceManagementProviderSelectionRuntimeError("device_management_provider_selection_binding_invalid")
+        replay = self._confirmed_receipt({"receipt": value.get("receipt")}, proposal)
+        return proposal, replay
+
     def plan(self, *, actor: str, request: dict[str, Any], correlation_id: str) -> dict[str, object]:
         if set(request) != {
             "schema",
@@ -202,6 +236,8 @@ class DeviceManagementProviderSelectionRuntimeService:
                 or latest_enrollment.to_dict() != enrollment.to_dict()
             ):
                 raise DeviceManagementProviderSelectionRuntimeError("device_management_provider_selection_stale")
+            if self._read_binding(proposal.enrollment_proposal_id) is not None:
+                raise DeviceManagementProviderSelectionRuntimeError("device_management_provider_already_selected")
 
             key = _selection_key(proposal.proposal_id)
             existing = self.store.get_meta(key)
@@ -266,8 +302,39 @@ class DeviceManagementProviderSelectionRuntimeService:
             actor_member_id = self._actor_member(actor, bindings)
             if proposal.actor_member_id != actor_member_id:
                 raise DeviceManagementProviderSelectionRuntimeError("device_management_provider_selection_actor_mismatch")
+
+            binding = self._read_binding(proposal.enrollment_proposal_id)
+            if binding is not None:
+                bound_proposal, replay = binding
+                if bound_proposal.proposal_id != proposal.proposal_id:
+                    raise DeviceManagementProviderSelectionRuntimeError("device_management_provider_already_selected")
+                if envelope.get("status") != "confirmed" or envelope.get("receipt") is None:
+                    stored_receipt = dict(replay)
+                    stored_receipt["outcome"] = "provider-selected"
+                    self.store.set_meta(
+                        key,
+                        {
+                            "schema": PROVIDER_SELECTION_STATE_SCHEMA,
+                            "status": "confirmed",
+                            "proposal": proposal.to_dict(),
+                            "receipt": stored_receipt,
+                        },
+                    )
+                return replay
+
             if envelope.get("status") == "confirmed":
-                return self._confirmed_receipt(envelope, proposal)
+                replay = self._confirmed_receipt(envelope, proposal)
+                stored_receipt = dict(replay)
+                stored_receipt["outcome"] = "provider-selected"
+                self.store.set_meta(
+                    _binding_key(proposal.enrollment_proposal_id),
+                    {
+                        "schema": PROVIDER_SELECTION_BINDING_SCHEMA,
+                        "proposal": proposal.to_dict(),
+                        "receipt": stored_receipt,
+                    },
+                )
+                return replay
 
             enrollment = self._confirmed_enrollment(proposal.enrollment_proposal_id)
             catalog = self._catalog()
@@ -293,6 +360,8 @@ class DeviceManagementProviderSelectionRuntimeService:
                 or latest_enrollment.to_dict() != enrollment.to_dict()
             ):
                 raise DeviceManagementProviderSelectionRuntimeError("device_management_provider_selection_stale")
+            if self._read_binding(proposal.enrollment_proposal_id) is not None:
+                raise DeviceManagementProviderSelectionRuntimeError("device_management_provider_already_selected")
 
             audit_event_id = self.store.audit(
                 actor=actor,
@@ -325,6 +394,14 @@ class DeviceManagementProviderSelectionRuntimeService:
                 audit_event_id=audit_event_id,
                 outcome="provider-selected",
             ).to_dict()
+            self.store.set_meta(
+                _binding_key(proposal.enrollment_proposal_id),
+                {
+                    "schema": PROVIDER_SELECTION_BINDING_SCHEMA,
+                    "proposal": proposal.to_dict(),
+                    "receipt": receipt,
+                },
+            )
             self.store.set_meta(
                 key,
                 {
