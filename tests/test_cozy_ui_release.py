@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -21,10 +22,13 @@ class CozyUiReleaseTests(unittest.TestCase):
         self.css = (STATIC / "app.css").read_text(encoding="utf-8")
         self.api = API.read_text(encoding="utf-8")
 
-    def test_release_identity_is_aligned_for_official_release(self) -> None:
-        self.assertEqual(VERSION.read_text(encoding="utf-8").strip(), "0.49.1")
-        self.assertIn('__version__ = "0.49.1"', PACKAGE_INIT.read_text(encoding="utf-8"))
-        self.assertIn('version = "0.49.1"', PYPROJECT.read_text(encoding="utf-8"))
+    def test_release_identity_preserves_0491_official_baseline(self) -> None:
+        version = VERSION.read_text(encoding="utf-8").strip()
+        project = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+        runtime = PACKAGE_INIT.read_text(encoding="utf-8")
+        self.assertGreaterEqual(tuple(int(part) for part in version.split(".")), (0, 49, 1))
+        self.assertEqual(project["project"]["version"], version)
+        self.assertIn(f'__version__ = "{version}"', runtime)
         release_notes = RELEASE_NOTES.read_text(encoding="utf-8")
         self.assertIn("# Home Center 0.49.1", release_notes)
         self.assertIn("Status: official release.", release_notes)
