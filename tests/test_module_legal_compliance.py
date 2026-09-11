@@ -32,6 +32,14 @@ def _build(**overrides: object):
     return build_module_legal_compliance_evidence(**values)  # type: ignore[arg-type]
 
 
+class _StringSubclass(str):
+    pass
+
+
+class _DictSubclass(dict[str, object]):
+    pass
+
+
 class ModuleLegalComplianceTests(unittest.TestCase):
     def test_evidence_is_deterministic_and_bound_to_artifact(self) -> None:
         first = _build()
@@ -56,6 +64,20 @@ class ModuleLegalComplianceTests(unittest.TestCase):
         original = _build()
         restored = validate_module_legal_compliance_evidence(original.to_dict())
         self.assertEqual(restored, original)
+
+    def test_serialized_boundary_rejects_container_and_string_subclasses(self) -> None:
+        payload = _build().to_dict()
+        with self.assertRaisesRegex(ModuleLegalComplianceError, "legal_compliance_evidence_rejected"):
+            validate_module_legal_compliance_evidence(_DictSubclass(payload))
+
+        payload["distribution_mode"] = _StringSubclass("official-download")
+        with self.assertRaisesRegex(ModuleLegalComplianceError, "distribution_mode_rejected"):
+            validate_module_legal_compliance_evidence(payload)
+
+        payload = _build().to_dict()
+        payload["commercial_use_disposition"] = _StringSubclass("allowed")
+        with self.assertRaisesRegex(ModuleLegalComplianceError, "commercial_use_disposition_rejected"):
+            validate_module_legal_compliance_evidence(payload)
 
     def test_tampered_identity_is_rejected(self) -> None:
         payload = _build().to_dict()
