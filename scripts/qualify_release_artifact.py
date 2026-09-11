@@ -52,6 +52,7 @@ REQUIRED_MEMBERS = frozenset(
         "home_center/module_home_service_multi_compatibility.py",
         "home_center/module_home_service_multi_compatibility_revalidation.py",
         "home_center/module_home_service_compatibility_state.py",
+        "home_center/module_home_service_compatibility_state_index.py",
         "home_center/node_discovery.py",
         "home_center/node_drain_preflight.py",
         "home_center/node_health.py",

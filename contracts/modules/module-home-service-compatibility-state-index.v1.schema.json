@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/modules/module-home-service-compatibility-state-index.v1.schema.json",
+  "title": "Home Center module Home Service compatibility state index v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "index_id",
+    "resource_version",
+    "etag",
+    "home_center_version",
+    "summary_status",
+    "module_count",
+    "compatible_count",
+    "blocked_count",
+    "stale_count",
+    "states",
+    "admission_authorized",
+    "installation_authorized",
+    "execution_authorized",
+    "production_mutation_enabled",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {
+      "const": "home-center.module-home-service-compatibility-state-index.v1"
+    },
+    "index_id": {
+      "type": "string",
+      "pattern": "^mhscsi-[0-9a-f]{24}$"
+    },
+    "resource_version": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "etag": {
+      "type": "string",
+      "pattern": "^\\\"mhscsi-[0-9a-f]{64}\\\"$"
+    },
+    "home_center_version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "summary_status": {
+      "enum": ["empty", "compatible", "blocked", "stale"]
+    },
+    "module_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 512
+    },
+    "compatible_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 512
+    },
+    "blocked_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 512
+    },
+    "stale_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 512
+    },
+    "states": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "$ref": "module-home-service-compatibility-state.v1.schema.json"
+      }
+    },
+    "admission_authorized": {"const": false},
+    "installation_authorized": {"const": false},
+    "execution_authorized": {"const": false},
+    "production_mutation_enabled": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
