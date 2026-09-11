@@ -17,6 +17,13 @@ def test_household_routes_are_on_authenticated_v2_handler() -> None:
     assert "self.runtime.household.plan_intent" in source
 
 
+def test_household_persisted_state_integrity_errors_are_service_unavailable() -> None:
+    source = API_V2.read_text(encoding="utf-8")
+    assert 'unavailable_codes = {"household_state_invalid", "household_state_evidence_mismatch"}' in source
+    assert "elif exc.code in unavailable_codes:" in source
+    assert "status = HTTPStatus.SERVICE_UNAVAILABLE" in source
+
+
 def test_runtime_composes_household_service() -> None:
     source = RUNTIME.read_text(encoding="utf-8")
     assert "from .household_runtime import HouseholdRuntimeService" in source
