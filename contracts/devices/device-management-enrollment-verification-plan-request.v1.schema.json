@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/device-management-enrollment-verification-plan-request.v1.schema.json",
+  "title": "Home Center device management enrollment verification plan request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "execution_plan_id", "execution_job_id"],
+  "properties": {
+    "schema": {"const": "home-center.device-management-enrollment-verification-plan-request.v1"},
+    "execution_plan_id": {"type": "string", "pattern": "^dmpexec-[0-9a-f]{24}$"},
+    "execution_job_id": {"type": "string", "minLength": 1, "maxLength": 160}
+  }
+}
