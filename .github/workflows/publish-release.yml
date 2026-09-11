@@ -87,7 +87,7 @@ jobs:
                 exit 1
               fi
 
-              unexpected="$(git diff --name-only "$tag_sha" "$RELEASE_SHA" -- | grep -Ev "^(docs/releases/${RELEASE_VERSION}\.md|\.github/workflows/publish-release\.yml)$" || true)"
+              unexpected="$(git diff --name-only "$tag_sha" "$RELEASE_SHA" -- | grep -Ev "^(docs/releases/${RELEASE_VERSION}\.md|\.github/workflows/publish-release\.yml|\.github/workflows/publish-deployment-artifact\.yml)$" || true)"
               if [[ -n "$unexpected" ]]; then
                 echo "Existing tag differs from current SHA outside the guarded metadata-repair allowlist:" >&2
                 printf '%s\n' "$unexpected" >&2
