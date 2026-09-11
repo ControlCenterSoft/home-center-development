@@ -53,6 +53,7 @@ REQUIRED_MEMBERS = frozenset(
         "home_center/device_management_provider_selection_runtime.py",
         "home_center/device_management_enrollment_execution.py",
         "home_center/device_management_enrollment_execution_runtime.py",
+        "home_center/device_management_enrollment_execution_runtime_safe.py",
         "home_center/api_v3.py",
         "home_center/module_home_service_multi_compatibility.py",
         "home_center/module_home_service_multi_compatibility_revalidation.py",
