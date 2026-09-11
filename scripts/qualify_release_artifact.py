@@ -43,6 +43,8 @@ REQUIRED_MEMBERS = frozenset(
         "home_center/household_member_change.py",
         "home_center/household_device_change.py",
         "home_center/household_device_runtime.py",
+        "home_center/household_device_management.py",
+        "home_center/household_device_management_runtime.py",
         "home_center/module_home_service_multi_compatibility.py",
         "home_center/module_home_service_multi_compatibility_revalidation.py",
         "home_center/module_home_service_compatibility_state.py",

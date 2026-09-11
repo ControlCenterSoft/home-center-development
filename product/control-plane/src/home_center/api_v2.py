@@ -10,6 +10,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from .api import RuntimeRequestHandler
+from .household_device_management_runtime import HouseholdDeviceManagementRuntimeError
 from .household_device_runtime import HouseholdDeviceRuntimeError
 from .household_runtime import HouseholdRuntimeError
 from .release_identity import ReleaseIdentityError, current_release_identity
@@ -154,6 +155,7 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
             "/api/v1/household/members/confirm",
             "/api/v1/household/devices/plan",
             "/api/v1/household/devices/confirm",
+            "/api/v1/household/devices/management/plan",
         }
         if path not in household_posts:
             super().do_POST()
@@ -214,14 +216,22 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
                 )
                 self._json(HTTPStatus.OK, value)
                 return
-            value = self.runtime.household_devices.confirm_device_add(
+            if path == "/api/v1/household/devices/confirm":
+                value = self.runtime.household_devices.confirm_device_add(
+                    actor=actor,
+                    request=body,
+                    correlation_id=correlation_id,
+                )
+                self._json(HTTPStatus.OK, value)
+                return
+            value = self.runtime.household_device_management.plan(
                 actor=actor,
                 request=body,
                 correlation_id=correlation_id,
             )
             self._json(HTTPStatus.OK, value)
             return
-        except (HouseholdRuntimeError, HouseholdDeviceRuntimeError) as exc:
+        except (HouseholdRuntimeError, HouseholdDeviceRuntimeError, HouseholdDeviceManagementRuntimeError) as exc:
             conflict_codes = {
                 "household_already_configured",
                 "household_intent_target_exists",
@@ -237,12 +247,14 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
                 "household_member_change_actor_mismatch",
                 "household_device_change_not_authorized",
                 "household_device_change_actor_mismatch",
+                "household_device_management_not_authorized",
             }
             not_found_codes = {
                 "household_not_configured",
                 "household_member_not_found",
                 "household_member_proposal_not_found",
                 "household_device_proposal_not_found",
+                "household_device_not_found",
             }
             if exc.code in conflict_codes:
                 status = HTTPStatus.CONFLICT
