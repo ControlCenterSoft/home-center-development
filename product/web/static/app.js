@@ -184,6 +184,14 @@ function renderFamily(data) {
   root.replaceChildren();
   const household = data && typeof data.household === 'object' ? data.household : null;
   const members = Array.isArray(household?.members) ? household.members : [];
+  const householdDevices = Array.isArray(household?.devices) ? household.devices : [];
+  const deviceCounts = new Map();
+
+  householdDevices.forEach((device) => {
+    const memberId = typeof device?.member_id === 'string' ? device.member_id : '';
+    if (!memberId) return;
+    deviceCounts.set(memberId, (deviceCounts.get(memberId) || 0) + 1);
+  });
 
   if (!members.length) {
     const empty = document.createElement('article');
@@ -202,13 +210,18 @@ function renderFamily(data) {
     card.className = 'family-card';
     const avatar = document.createElement('span');
     avatar.className = 'family-avatar';
-    avatar.textContent = String(member.name || '?').trim().slice(0, 1).toUpperCase() || '?';
+    const displayName = member.display_name || member.name || 'Член семьи';
+    avatar.textContent = String(displayName).trim().slice(0, 1).toUpperCase() || '?';
     const body = document.createElement('div');
     const name = document.createElement('strong');
-    name.textContent = member.name || 'Член семьи';
+    name.textContent = displayName;
     const meta = document.createElement('p');
-    const devices = Array.isArray(member.devices) ? member.devices.length : Number(member.device_count || 0);
-    meta.textContent = `${roleLabel(member.role)} · устройств: ${Number.isFinite(devices) ? devices : 0}`;
+    const explicitDeviceCount = Number(member.device_count);
+    const fallbackDeviceCount = Array.isArray(member.devices)
+      ? member.devices.length
+      : (Number.isFinite(explicitDeviceCount) && explicitDeviceCount >= 0 ? explicitDeviceCount : 0);
+    const devices = deviceCounts.get(member.member_id) ?? fallbackDeviceCount;
+    meta.textContent = `${roleLabel(member.role)} · устройств: ${devices}`;
     body.append(name, meta);
     card.append(avatar, body);
     root.append(card);
