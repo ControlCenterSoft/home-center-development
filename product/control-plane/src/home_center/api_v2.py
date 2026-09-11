@@ -200,12 +200,15 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
             conflict_codes = {"household_already_configured", "household_intent_target_exists"}
             forbidden_codes = {"household_actor_not_bound", "household_intent_not_authorized"}
             not_found_codes = {"household_not_configured", "household_member_not_found"}
+            unavailable_codes = {"household_state_invalid", "household_state_evidence_mismatch"}
             if exc.code in conflict_codes:
                 status = HTTPStatus.CONFLICT
             elif exc.code in forbidden_codes:
                 status = HTTPStatus.FORBIDDEN
             elif exc.code in not_found_codes:
                 status = HTTPStatus.NOT_FOUND
+            elif exc.code in unavailable_codes:
+                status = HTTPStatus.SERVICE_UNAVAILABLE
             else:
                 status = HTTPStatus.BAD_REQUEST
             self.runtime.store.audit(
