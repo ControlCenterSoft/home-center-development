@@ -6,7 +6,8 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
-from typing import Any, Iterable, Mapping
+from itertools import islice
+from typing import Iterable
 
 from .module_home_service_contract_requirements import (
     ModuleHomeServiceContractRequirementError,
@@ -19,6 +20,7 @@ from .module_home_service_contract_requirements import (
 MULTI_REQUIREMENT_SET_SCHEMA = (
     "home-center.module-home-service-contract-multi-requirement-set.v1"
 )
+MAX_SERVICE_REQUIREMENT_SETS = 64
 ID24 = re.compile(r"^[0-9a-f]{24}$")
 AUTHORITY_FLAGS = (
     "admission_authorized",
@@ -148,15 +150,17 @@ def _validated_requirement_set(
 def _requirement_sets(
     values: Iterable[object],
 ) -> tuple[ModuleHomeServiceContractRequirementSet, ...]:
-    if isinstance(values, (str, bytes)):
+    if isinstance(values, (str, bytes, bytearray, dict)):
         _reject("service_requirement_sets_rejected")
     try:
-        raw = tuple(values)
-    except TypeError as exc:
+        raw = tuple(
+            islice(iter(values), MAX_SERVICE_REQUIREMENT_SETS + 1)
+        )
+    except Exception as exc:
         raise ModuleHomeServiceMultiRequirementError(
             "service_requirement_sets_rejected"
         ) from exc
-    if not 1 <= len(raw) <= 64:
+    if not 1 <= len(raw) <= MAX_SERVICE_REQUIREMENT_SETS:
         _reject("service_requirement_sets_rejected")
     validated = tuple(_validated_requirement_set(item) for item in raw)
     service_ids = tuple(item.service_id for item in validated)
@@ -220,21 +224,12 @@ def build_module_home_service_multi_requirement_set(
     )
 
 
-def _mapping(value: object) -> dict[str, Any]:
-    if isinstance(value, Mapping):
-        return dict(value)
-    to_dict = getattr(value, "to_dict", None)
-    if not callable(to_dict):
-        _reject()
-    try:
-        raw = to_dict()
-    except (TypeError, ValueError) as exc:
-        raise ModuleHomeServiceMultiRequirementError(
-            "multi_requirement_set_rejected"
-        ) from exc
-    if not isinstance(raw, dict):
-        _reject()
-    return raw
+def _mapping(value: object) -> dict[str, object]:
+    if type(value) is ModuleHomeServiceMultiRequirementSet:
+        return value.to_dict()
+    if type(value) is dict:
+        return value.copy()
+    _reject()
 
 
 def _serialized_requirement_sets(
@@ -244,14 +239,17 @@ def _serialized_requirement_sets(
     module_id: object,
     module_version: object,
 ) -> tuple[ModuleHomeServiceContractRequirementSet, ...]:
-    if not isinstance(value, list) or not 1 <= len(value) <= 64:
+    if type(value) is not list or not 1 <= len(value) <= MAX_SERVICE_REQUIREMENT_SETS:
         _reject("service_requirement_sets_rejected")
     reconstructed: list[ModuleHomeServiceContractRequirementSet] = []
     for entry in value:
-        if not isinstance(entry, Mapping):
+        if type(entry) is not dict:
             _reject("service_requirement_set_rejected")
-        payload = dict(entry)
-        if set(payload) != SERVICE_REQUIREMENT_FIELDS:
+        payload = entry.copy()
+        if (
+            any(type(key) is not str for key in payload)
+            or set(payload) != SERVICE_REQUIREMENT_FIELDS
+        ):
             _reject("service_requirement_set_rejected")
         try:
             item = build_module_home_service_contract_requirement_set(
@@ -289,7 +287,9 @@ def validate_module_home_service_multi_requirement_set(
 
     payload = _mapping(value)
     if (
-        set(payload) != MULTI_REQUIREMENT_SET_FIELDS
+        any(type(key) is not str for key in payload)
+        or set(payload) != MULTI_REQUIREMENT_SET_FIELDS
+        or type(payload.get("schema")) is not str
         or payload.get("schema") != MULTI_REQUIREMENT_SET_SCHEMA
         or any(payload.get(flag) is not False for flag in AUTHORITY_FLAGS)
     ):
@@ -297,7 +297,7 @@ def validate_module_home_service_multi_requirement_set(
 
     aggregate_id = payload.get("multi_requirement_set_id")
     if (
-        not isinstance(aggregate_id, str)
+        type(aggregate_id) is not str
         or not aggregate_id.startswith("mhsmr-")
         or ID24.fullmatch(aggregate_id[6:]) is None
     ):
