@@ -7,6 +7,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / "product" / "web" / "static"
 API = ROOT / "product" / "control-plane" / "src" / "home_center" / "api.py"
+PACKAGE_INIT = ROOT / "product" / "control-plane" / "src" / "home_center" / "__init__.py"
+PYPROJECT = ROOT / "pyproject.toml"
+VERSION = ROOT / "VERSION"
+RELEASE_NOTES = ROOT / "docs" / "releases" / "0.46.0.md"
 
 
 class CozyUiReleaseTests(unittest.TestCase):
@@ -15,6 +19,14 @@ class CozyUiReleaseTests(unittest.TestCase):
         self.javascript = (STATIC / "app.js").read_text(encoding="utf-8")
         self.css = (STATIC / "app.css").read_text(encoding="utf-8")
         self.api = API.read_text(encoding="utf-8")
+
+    def test_release_identity_is_aligned_for_candidate(self) -> None:
+        self.assertEqual(VERSION.read_text(encoding="utf-8").strip(), "0.46.0")
+        self.assertIn('__version__ = "0.46.0"', PACKAGE_INIT.read_text(encoding="utf-8"))
+        self.assertIn('version = "0.46.0"', PYPROJECT.read_text(encoding="utf-8"))
+        release_notes = RELEASE_NOTES.read_text(encoding="utf-8")
+        self.assertIn("# Home Center 0.46.0", release_notes)
+        self.assertIn("Status: development candidate", release_notes)
 
     def test_cozy_and_full_modes_are_present(self) -> None:
         for marker in (
@@ -29,6 +41,14 @@ class CozyUiReleaseTests(unittest.TestCase):
                 self.assertIn(marker, self.html)
         self.assertIn("Уютный", self.html)
         self.assertIn("Полный", self.html)
+
+    def test_cozy_mode_is_the_visible_safe_default(self) -> None:
+        self.assertIn('id="mode-cozy" class="mode-button" type="button" role="tab"', self.html)
+        self.assertIn('aria-selected="true">Уютный</button>', self.html)
+        self.assertIn('id="mode-full" class="mode-button" type="button" role="tab"', self.html)
+        self.assertIn('aria-selected="false">Полный</button>', self.html)
+        self.assertIn('id="cozy-view" class="view cozy-view"', self.html)
+        self.assertIn('id="full-view" class="view" role="tabpanel" aria-labelledby="mode-full full-title" hidden', self.html)
 
     def test_static_asset_links_match_server_route(self) -> None:
         self.assertIn('href="/static/app.css"', self.html)
