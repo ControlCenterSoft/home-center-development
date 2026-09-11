@@ -1,9 +1,8 @@
 """Safety guard for the 0.57 provider-enrollment execution runtime.
 
-The core runtime owns execution mechanics. This guard closes replay ambiguity:
-a second command must never be emitted with a fresh idempotency key after a
-successful or ambiguous prior attempt. Only the explicit retry path may retry a
-failure that the adapter classified retry-safe.
+The core runtime owns execution mechanics. This guard closes replay ambiguity,
+validates the complete upstream enrollment receipt and avoids a bounded job-history
+window when deciding whether another provider command may be emitted.
 """
 from __future__ import annotations
 
@@ -16,14 +15,61 @@ from .device_management_enrollment_execution_runtime import (
     DeviceManagementEnrollmentExecutionRuntimeError,
     DeviceManagementEnrollmentExecutionRuntimeService,
 )
+from .household_device_enrollment_runtime import DEVICE_ENROLLMENT_STATE_SCHEMA, _proposal_key
 
 
 class SafeDeviceManagementEnrollmentExecutionRuntimeService(DeviceManagementEnrollmentExecutionRuntimeService):
+    def _enrollment(self, proposal_id: object):
+        """Require the complete confirmation evidence before execution planning."""
+        proposal = super()._enrollment(proposal_id)
+        envelope = self.store.get_meta(_proposal_key(proposal_id))
+        if not isinstance(envelope, dict) or envelope.get("schema") != DEVICE_ENROLLMENT_STATE_SCHEMA:
+            raise DeviceManagementEnrollmentExecutionRuntimeError("household_device_enrollment_state_invalid")
+        receipt = envelope.get("receipt")
+        if (
+            not isinstance(receipt, dict)
+            or receipt.get("schema") != "home-center.household-device-enrollment-confirmation.v1"
+            or receipt.get("proposal_id") != proposal.proposal_id
+            or receipt.get("management_plan_id") != proposal.management_plan_id
+            or receipt.get("device_id") != proposal.device_id
+            or receipt.get("member_id") != proposal.member_id
+            or receipt.get("snapshot_id") != proposal.snapshot_id
+            or receipt.get("resource_version") != proposal.resource_version
+            or receipt.get("generation") != proposal.generation
+            or not isinstance(receipt.get("audit_event_id"), str)
+            or not receipt["audit_event_id"]
+            or receipt.get("outcome") not in {"confirmed-for-provider-resolution", "already-confirmed"}
+            or receipt.get("provider_resolution_required") is not True
+            or receipt.get("provider_selected") is not False
+            or receipt.get("provider_execution_authorized") is not False
+            or receipt.get("policy_application_authorized") is not False
+            or receipt.get("managed_state_change_authorized") is not False
+            or receipt.get("infrastructure_mutation_authorized") is not False
+            or receipt.get("external_publication_authorized") is not False
+        ):
+            raise DeviceManagementEnrollmentExecutionRuntimeError("household_device_enrollment_receipt_invalid")
+        return proposal
+
     def _jobs_for_plan(self, plan_id: object, action_ids: set[str]) -> list[dict[str, Any]]:
-        if not isinstance(plan_id, str):
+        """Read every relevant durable job, not only StateStore.jobs()' 500-row UI window."""
+        if not isinstance(plan_id, str) or not action_ids:
             return []
+        connection = getattr(self.store, "_connection", None)
+        lock = getattr(self.store, "_lock", None)
+        decoder = getattr(self.store, "_decode_job", None)
+        if connection is not None and lock is not None and callable(decoder):
+            placeholders = ",".join("?" for _ in action_ids)
+            query = f"""SELECT j.*,m.idempotency_key,m.request_hash,m.steps_json
+                FROM jobs AS j LEFT JOIN action_job_metadata AS m ON m.job_id=j.job_id
+                WHERE j.job_type IN ({placeholders}) ORDER BY j.created_at DESC"""
+            with lock:
+                rows = connection.execute(query, tuple(sorted(action_ids))).fetchall()
+            jobs = [decoder(row) for row in rows]
+        else:
+            # Test doubles may not expose StateStore internals; production StateStore always does.
+            jobs = self.store.jobs(500)
         return [
-            job for job in self.store.jobs(500)
+            job for job in jobs
             if job.get("job_type") in action_ids
             and isinstance(job.get("preflight"), dict)
             and job["preflight"].get("plan_id") == plan_id
@@ -53,10 +99,13 @@ class SafeDeviceManagementEnrollmentExecutionRuntimeService(DeviceManagementEnro
         if isinstance(envelope.get("receipt"), dict):
             raise DeviceManagementEnrollmentExecutionRuntimeError("device_management_enrollment_execution_already_started")
         previous = self._jobs_for_plan(plan_id, {START_ACTION, RETRY_ACTION})
-        if any(job.get("state") in {"running", "verifying"} for job in previous):
+        if any(job.get("state") in {"preflight", "running", "verifying"} for job in previous):
             raise DeviceManagementEnrollmentExecutionRuntimeError("device_management_enrollment_execution_in_progress")
         if any(job.get("state") == "failed" for job in previous):
             raise DeviceManagementEnrollmentExecutionRuntimeError("device_management_enrollment_execution_retry_required")
+        if any(job.get("state") == "succeeded" for job in previous):
+            # A succeeded durable job without a valid receipt is inconsistent; never re-emit.
+            raise DeviceManagementEnrollmentExecutionRuntimeError("device_management_enrollment_execution_state_invalid")
         return super().start(actor=actor, request=request, correlation_id=correlation_id)
 
     def retry(self, *, actor: str, request: dict[str, Any], correlation_id: str) -> dict[str, object]:
@@ -69,6 +118,11 @@ class SafeDeviceManagementEnrollmentExecutionRuntimeService(DeviceManagementEnro
             return replay
         if isinstance(envelope.get("receipt"), dict):
             raise DeviceManagementEnrollmentExecutionRuntimeError("device_management_enrollment_execution_already_started")
+        previous = self._jobs_for_plan(plan_id, {START_ACTION, RETRY_ACTION})
+        if any(job.get("state") in {"preflight", "running", "verifying"} for job in previous):
+            raise DeviceManagementEnrollmentExecutionRuntimeError("device_management_enrollment_execution_in_progress")
+        if any(job.get("state") == "succeeded" for job in previous):
+            raise DeviceManagementEnrollmentExecutionRuntimeError("device_management_enrollment_execution_state_invalid")
         return super().retry(actor=actor, request=request, correlation_id=correlation_id)
 
     def cancel(self, *, actor: str, request: dict[str, Any], correlation_id: str) -> dict[str, object]:
@@ -82,8 +136,10 @@ class SafeDeviceManagementEnrollmentExecutionRuntimeService(DeviceManagementEnro
         if isinstance(envelope.get("cancel_receipt"), dict):
             raise DeviceManagementEnrollmentExecutionRuntimeError("device_management_enrollment_execution_cancel_already_requested")
         previous = self._jobs_for_plan(plan_id, {CANCEL_ACTION})
-        if any(job.get("state") in {"running", "verifying"} for job in previous):
+        if any(job.get("state") in {"preflight", "running", "verifying"} for job in previous):
             raise DeviceManagementEnrollmentExecutionRuntimeError("device_management_enrollment_execution_cancel_in_progress")
         if any(job.get("state") == "failed" for job in previous):
             raise DeviceManagementEnrollmentExecutionRuntimeError("device_management_enrollment_execution_cancel_retry_not_safe")
+        if any(job.get("state") == "succeeded" for job in previous):
+            raise DeviceManagementEnrollmentExecutionRuntimeError("device_management_enrollment_execution_state_invalid")
         return super().cancel(actor=actor, request=request, correlation_id=correlation_id)
