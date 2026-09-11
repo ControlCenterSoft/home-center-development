@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 
 from .api import RuntimeRequestHandler
 from .device_management_provider_runtime import DeviceManagementProviderRuntimeError
+from .device_management_provider_selection_runtime import DeviceManagementProviderSelectionRuntimeError
 from .household_device_enrollment_runtime import HouseholdDeviceEnrollmentRuntimeError
 from .household_device_management_runtime import HouseholdDeviceManagementRuntimeError
 from .household_device_runtime import HouseholdDeviceRuntimeError
@@ -161,6 +162,8 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
             "/api/v1/household/devices/enrollment/plan",
             "/api/v1/household/devices/enrollment/confirm",
             "/api/v1/household/devices/enrollment/provider-resolution/plan",
+            "/api/v1/household/devices/enrollment/provider-selection/plan",
+            "/api/v1/household/devices/enrollment/provider-selection/confirm",
         }
         if path not in household_posts:
             super().do_POST()
@@ -253,7 +256,23 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
                 )
                 self._json(HTTPStatus.OK, value)
                 return
-            value = self.runtime.device_management_providers.plan(
+            if path == "/api/v1/household/devices/enrollment/provider-resolution/plan":
+                value = self.runtime.device_management_providers.plan(
+                    actor=actor,
+                    request=body,
+                    correlation_id=correlation_id,
+                )
+                self._json(HTTPStatus.OK, value)
+                return
+            if path == "/api/v1/household/devices/enrollment/provider-selection/plan":
+                value = self.runtime.device_management_provider_selection.plan(
+                    actor=actor,
+                    request=body,
+                    correlation_id=correlation_id,
+                )
+                self._json(HTTPStatus.OK, value)
+                return
+            value = self.runtime.device_management_provider_selection.confirm(
                 actor=actor,
                 request=body,
                 correlation_id=correlation_id,
@@ -266,6 +285,7 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
             HouseholdDeviceManagementRuntimeError,
             HouseholdDeviceEnrollmentRuntimeError,
             DeviceManagementProviderRuntimeError,
+            DeviceManagementProviderSelectionRuntimeError,
         ) as exc:
             conflict_codes = {
                 "household_already_configured",
@@ -276,6 +296,9 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
                 "household_device_change_stale",
                 "household_device_enrollment_stale",
                 "household_device_enrollment_not_confirmed",
+                "device_management_provider_resolution_stale",
+                "device_management_provider_selection_stale",
+                "device_management_provider_not_available",
             }
             forbidden_codes = {
                 "household_actor_not_bound",
@@ -286,6 +309,7 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
                 "household_device_change_actor_mismatch",
                 "household_device_management_not_authorized",
                 "household_device_enrollment_actor_mismatch",
+                "device_management_provider_selection_actor_mismatch",
             }
             not_found_codes = {
                 "household_not_configured",
@@ -294,6 +318,7 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
                 "household_device_proposal_not_found",
                 "household_device_not_found",
                 "household_device_enrollment_proposal_not_found",
+                "device_management_provider_selection_proposal_not_found",
             }
             unavailable_codes = {
                 "household_state_invalid",
@@ -309,6 +334,9 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
                 "invalid_device_management_enrollment_modes",
                 "duplicate_device_management_enrollment_mode",
                 "invalid_device_management_provider_readiness",
+                "device_management_provider_selection_state_invalid",
+                "device_management_provider_selection_receipt_invalid",
+                "device_management_provider_selection_evidence_rejected",
             }
             if exc.code in conflict_codes:
                 status = HTTPStatus.CONFLICT
