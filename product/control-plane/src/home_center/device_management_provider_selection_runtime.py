@@ -16,6 +16,7 @@ from .device_management_provider_runtime import PROVIDER_CATALOG_STATE_KEY
 from .device_management_provider_selection import (
     DeviceManagementProviderSelectionConfirmation,
     DeviceManagementProviderSelectionError,
+    DeviceManagementProviderSelectionProposal,
     build_provider_selection_proposal,
     provider_selection_proposal_from_dict,
     revalidate_provider_selection_proposal,
@@ -127,6 +128,37 @@ class DeviceManagementProviderSelectionRuntimeService:
             snapshot.generation,
         )
 
+    @staticmethod
+    def _confirmed_receipt(
+        envelope: dict[str, object],
+        proposal: DeviceManagementProviderSelectionProposal,
+    ) -> dict[str, object]:
+        receipt = envelope.get("receipt")
+        if not isinstance(receipt, dict):
+            raise DeviceManagementProviderSelectionRuntimeError("device_management_provider_selection_receipt_invalid")
+        audit_event_id = receipt.get("audit_event_id")
+        if not isinstance(audit_event_id, str) or not audit_event_id:
+            raise DeviceManagementProviderSelectionRuntimeError("device_management_provider_selection_receipt_invalid")
+        expected = DeviceManagementProviderSelectionConfirmation(
+            proposal_id=proposal.proposal_id,
+            resolution_plan_id=proposal.resolution_plan_id,
+            enrollment_proposal_id=proposal.enrollment_proposal_id,
+            device_id=proposal.device_id,
+            member_id=proposal.member_id,
+            selected_provider_id=proposal.proposed_provider_id,
+            snapshot_id=proposal.snapshot_id,
+            resource_version=proposal.resource_version,
+            generation=proposal.generation,
+            catalog_id=proposal.catalog_id,
+            audit_event_id=audit_event_id,
+            outcome="provider-selected",
+        ).to_dict()
+        if receipt != expected:
+            raise DeviceManagementProviderSelectionRuntimeError("device_management_provider_selection_receipt_invalid")
+        replay = dict(receipt)
+        replay["outcome"] = "already-confirmed"
+        return replay
+
     def plan(self, *, actor: str, request: dict[str, Any], correlation_id: str) -> dict[str, object]:
         if set(request) != {
             "schema",
@@ -232,6 +264,11 @@ class DeviceManagementProviderSelectionRuntimeService:
 
             snapshot, bindings = self._read_state()
             actor_member_id = self._actor_member(actor, bindings)
+            if proposal.actor_member_id != actor_member_id:
+                raise DeviceManagementProviderSelectionRuntimeError("device_management_provider_selection_actor_mismatch")
+            if envelope.get("status") == "confirmed":
+                return self._confirmed_receipt(envelope, proposal)
+
             enrollment = self._confirmed_enrollment(proposal.enrollment_proposal_id)
             catalog = self._catalog()
             try:
@@ -244,28 +281,6 @@ class DeviceManagementProviderSelectionRuntimeService:
                 )
             except DeviceManagementProviderSelectionError as exc:
                 raise DeviceManagementProviderSelectionRuntimeError(exc.code) from exc
-
-            if envelope.get("status") == "confirmed":
-                receipt = envelope.get("receipt")
-                if (
-                    not isinstance(receipt, dict)
-                    or receipt.get("schema") != "home-center.device-management-provider-selection-confirmation.v1"
-                    or receipt.get("proposal_id") != proposal.proposal_id
-                    or receipt.get("resolution_plan_id") != proposal.resolution_plan_id
-                    or receipt.get("selected_provider_id") != proposal.proposed_provider_id
-                    or receipt.get("provider_selected") is not True
-                    or receipt.get("provider_execution_authorized") is not False
-                    or receipt.get("credential_access_authorized") is not False
-                    or receipt.get("enrollment_authorized") is not False
-                    or receipt.get("policy_application_authorized") is not False
-                    or receipt.get("managed_state_change_authorized") is not False
-                    or receipt.get("infrastructure_mutation_authorized") is not False
-                    or receipt.get("external_publication_authorized") is not False
-                ):
-                    raise DeviceManagementProviderSelectionRuntimeError("device_management_provider_selection_receipt_invalid")
-                replay = dict(receipt)
-                replay["outcome"] = "already-confirmed"
-                return replay
 
             latest_snapshot, latest_bindings = self._read_state()
             latest_actor_member = self._actor_member(actor, latest_bindings)
