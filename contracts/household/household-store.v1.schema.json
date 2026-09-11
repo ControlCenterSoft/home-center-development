@@ -15,12 +15,24 @@
         "schema": {"const": "home-center.household-snapshot.v1"},
         "snapshot_id": {"type": "string", "pattern": "^hsnap-[a-f0-9]{24}$"},
         "resource_version": {"type": "string", "pattern": "^hrv-[a-f0-9]{24}$"},
-        "household_id": {"type": "string", "minLength": 1, "maxLength": 256},
-        "generation": {"type": "integer", "minimum": 1},
-        "previous_snapshot_id": {"type": ["string", "null"]},
+        "household_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+        "generation": {"type": "integer", "minimum": 1, "maximum": 9223372036854775807},
+        "previous_snapshot_id": {
+          "oneOf": [
+            {"type": "null"},
+            {"type": "string", "pattern": "^hsnap-[a-f0-9]{24}$"}
+          ]
+        },
         "household": {"type": "object"},
         "infrastructure_mutation_authorized": {"const": false}
-      }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"generation": {"const": 1}}, "required": ["generation"]},
+          "then": {"properties": {"previous_snapshot_id": {"type": "null"}}},
+          "else": {"properties": {"previous_snapshot_id": {"type": "string", "pattern": "^hsnap-[a-f0-9]{24}$"}}}
+        }
+      ]
     },
     "commit": {
       "type": "object",
@@ -30,14 +42,36 @@
         "schema": {"const": "home-center.household-commit.v1"},
         "commit_id": {"type": "string", "pattern": "^hcommit-[a-f0-9]{24}$"},
         "operation": {"enum": ["create", "replace"]},
-        "household_id": {"type": "string", "minLength": 1, "maxLength": 256},
-        "previous_resource_version": {"type": ["string", "null"]},
+        "household_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+        "previous_resource_version": {
+          "oneOf": [
+            {"type": "null"},
+            {"type": "string", "pattern": "^hrv-[a-f0-9]{24}$"}
+          ]
+        },
         "resource_version": {"type": "string", "pattern": "^hrv-[a-f0-9]{24}$"},
-        "generation": {"type": "integer", "minimum": 1},
+        "generation": {"type": "integer", "minimum": 1, "maximum": 9223372036854775807},
         "snapshot_id": {"type": "string", "pattern": "^hsnap-[a-f0-9]{24}$"},
         "infrastructure_mutation_authorized": {"const": false},
         "external_publication_authorized": {"const": false}
-      }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"operation": {"const": "create"}}, "required": ["operation"]},
+          "then": {
+            "properties": {
+              "generation": {"const": 1},
+              "previous_resource_version": {"type": "null"}
+            }
+          },
+          "else": {
+            "properties": {
+              "generation": {"type": "integer", "minimum": 2, "maximum": 9223372036854775807},
+              "previous_resource_version": {"type": "string", "pattern": "^hrv-[a-f0-9]{24}$"}
+            }
+          }
+        }
+      ]
     }
   }
 }
