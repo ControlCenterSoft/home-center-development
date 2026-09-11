@@ -10,6 +10,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from .api import RuntimeRequestHandler
+from .device_management_provider_runtime import DeviceManagementProviderRuntimeError
 from .household_device_enrollment_runtime import HouseholdDeviceEnrollmentRuntimeError
 from .household_device_management_runtime import HouseholdDeviceManagementRuntimeError
 from .household_device_runtime import HouseholdDeviceRuntimeError
@@ -159,6 +160,7 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
             "/api/v1/household/devices/management/plan",
             "/api/v1/household/devices/enrollment/plan",
             "/api/v1/household/devices/enrollment/confirm",
+            "/api/v1/household/devices/enrollment/provider-resolution/plan",
         }
         if path not in household_posts:
             super().do_POST()
@@ -212,38 +214,26 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
                 self._json(HTTPStatus.OK, value)
                 return
             if path == "/api/v1/household/devices/plan":
-                value = self.runtime.household_devices.plan_device_add(
-                    actor=actor,
-                    request=body,
-                    correlation_id=correlation_id,
-                )
+                value = self.runtime.household_devices.plan_device_add(actor=actor, request=body, correlation_id=correlation_id)
                 self._json(HTTPStatus.OK, value)
                 return
             if path == "/api/v1/household/devices/confirm":
-                value = self.runtime.household_devices.confirm_device_add(
-                    actor=actor,
-                    request=body,
-                    correlation_id=correlation_id,
-                )
+                value = self.runtime.household_devices.confirm_device_add(actor=actor, request=body, correlation_id=correlation_id)
                 self._json(HTTPStatus.OK, value)
                 return
             if path == "/api/v1/household/devices/management/plan":
-                value = self.runtime.household_device_management.plan(
-                    actor=actor,
-                    request=body,
-                    correlation_id=correlation_id,
-                )
+                value = self.runtime.household_device_management.plan(actor=actor, request=body, correlation_id=correlation_id)
                 self._json(HTTPStatus.OK, value)
                 return
             if path == "/api/v1/household/devices/enrollment/plan":
-                value = self.runtime.household_device_enrollment.plan(
-                    actor=actor,
-                    request=body,
-                    correlation_id=correlation_id,
-                )
+                value = self.runtime.household_device_enrollment.plan(actor=actor, request=body, correlation_id=correlation_id)
                 self._json(HTTPStatus.OK, value)
                 return
-            value = self.runtime.household_device_enrollment.confirm(
+            if path == "/api/v1/household/devices/enrollment/confirm":
+                value = self.runtime.household_device_enrollment.confirm(actor=actor, request=body, correlation_id=correlation_id)
+                self._json(HTTPStatus.OK, value)
+                return
+            value = self.runtime.device_management_providers.plan(
                 actor=actor,
                 request=body,
                 correlation_id=correlation_id,
@@ -255,6 +245,7 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
             HouseholdDeviceRuntimeError,
             HouseholdDeviceManagementRuntimeError,
             HouseholdDeviceEnrollmentRuntimeError,
+            DeviceManagementProviderRuntimeError,
         ) as exc:
             conflict_codes = {
                 "household_already_configured",
@@ -309,9 +300,4 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
                 correlation_id=correlation_id,
                 details={"reason": "invalid_household_request", "path": path},
             )
-            self._error(
-                HTTPStatus.BAD_REQUEST,
-                "invalid_household_request",
-                "Некорректный запрос семьи",
-                correlation_id,
-            )
+            self._error(HTTPStatus.BAD_REQUEST, "invalid_household_request", "Некорректный запрос семьи", correlation_id)

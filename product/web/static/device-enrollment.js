@@ -126,11 +126,12 @@
     button.disabled = true;
     message.textContent = '';
     try {
+      const proposalId = enrollmentProposal.proposal_id;
       const {response, data} = await request('/api/v1/household/devices/enrollment/confirm', {
         method: 'POST',
         body: JSON.stringify({
           schema: 'home-center.household-device-enrollment-confirm-request.v1',
-          proposal_id: enrollmentProposal.proposal_id,
+          proposal_id: proposalId,
           confirmed: true,
         }),
       });
@@ -138,13 +139,14 @@
         message.textContent = errorMessage(data, 'Подтверждение не сохранено. При изменении состояния сформируйте предложение заново.');
         return;
       }
-      if (!safeBoundary(data)) {
+      if (!safeBoundary(data) || data?.proposal_id !== proposalId) {
         message.textContent = 'Подтверждение отклонено интерфейсом: безопасные границы не подтверждены.';
         return;
       }
       message.textContent = 'Согласие сохранено. Управление ещё не включено; следующий этап — подобрать подходящий способ управления.';
       $('#device-enrollment-confirm').hidden = true;
       enrollmentProposal = null;
+      document.dispatchEvent(new CustomEvent('homecenter:device-enrollment-confirmed', {detail: data}));
     } catch (_) {
       message.textContent = 'Не удалось сохранить подтверждение. Повторите позже.';
     } finally {
