@@ -21,7 +21,7 @@ def test_release_056_identity_is_exact_and_documented() -> None:
     assert home_center.__version__ == version
     assert '<small id="version">0.56.0</small>' in html
     assert "# Home Center 0.56.0" in notes
-    assert "Status: source package prepared for qualification." in notes
+    assert "Status: official release." in notes
 
 
 def test_release_056_selection_runtime_is_required_in_artifact() -> None:
@@ -153,7 +153,7 @@ def test_release_056_cozy_ui_requires_separate_confirmation_and_keeps_execution_
 
 def test_release_056_notes_do_not_claim_provider_execution() -> None:
     notes = (ROOT / "docs/releases/0.56.0.md").read_text(encoding="utf-8")
-    assert "Status: source package prepared for qualification." in notes
+    assert "Status: official release." in notes
     assert "Выполнение выбранного провайдера в 0.56 отсутствует." in notes
     assert "credential_access_authorized=false" in notes
     assert "provider_execution_authorized=false" in notes
