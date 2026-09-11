@@ -10,7 +10,7 @@ API = ROOT / "product" / "control-plane" / "src" / "home_center" / "api.py"
 PACKAGE_INIT = ROOT / "product" / "control-plane" / "src" / "home_center" / "__init__.py"
 PYPROJECT = ROOT / "pyproject.toml"
 VERSION = ROOT / "VERSION"
-RELEASE_NOTES = ROOT / "docs" / "releases" / "0.49.0.md"
+RELEASE_NOTES = ROOT / "docs" / "releases" / "0.49.1.md"
 
 
 class CozyUiReleaseTests(unittest.TestCase):
@@ -22,11 +22,11 @@ class CozyUiReleaseTests(unittest.TestCase):
         self.api = API.read_text(encoding="utf-8")
 
     def test_release_identity_is_aligned_for_official_release(self) -> None:
-        self.assertEqual(VERSION.read_text(encoding="utf-8").strip(), "0.49.0")
-        self.assertIn('__version__ = "0.49.0"', PACKAGE_INIT.read_text(encoding="utf-8"))
-        self.assertIn('version = "0.49.0"', PYPROJECT.read_text(encoding="utf-8"))
+        self.assertEqual(VERSION.read_text(encoding="utf-8").strip(), "0.49.1")
+        self.assertIn('__version__ = "0.49.1"', PACKAGE_INIT.read_text(encoding="utf-8"))
+        self.assertIn('version = "0.49.1"', PYPROJECT.read_text(encoding="utf-8"))
         release_notes = RELEASE_NOTES.read_text(encoding="utf-8")
-        self.assertIn("# Home Center 0.49.0", release_notes)
+        self.assertIn("# Home Center 0.49.1", release_notes)
         self.assertIn("Status: official release.", release_notes)
         self.assertNotIn("qualification candidate", release_notes.lower())
         self.assertNotIn("development candidate", release_notes.lower())
