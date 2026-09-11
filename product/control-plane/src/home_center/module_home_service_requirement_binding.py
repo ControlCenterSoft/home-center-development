@@ -6,7 +6,7 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any
 
 from .module_home_service_contract_binding import (
     ModuleHomeServiceContractBindingError,
@@ -125,35 +125,18 @@ def _canonical_sha256(value: object) -> str:
 
 
 def _payload(value: object) -> dict[str, Any]:
-    if isinstance(value, Mapping):
-        try:
-            raw = dict(value)
-        except (TypeError, ValueError, RuntimeError, RecursionError) as exc:
-            raise ModuleHomeServiceRequirementBindingError(
-                "requirement_binding_rejected"
-            ) from exc
-    else:
-        to_dict = getattr(value, "to_dict", None)
-        if not callable(to_dict):
-            raise ModuleHomeServiceRequirementBindingError(
-                "requirement_binding_rejected"
-            )
-        try:
-            raw = to_dict()
-        except (TypeError, ValueError, RuntimeError, RecursionError) as exc:
-            raise ModuleHomeServiceRequirementBindingError(
-                "requirement_binding_rejected"
-            ) from exc
-    if not isinstance(raw, dict):
-        raise ModuleHomeServiceRequirementBindingError(
-            "requirement_binding_rejected"
-        )
-    return raw
+    if type(value) is ModuleHomeServiceRequirementBinding:
+        return value.to_dict()
+    if type(value) is dict:
+        return value.copy()
+    raise ModuleHomeServiceRequirementBindingError(
+        "requirement_binding_rejected"
+    )
 
 
 def _identifier(value: object, prefix: str) -> str:
     if (
-        not isinstance(value, str)
+        type(value) is not str
         or not value.startswith(prefix)
         or ID24.fullmatch(value[len(prefix) :]) is None
     ):
@@ -164,7 +147,7 @@ def _identifier(value: object, prefix: str) -> str:
 
 
 def _semver(value: object) -> str:
-    if not isinstance(value, str) or SEMVER.fullmatch(value) is None:
+    if type(value) is not str or SEMVER.fullmatch(value) is None:
         raise ModuleHomeServiceRequirementBindingError(
             "requirement_binding_rejected"
         )
@@ -172,7 +155,7 @@ def _semver(value: object) -> str:
 
 
 def _module_id(value: object) -> str:
-    if not isinstance(value, str) or MODULE_ID.fullmatch(value) is None:
+    if type(value) is not str or MODULE_ID.fullmatch(value) is None:
         raise ModuleHomeServiceRequirementBindingError(
             "requirement_binding_rejected"
         )
@@ -180,7 +163,7 @@ def _module_id(value: object) -> str:
 
 
 def _service_id(value: object) -> str:
-    if not isinstance(value, str) or SERVICE_ID.fullmatch(value) is None:
+    if type(value) is not str or SERVICE_ID.fullmatch(value) is None:
         raise ModuleHomeServiceRequirementBindingError(
             "requirement_binding_rejected"
         )
@@ -188,7 +171,7 @@ def _service_id(value: object) -> str:
 
 
 def _digest(value: object) -> str:
-    if not isinstance(value, str) or DIGEST.fullmatch(value) is None:
+    if type(value) is not str or DIGEST.fullmatch(value) is None:
         raise ModuleHomeServiceRequirementBindingError(
             "requirement_binding_rejected"
         )
@@ -196,12 +179,12 @@ def _digest(value: object) -> str:
 
 
 def _contracts(value: object) -> tuple[str, ...]:
-    if not isinstance(value, list) or not 1 <= len(value) <= 64:
+    if type(value) is not list or not 1 <= len(value) <= 64:
         raise ModuleHomeServiceRequirementBindingError(
             "requirement_binding_rejected"
         )
     if any(
-        not isinstance(item, str)
+        type(item) is not str
         or SERVICE_CONTRACT.fullmatch(item) is None
         for item in value
     ):
@@ -330,7 +313,10 @@ def validate_module_home_service_requirement_binding(
     service_profile_sha256 = _digest(payload.get("service_profile_sha256"))
     required_service_contracts = _contracts(payload.get("required_service_contracts"))
     compatibility_status = payload.get("compatibility_status")
-    if compatibility_status not in {"compatible", "blocked"}:
+    if type(compatibility_status) is not str or compatibility_status not in {
+        "compatible",
+        "blocked",
+    }:
         raise ModuleHomeServiceRequirementBindingError(
             "requirement_binding_rejected"
         )
