@@ -91,6 +91,7 @@
         return;
       }
       message.textContent = stateCopy(data);
+      document.dispatchEvent(new CustomEvent('homecenter:device-management-plan', {detail: data}));
     } catch (_) {
       message.textContent = 'Home Center сейчас не смог подготовить план управления. Повторите проверку позже.';
     } finally {
