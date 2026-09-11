@@ -145,3 +145,55 @@ def test_noncanonical_drift_reason_order_is_rejected() -> None:
         match="requirement_binding_revalidation_rejected",
     ):
         validate_module_home_service_requirement_binding_revalidation(payload)
+
+
+@pytest.mark.parametrize(
+    ("field", "new_value", "reason"),
+    [
+        ("fresh_requirement_set_id", "mhscr-" + "4" * 24, "requirement_set_changed"),
+        ("fresh_home_center_version", "0.44.1", "home_center_version_changed"),
+        ("fresh_module_id", "example.module.next", "module_identity_changed"),
+        ("fresh_module_version", "2.0.0", "module_version_changed"),
+        ("fresh_service_id", "zigbee-bridge-next", "home_service_identity_changed"),
+        ("fresh_service_profile_sha256", "b" * 64, "home_service_profile_changed"),
+        (
+            "fresh_required_service_contracts",
+            ["devices.mqtt.v1", "devices.zigbee.v1"],
+            "required_service_contracts_changed",
+        ),
+        ("fresh_compatibility_status", "blocked", "compatibility_status_changed"),
+    ],
+)
+def test_serialized_semantic_drift_round_trips_with_exact_reason(
+    field: str,
+    new_value: object,
+    reason: str,
+) -> None:
+    payload = _current_payload()
+    payload["status"] = "stale"
+    payload["fresh_requirement_binding_id"] = "mhsrb-" + "9" * 24
+    payload[field] = new_value
+    payload["drift_reasons"] = [reason]
+    payload = _with_id(payload)
+
+    validated = validate_module_home_service_requirement_binding_revalidation(
+        payload
+    )
+    assert validated.current is False
+    assert validated.drift_reasons == (reason,)
+    assert validated.to_dict() == payload
+
+
+def test_requirement_binding_identity_only_drift_round_trips() -> None:
+    payload = _current_payload()
+    payload["status"] = "stale"
+    payload["fresh_requirement_binding_id"] = "mhsrb-" + "9" * 24
+    payload["drift_reasons"] = ["requirement_binding_evidence_changed"]
+    payload = _with_id(payload)
+
+    validated = validate_module_home_service_requirement_binding_revalidation(
+        payload
+    )
+    assert validated.current is False
+    assert validated.drift_reasons == ("requirement_binding_evidence_changed",)
+    assert validated.to_dict() == payload
