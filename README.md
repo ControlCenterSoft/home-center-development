@@ -1,48 +1,36 @@
 # Home Center
 
-Home Center — инфраструктурно-независимая платформа управления домашней и небольшой серверной инфраструктурой через единый Web UI и API.
+Home Center is an infrastructure-neutral platform for managing home and small-server infrastructure through a unified Web UI and API.
 
-## Текущий релизный статус
+## Active development repository
 
-- Последний официальный canonical/source release в линии выпуска: **0.42.0**; canonical availability подтверждена tag `v0.42.0` и официальным GitHub Release с `draft=false` / `prerelease=false`.
-- Полноценный **PUBLIC STABLE RELEASE 0.42.0** подтверждён в [`ControlCenterSoft/home-center-stable`](https://github.com/ControlCenterSoft/home-center-stable): актуальны stable/default branch, tag `v0.42.0`, официальный GitHub Release и предусмотренные public artifacts/manifest/checksums/SBOM/acceptance.
-- Canonical и public stable используют раздельные подтверждённые release identities; для `0.42.0` canonical tag указывает на `980e9d84736b64a6e1558bae524e4da2a1c8115a`, а public stable связывается с ним через `APPROVED-SOURCE.json` и manifest/digest mapping, поэтому равенство commit SHA между репозиториями не требуется.
-- Более новые development-возможности считаются доступными только после собственной release qualification и официальной публикации соответствующей release identity.
+This repository is the authoritative workspace for active Home Center product development.
 
-Home Center 0.42.0 добавляет canonical versioned requirement-set contract для точных Home Service/API contract revisions, требуемых модулю. Requirement-set evidence остаётся descriptive-only и не предоставляет authority на admission, installation, execution, production mutation или external publication.
+Home Center must be installable on a new or existing supported infrastructure without any dependency on a particular deployment. Product source must not hard-code real node names, domain names, directory identifiers, network addresses, credentials, certificates, or topology from an operator environment.
 
-## Архитектурная граница продукта
+Runtime identity and topology are supplied by discovery, enrollment and deployment profiles. Directory integration is optional and configured by the administrator. Compute, storage, device, automation, certificate and remote-access providers are selected through capabilities and provider profiles rather than fixed hosts.
 
-Home Center должен устанавливаться на новую или существующую поддерживаемую инфраструктуру без зависимости от конкретных имён узлов, доменов, адресов, directory identifiers, credentials, сертификатов или заранее заданной топологии.
+## Repository boundary
 
-Runtime identity и topology поступают через discovery, enrollment и deployment profiles. Directory integration является опциональной. Compute, storage, device, automation, certificate и remote-access возможности выбираются через типизированные capabilities и provider profiles.
+Allowed here:
 
-## Интерфейсы
+- product source and Web UI;
+- portable deployment and enrollment logic;
+- schemas and API contracts;
+- tests and GitHub Actions CI;
+- infrastructure-neutral documentation and examples;
+- release and feature branches for active development.
 
-Home Center имеет два дополняющих уровня интерфейса: полный технический интерфейс и mobile-first интерфейс **«Уютный»**. «Уютный» — часть Home Center, а не отдельный продукт и не тема оформления.
+Not allowed here:
 
-Каноническая архитектурная граница «Уютного» описана в `docs/architecture/cozy-interface.md`. Пользователь формулирует бытовое намерение, а Home Center преобразует его в безопасный policy/desired-state plan через обычные Identity/RBAC, Change/Job, verification и recovery boundaries.
+- credentials, private keys or production certificates;
+- real deployment IP addresses, host names, directory SIDs or private realms;
+- operator-specific deployment overlays;
+- production acceptance evidence containing private infrastructure details;
+- internal server-only operational data.
 
-Household/Intent foundation формировался в development-линии начиная с версии 0.26.0 и входит в накопленную более позднюю исходную линию. Сам номер development-версии не означает наличие отдельного официального GitHub Release: пользовательская доступность определяется только фактически опубликованной release identity соответствующего канала.
+Those restricted operational materials remain outside the public product-development repository.
 
-## Основные требования безопасности
+## Development model
 
-- deny-by-default Identity/RBAC;
-- явное разделение Desired State и Actual State;
-- типизированные операции вместо generic shell/root API;
-- stale-state и tamper protection для подтверждений и evidence;
-- обязательный post-condition verification для изменяющих state операций;
-- Audit без credentials и секретов;
-- backup/recovery semantics для stateful данных;
-- infrastructure-neutral examples и deployment artifacts;
-- внешняя публикация, routing/NAT и provider execution только через отдельные явно разрешённые границы.
-
-## Первый вход
-
-После чистой установки создаётся локальный пользователь `admin` с первоначальным паролем `admin`. При первом входе пароль необходимо сменить; до смены обычная работа запрещена. При обновлении установленный пользователем пароль сохраняется и не сбрасывается к первоначальному значению.
-
-## Документация
-
-Продуктовая документация должна соответствовать фактически опубликованному состоянию релизов. Планируемые возможности должны быть явно отделены от выпущенных.
-
-В документации запрещено публиковать credentials, private keys, реальные deployment identifiers, внутренние адреса, приватную топологию, персональные данные и сведения о внутренней инфраструктуре или методологии разработки.
+`main` is the infrastructure-neutral integration baseline. Active versions are developed in parallel release and feature branches. Every push and pull request is checked by the infrastructure-neutrality gate on GitHub-hosted runners.

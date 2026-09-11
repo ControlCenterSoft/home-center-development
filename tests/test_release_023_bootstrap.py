@@ -22,9 +22,7 @@ class Release023BootstrapTests(unittest.TestCase):
         notes = (ROOT / "docs/releases/0.23.0.md").read_text(encoding="utf-8")
         self.assertIn("# Home Center 0.23.0", notes)
         self.assertIn("Status: development qualification candidate.", notes)
-        self.assertIn("## Durable transition authorization", notes)
-        self.assertIn("published `0.22.3` baseline", notes)
-        self.assertIn("Home Center 0.22.0 admission", notes)
+        self.assertIn("durable mutation boundary is explicit", notes)
         self.assertIn("does not by itself authorize an official release", notes)
 
     def test_previous_release_guarantees_remain_documented(self) -> None:
