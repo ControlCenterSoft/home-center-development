@@ -184,7 +184,7 @@ class Runtime:
             profile_version: str | int = 2
             nodes = value.get("nodes")
         else:
-            metadata = value.get("metadata)
+            metadata = value.get("metadata")
             specification = value.get("spec")
             if not isinstance(metadata, dict) or not isinstance(specification, dict):
                 raise ValueError("invalid v1 deployment profile shape")
