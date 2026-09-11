@@ -136,10 +136,10 @@ RolePreset может включать:
 - **0.24.0–0.25.0** — исторические development stages durable transition (read-back verification и completion audit), а не основание объявлять функции «Уютного» опубликованными;
 - **с 0.26.0 в development-линии** сформирован Household/Intent foundation. Он является архитектурной основой «Уютного», но конкретная пользовательская возможность доступна только если вошла в фактически опубликованную release identity;
 - **0.40.0** — предыдущий официальный canonical/source release; его scope — evidence-only compatibility binding Home Service и он не расширяет пользовательский интерфейс «Уютный»;
-- **0.41.0** — текущий официальный canonical/source release; exact-state revalidation этого binding также evidence-only и не расширяет «Уютный». Полноценный public stable release 0.41.0 ещё не завершён;
+- **0.41.0** — текущий официальный canonical/source release и одновременно текущий подтверждённый PUBLIC STABLE RELEASE; exact-state revalidation этого binding остаётся evidence-only и не расширяет «Уютный»;
 - **0.46.0 и последующие подготовленные development-линии** развивают конкретные экраны и сценарии «Уютного». Они не считаются пользовательски доступными до собственной релизной квалификации и официальной публикации.
 
-Отдельный public stable-канал имеет собственную release identity и не наследует автоматически возможности более новой canonical/source линии. На момент этой сверки полноценный PUBLIC STABLE RELEASE подтверждён до **0.15.0** в `ControlCenterSoft/home-center-stable`.
+Официальный public stable-канал — `ControlCenterSoft/home-center-stable`. Полноценный PUBLIC STABLE RELEASE **0.41.0** подтверждён отдельной public release identity. Канонический development commit для `v0.41.0` — `27f2ee8dae2729cf034f57b8fed29ad99b62a95e`; public export использует подтверждённый mapping и поэтому не обязан иметь тот же commit SHA.
 
 ## 10. Правило для дальнейшей разработки
 
