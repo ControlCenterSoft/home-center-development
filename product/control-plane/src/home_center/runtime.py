@@ -16,6 +16,7 @@ from .auth import LoginRateLimiter, SessionManager
 from .certificate_api import CertificateLifecycleApi, runtime_certificate_records
 from .config import Config
 from .external_access import ExternalAccessPolicy, ExternalRequestRateLimiter
+from .household_device_runtime import HouseholdDeviceRuntimeService
 from .household_runtime import HouseholdRuntimeService
 from .local_admin_auth import LocalAdminCredentialStore
 from .local_admin_change import LocalAdminPasswordChangeClient
@@ -63,6 +64,7 @@ class Runtime:
         self.node_inventory = NodeInventoryService(self.store, product_version=__version__)
         self.automation = AutomationPlanningService(self.store.nodes)
         self.household = HouseholdRuntimeService(self.store)
+        self.household_devices = HouseholdDeviceRuntimeService(self.store)
         self.reconciler = Reconciler(config, self.store)
 
     def actor_requires_password_change(self, actor: str) -> bool:
