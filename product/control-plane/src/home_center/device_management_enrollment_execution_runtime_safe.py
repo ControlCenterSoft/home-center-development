@@ -123,6 +123,14 @@ class SafeDeviceManagementEnrollmentExecutionRuntimeService(DeviceManagementEnro
             raise DeviceManagementEnrollmentExecutionRuntimeError("device_management_enrollment_execution_in_progress")
         if any(job.get("state") == "succeeded" for job in previous):
             raise DeviceManagementEnrollmentExecutionRuntimeError("device_management_enrollment_execution_state_invalid")
+        failed_job_id = request.get("failed_job_id")
+        if not previous or previous[0].get("state") != "failed" or previous[0].get("job_id") != failed_job_id:
+            # Retry is only allowed for the latest durable attempt. Selecting an older
+            # retry-safe failure must never bypass a newer ambiguous failure.
+            raise DeviceManagementEnrollmentExecutionRuntimeError("device_management_enrollment_execution_retry_not_allowed")
+        result = previous[0].get("result")
+        if not isinstance(result, dict) or result.get("retry_safe") is not True:
+            raise DeviceManagementEnrollmentExecutionRuntimeError("device_management_enrollment_execution_retry_not_safe")
         return super().retry(actor=actor, request=request, correlation_id=correlation_id)
 
     def cancel(self, *, actor: str, request: dict[str, Any], correlation_id: str) -> dict[str, object]:
