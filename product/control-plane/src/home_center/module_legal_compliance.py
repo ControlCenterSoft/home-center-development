@@ -6,7 +6,6 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
-from typing import Mapping
 
 
 LEGAL_COMPLIANCE_SCHEMA = "home-center.module-legal-compliance-evidence.v1"
@@ -101,6 +100,12 @@ def _plain_string(value: object, code: str, *, maximum: int) -> str:
     return value
 
 
+def _enum_string(value: object, allowed: frozenset[str], code: str) -> str:
+    if type(value) is not str or value not in allowed:
+        raise ModuleLegalComplianceError(code)
+    return value
+
+
 def _module_id(value: object) -> str:
     if type(value) is not str or MODULE_ID.fullmatch(value) is None:
         raise ModuleLegalComplianceError("module_identity_rejected")
@@ -129,7 +134,7 @@ def _license_expression(value: object) -> str:
 def _payload(value: object) -> dict[str, object]:
     if isinstance(value, ModuleLegalComplianceEvidence):
         return value.to_dict()
-    if isinstance(value, Mapping):
+    if type(value) is dict:
         return dict(value)
     raise ModuleLegalComplianceError("legal_compliance_evidence_rejected")
 
@@ -140,12 +145,9 @@ def build_module_legal_compliance_evidence(*, module_id: str, module_version: st
     canonical_artifact_sha256 = _digest(artifact_sha256, "artifact_digest_rejected")
     canonical_license_expression = _license_expression(license_expression)
     canonical_source = _plain_string(authoritative_source, "authoritative_source_rejected", maximum=1024)
-    if distribution_mode not in DISTRIBUTION_MODES:
-        raise ModuleLegalComplianceError("distribution_mode_rejected")
-    if commercial_use_disposition not in DISPOSITIONS:
-        raise ModuleLegalComplianceError("commercial_use_disposition_rejected")
-    if redistribution_disposition not in DISPOSITIONS:
-        raise ModuleLegalComplianceError("redistribution_disposition_rejected")
+    canonical_distribution_mode = _enum_string(distribution_mode, DISTRIBUTION_MODES, "distribution_mode_rejected")
+    canonical_commercial_use_disposition = _enum_string(commercial_use_disposition, DISPOSITIONS, "commercial_use_disposition_rejected")
+    canonical_redistribution_disposition = _enum_string(redistribution_disposition, DISPOSITIONS, "redistribution_disposition_rejected")
     if type(notice_required) is not bool or type(source_offer_required) is not bool:
         raise ModuleLegalComplianceError("notice_source_offer_rejected")
     canonical_evidence_version = _semver(license_evidence_version, "license_evidence_version_rejected")
@@ -157,9 +159,9 @@ def build_module_legal_compliance_evidence(*, module_id: str, module_version: st
         "artifact_sha256": canonical_artifact_sha256,
         "license_expression": canonical_license_expression,
         "authoritative_source": canonical_source,
-        "distribution_mode": distribution_mode,
-        "commercial_use_disposition": commercial_use_disposition,
-        "redistribution_disposition": redistribution_disposition,
+        "distribution_mode": canonical_distribution_mode,
+        "commercial_use_disposition": canonical_commercial_use_disposition,
+        "redistribution_disposition": canonical_redistribution_disposition,
         "notice_required": notice_required,
         "source_offer_required": source_offer_required,
         "license_evidence_version": canonical_evidence_version,
@@ -171,7 +173,7 @@ def build_module_legal_compliance_evidence(*, module_id: str, module_version: st
         "external_publication_authorized": False,
     }
     evidence_id = "mlce-" + _canonical_sha256(evidence)[:24]
-    return ModuleLegalComplianceEvidence(evidence_id=evidence_id, module_id=canonical_module_id, module_version=canonical_module_version, artifact_sha256=canonical_artifact_sha256, license_expression=canonical_license_expression, authoritative_source=canonical_source, distribution_mode=distribution_mode, commercial_use_disposition=commercial_use_disposition, redistribution_disposition=redistribution_disposition, notice_required=notice_required, source_offer_required=source_offer_required, license_evidence_version=canonical_evidence_version, license_evidence_sha256=canonical_evidence_digest)
+    return ModuleLegalComplianceEvidence(evidence_id=evidence_id, module_id=canonical_module_id, module_version=canonical_module_version, artifact_sha256=canonical_artifact_sha256, license_expression=canonical_license_expression, authoritative_source=canonical_source, distribution_mode=canonical_distribution_mode, commercial_use_disposition=canonical_commercial_use_disposition, redistribution_disposition=canonical_redistribution_disposition, notice_required=notice_required, source_offer_required=source_offer_required, license_evidence_version=canonical_evidence_version, license_evidence_sha256=canonical_evidence_digest)
 
 
 def validate_module_legal_compliance_evidence(value: object) -> ModuleLegalComplianceEvidence:
@@ -187,9 +189,9 @@ def validate_module_legal_compliance_evidence(value: object) -> ModuleLegalCompl
         artifact_sha256=_digest(payload.get("artifact_sha256"), "artifact_digest_rejected"),
         license_expression=_license_expression(payload.get("license_expression")),
         authoritative_source=_plain_string(payload.get("authoritative_source"), "authoritative_source_rejected", maximum=1024),
-        distribution_mode=str(payload.get("distribution_mode")),
-        commercial_use_disposition=str(payload.get("commercial_use_disposition")),
-        redistribution_disposition=str(payload.get("redistribution_disposition")),
+        distribution_mode=_enum_string(payload.get("distribution_mode"), DISTRIBUTION_MODES, "distribution_mode_rejected"),
+        commercial_use_disposition=_enum_string(payload.get("commercial_use_disposition"), DISPOSITIONS, "commercial_use_disposition_rejected"),
+        redistribution_disposition=_enum_string(payload.get("redistribution_disposition"), DISPOSITIONS, "redistribution_disposition_rejected"),
         notice_required=payload.get("notice_required"),
         source_offer_required=payload.get("source_offer_required"),
         license_evidence_version=_semver(payload.get("license_evidence_version"), "license_evidence_version_rejected"),
