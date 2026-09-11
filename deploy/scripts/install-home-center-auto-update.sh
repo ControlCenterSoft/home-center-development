@@ -63,7 +63,7 @@ trap 'rm -f "${ENV_TMP}"' EXIT
 cat >"${ENV_TMP}" <<EOF
 HOME_CENTER_UPDATE_COORDINATOR=${COORDINATOR}
 HOME_CENTER_UPDATE_PEER=${PEER}
-HOME_CENTER_RELEASES_API=https://api.github.com/repos/ControlCenterSoft/home-center-development/releases?per_page=30
+HOME_CENTER_RELEASES_API=https://api.github.com/repos/ControlCenterSoft/home-center-stable/releases?per_page=30
 EOF
 install -m 0600 "${ENV_TMP}" /etc/home-center/auto-update.env
 
