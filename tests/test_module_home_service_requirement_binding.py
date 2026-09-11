@@ -15,6 +15,7 @@ from home_center.module_home_service_contract_requirements import (
 from home_center.module_home_service_requirement_binding import (
     ModuleHomeServiceRequirementBindingError,
     bind_module_home_service_requirement_set,
+    validate_module_home_service_requirement_binding,
 )
 
 
@@ -96,6 +97,14 @@ def _requirements(
         module_version=module_version,
         service_id=service_id,
         required_service_contracts=contracts,
+    )
+
+
+def _binding(*, contracts: tuple[str, ...] = ("devices.zigbee.v1",)):
+    return bind_module_home_service_requirement_set(
+        _requirements(contracts=contracts),
+        _module_binding(),
+        _service_profile(),
     )
 
 
@@ -228,6 +237,51 @@ class ModuleHomeServiceRequirementBindingTests(unittest.TestCase):
                 _service_profile(),
             )
 
+    def test_serialized_binding_round_trips(self) -> None:
+        original = _binding(
+            contracts=("smart-home.bridge.v1", "devices.zigbee.v1")
+        )
+        validated = validate_module_home_service_requirement_binding(
+            original.to_dict()
+        )
+        self.assertEqual(validated, original)
+
+    def test_serialized_binding_tamper_is_rejected(self) -> None:
+        payload = _binding().to_dict()
+        payload["service_profile_sha256"] = "9" * 64
+        with self.assertRaisesRegex(
+            ModuleHomeServiceRequirementBindingError,
+            "requirement_binding_rejected",
+        ):
+            validate_module_home_service_requirement_binding(payload)
+
+    def test_serialized_binding_noncanonical_contract_order_is_rejected(self) -> None:
+        payload = _binding(
+            contracts=("smart-home.bridge.v1", "devices.zigbee.v1")
+        ).to_dict()
+        payload["required_service_contracts"] = list(
+            reversed(payload["required_service_contracts"])
+        )
+        with self.assertRaisesRegex(
+            ModuleHomeServiceRequirementBindingError,
+            "requirement_binding_rejected",
+        ):
+            validate_module_home_service_requirement_binding(payload)
+
+    def test_serialized_binding_authority_or_shape_tamper_is_rejected(self) -> None:
+        for mutation in ("authority", "extra-field"):
+            payload = _binding().to_dict()
+            if mutation == "authority":
+                payload["execution_authorized"] = True
+            else:
+                payload["unexpected"] = "value"
+            with self.subTest(mutation=mutation):
+                with self.assertRaisesRegex(
+                    ModuleHomeServiceRequirementBindingError,
+                    "requirement_binding_rejected",
+                ):
+                    validate_module_home_service_requirement_binding(payload)
+
     def test_schema_is_closed_non_authorizing_and_matches_runtime_output(self) -> None:
         schema_path = (
             Path(__file__).parents[1]
@@ -235,11 +289,7 @@ class ModuleHomeServiceRequirementBindingTests(unittest.TestCase):
             "module-home-service-contract-requirement-binding.v1.schema.json"
         )
         schema = json.loads(schema_path.read_text(encoding="utf-8"))
-        result = bind_module_home_service_requirement_set(
-            _requirements(),
-            _module_binding(),
-            _service_profile(),
-        ).to_dict()
+        result = _binding().to_dict()
 
         self.assertFalse(schema["additionalProperties"])
         self.assertEqual(set(result), set(schema["required"]))
