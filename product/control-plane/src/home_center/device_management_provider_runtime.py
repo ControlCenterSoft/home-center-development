@@ -12,7 +12,11 @@ from .device_management_provider import (
     plan_provider_resolution,
 )
 from .household_device_enrollment import device_enrollment_proposal_from_dict
-from .household_device_enrollment_runtime import DEVICE_ENROLLMENT_STATE_SCHEMA, _proposal_key
+from .household_device_enrollment_runtime import (
+    DEVICE_ENROLLMENT_STATE_SCHEMA,
+    HouseholdDeviceEnrollmentRuntimeError,
+    _proposal_key,
+)
 from .household_runtime import ActorBinding, HOUSEHOLD_STATE_KEY, _state_from_dict
 from .store import StateStore
 
@@ -49,6 +53,15 @@ class DeviceManagementProviderRuntimeService:
             raise DeviceManagementProviderRuntimeError("household_actor_not_bound")
         return member_id
 
+    @staticmethod
+    def _snapshot_identity(snapshot) -> tuple[str, str, str, int]:
+        return (
+            snapshot.household_id,
+            snapshot.snapshot_id,
+            snapshot.resource_version,
+            snapshot.generation,
+        )
+
     def catalog(self) -> dict[str, object]:
         raw = self.store.get_meta(PROVIDER_CATALOG_STATE_KEY)
         if raw is None:
@@ -72,7 +85,11 @@ class DeviceManagementProviderRuntimeService:
 
         snapshot, bindings = self._read_state()
         actor_member_id = self._actor_member(actor, bindings)
-        envelope = self.store.get_meta(_proposal_key(request["enrollment_proposal_id"]))
+        try:
+            proposal_key = _proposal_key(request["enrollment_proposal_id"])
+        except HouseholdDeviceEnrollmentRuntimeError as exc:
+            raise DeviceManagementProviderRuntimeError(exc.code) from exc
+        envelope = self.store.get_meta(proposal_key)
         if not isinstance(envelope, dict) or envelope.get("schema") != DEVICE_ENROLLMENT_STATE_SCHEMA:
             raise DeviceManagementProviderRuntimeError("household_device_enrollment_proposal_not_found")
         if envelope.get("status") != "confirmed":
@@ -117,6 +134,14 @@ class DeviceManagementProviderRuntimeService:
             )
         except DeviceManagementProviderError as exc:
             raise DeviceManagementProviderRuntimeError(exc.code) from exc
+
+        latest_snapshot, latest_bindings = self._read_state()
+        latest_actor_member_id = self._actor_member(actor, latest_bindings)
+        if (
+            latest_actor_member_id != actor_member_id
+            or self._snapshot_identity(latest_snapshot) != self._snapshot_identity(snapshot)
+        ):
+            raise DeviceManagementProviderRuntimeError("household_device_enrollment_stale")
 
         self.store.audit(
             actor=actor,
