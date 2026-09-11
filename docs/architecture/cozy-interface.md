@@ -136,10 +136,11 @@ RolePreset может включать:
 - **0.24.0–0.25.0** — исторические development stages durable transition (read-back verification и completion audit), а не основание объявлять функции «Уютного» опубликованными;
 - **с 0.26.0 в development-линии** сформирован Household/Intent foundation. Он является архитектурной основой «Уютного», но конкретная пользовательская возможность доступна только если вошла в фактически опубликованную release identity;
 - **0.40.0** — предыдущий официальный canonical/source release; его scope — evidence-only compatibility binding Home Service и он не расширяет пользовательский интерфейс «Уютный»;
-- **0.41.0** — текущий официальный canonical/source release и одновременно текущий подтверждённый PUBLIC STABLE RELEASE; exact-state revalidation этого binding остаётся evidence-only и не расширяет «Уютный»;
+- **0.41.0** — предыдущий подтверждённый PUBLIC STABLE baseline; exact-state revalidation этого binding остаётся evidence-only и не расширяет «Уютный»;
+- **0.42.0** — текущий официальный canonical/source release и текущий подтверждённый PUBLIC STABLE RELEASE. Versioned requirement-set contract для точных Home Service/API revisions остаётся evidence-only и не расширяет пользовательский интерфейс «Уютный»;
 - **0.46.0 и последующие подготовленные development-линии** развивают конкретные экраны и сценарии «Уютного». Они не считаются пользовательски доступными до собственной релизной квалификации и официальной публикации.
 
-Официальный public stable-канал — `ControlCenterSoft/home-center-stable`. Полноценный PUBLIC STABLE RELEASE **0.41.0** подтверждён отдельной public release identity. Канонический development commit для `v0.41.0` — `27f2ee8dae2729cf034f57b8fed29ad99b62a95e`; public export использует подтверждённый mapping и поэтому не обязан иметь тот же commit SHA.
+Официальный public stable-канал — `ControlCenterSoft/home-center-stable`. Полноценный PUBLIC STABLE RELEASE **0.42.0** подтверждён отдельной public release identity. Канонический tag `v0.42.0` указывает на commit `980e9d84736b64a6e1558bae524e4da2a1c8115a`; public export использует подтверждённый `APPROVED-SOURCE.json` / manifest mapping и поэтому не обязан иметь тот же commit SHA.
 
 ## 10. Правило для дальнейшей разработки
 
