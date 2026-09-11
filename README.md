@@ -4,13 +4,12 @@ Home Center — инфраструктурно-независимая платф
 
 ## Текущий релизный статус
 
-- Последний официально опубликованный canonical/source release: **0.41.0**.
-- Полноценный **PUBLIC STABLE RELEASE 0.41.0** опубликован в [`ControlCenterSoft/home-center-stable`](https://github.com/ControlCenterSoft/home-center-stable): актуальны stable/default branch, tag `v0.41.0`, официальный GitHub Release и предусмотренные public artifacts/manifest/checksums/SBOM/acceptance evidence.
-- Канонический `v0.41.0` соответствует development commit `27f2ee8dae2729cf034f57b8fed29ad99b62a95e`; public stable использует отдельный подтверждённый export mapping, поэтому SHA public tree не обязан совпадать с canonical SHA.
-- **0.42.0** является текущим release candidate. До подтверждения собственного canonical/source release и отдельного полноценного PUBLIC STABLE RELEASE версия 0.42.0 не считается доступной пользователю, а текущим public stable остаётся **0.41.0**.
+- Последний официальный canonical/source release в линии выпуска: **0.42.0**; фактическая canonical availability подтверждается только tag `v0.42.0` и официальным GitHub Release после завершения release governance.
+- До завершения отдельного полноценного public export/release для 0.42.0 текущим подтверждённым **PUBLIC STABLE RELEASE** остаётся **0.41.0** в [`ControlCenterSoft/home-center-stable`](https://github.com/ControlCenterSoft/home-center-stable).
+- Canonical и public stable используют раздельные подтверждённые release identities; sanitization/export может закономерно давать другой public commit SHA, поэтому соответствие фиксируется через version/digest/manifest mapping.
 - Более новые development-возможности считаются доступными только после собственной release qualification и официальной публикации соответствующей release identity.
 
-Home Center 0.41.0 добавляет evidence-only exact-state revalidation ранее сформированного module/Home Service contract binding. Revalidation возвращает детерминированный `current`/`stale` результат, отклоняет повреждённые исходные данные fail-closed и не предоставляет authority на admission, installation, execution, production mutation или external publication.
+Home Center 0.42.0 добавляет canonical versioned requirement-set contract для точных Home Service/API contract revisions, требуемых модулю. Requirement-set evidence остаётся descriptive-only и не предоставляет authority на admission, installation, execution, production mutation или external publication.
 
 ## Архитектурная граница продукта
 
