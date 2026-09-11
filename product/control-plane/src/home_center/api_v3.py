@@ -78,11 +78,14 @@ class RuntimeRequestHandlerV3(RuntimeRequestHandlerV2):
                 "device_management_provider_not_available",
                 "device_management_enrollment_execution_stale",
                 "device_management_enrollment_execution_in_progress",
+                "device_management_enrollment_execution_already_started",
                 "device_management_enrollment_execution_retry_required",
                 "device_management_enrollment_execution_retry_not_allowed",
                 "device_management_enrollment_execution_retry_not_safe",
                 "device_management_enrollment_execution_cancel_not_allowed",
                 "device_management_enrollment_execution_cancel_in_progress",
+                "device_management_enrollment_execution_cancel_already_requested",
+                "device_management_enrollment_execution_cancel_retry_not_safe",
             }
             unavailable = {
                 "household_state_invalid",
