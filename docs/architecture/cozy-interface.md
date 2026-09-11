@@ -130,19 +130,21 @@ RolePreset может включать:
 
 ## 9. Release boundary
 
-Принято следующее распределение работ:
+Фактическая пользовательская доступность определяется только официально опубликованной release identity соответствующего канала. Номер development-версии, наличие кода или архитектурного решения сами по себе не означают опубликованный релиз.
 
-- **0.23.0** — завершение уже сформированного durable home-service transition scope. «Уютный» не расширяет scope 0.23.0;
-- **0.24** — foundation: Household/Family domain, роли, устройства, RolePreset/PolicyBundle/EffectivePolicy, UserIntent/RecommendedAction, Household/Intent API, Policy Composer и переключение «Уютный»/«Полный»;
-- **0.25** — первый полноценный mobile-first пользовательский интерфейс «Уютный»: «Домой», «Семья», «Мой дом»;
-- **0.26** — автоматическое role-driven provisioning: учётные записи, профили, интернет/DNS, лимиты, VPN, device policies и связанные доступы через доступные providers;
-- **0.27** — рекомендации, QR-гости, безопасный auto-repair, бытовые сценарии, UX/security hardening.
+- **0.23.0** — опубликованный исходный релиз durable home-service transition scope; «Уютный» в него не входит;
+- **0.24.0–0.25.0** — исторические development stages durable transition (read-back verification и completion audit), а не основание объявлять функции «Уютного» опубликованными;
+- **с 0.26.0 в development-линии** сформирован Household/Intent foundation. Он является архитектурной основой «Уютного», но конкретная пользовательская возможность доступна только если вошла в фактически опубликованную release identity;
+- **0.40.0** — предыдущий официальный canonical/source release; его scope — evidence-only compatibility binding Home Service и он не расширяет пользовательский интерфейс «Уютный»;
+- **0.41.0** — предыдущий подтверждённый PUBLIC STABLE baseline; exact-state revalidation этого binding остаётся evidence-only и не расширяет «Уютный»;
+- **0.42.0** — текущий официальный canonical/source release и текущий подтверждённый PUBLIC STABLE RELEASE. Versioned requirement-set contract для точных Home Service/API revisions остаётся evidence-only и не расширяет пользовательский интерфейс «Уютный»;
+- **0.46.0 и последующие подготовленные development-линии** развивают конкретные экраны и сценарии «Уютного». Они не считаются пользовательски доступными до собственной релизной квалификации и официальной публикации.
 
-Подготовка 0.24 может выполняться параллельно с завершением 0.23, но не должна изменять acceptance boundary текущего 0.23 release candidate.
+Официальный public stable-канал — `ControlCenterSoft/home-center-stable`. Полноценный PUBLIC STABLE RELEASE **0.42.0** подтверждён отдельной public release identity. Канонический tag `v0.42.0` указывает на commit `980e9d84736b64a6e1558bae524e4da2a1c8115a`; public export использует подтверждённый `APPROVED-SOURCE.json` / manifest mapping и поэтому не обязан иметь тот же commit SHA.
 
 ## 10. Правило для дальнейшей разработки
 
-Начиная с 0.24 каждая новая пользовательская capability Home Center должна при проектировании определить:
+Начиная с Household/Intent foundation каждая новая пользовательская capability Home Center должна при проектировании определить:
 
 1. техническое представление в Full/Core API;
 2. бытовое представление в Household/Intent API либо явное обоснование, почему оно не применимо;
