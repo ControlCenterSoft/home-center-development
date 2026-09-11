@@ -29,7 +29,18 @@
     "status": {"enum": ["clear", "review-required", "blocked"]},
     "reasons": {
       "type": "array",
-      "items": {"enum": ["commercial-use-prohibited", "redistribution-prohibited", "commercial-use-conditional", "commercial-use-unknown", "redistribution-conditional", "redistribution-unknown"]},
+      "items": {
+        "enum": [
+          "commercial-use-prohibited",
+          "redistribution-prohibited",
+          "commercial-use-conditional",
+          "commercial-use-unknown",
+          "redistribution-conditional",
+          "redistribution-unknown",
+          "notice-obligation-pending",
+          "source-offer-obligation-pending"
+        ]
+      },
       "uniqueItems": true
     },
     "obligations": {"type": "array", "items": {"enum": ["notice-required", "source-offer-required"]}, "uniqueItems": true},
