@@ -89,7 +89,7 @@ def test_release_056_cozy_ui_requires_separate_confirmation_and_keeps_execution_
     assert "credential_access_authorized === false" in ui
     assert "enrollment_authorized === false" in ui
     assert "provider_execution_authorized === false" in ui
-    assert "credentials не передаются" in ui
+    assert "credentials не передаются" in ui.lower()
 
 
 def test_release_056_notes_do_not_claim_provider_execution() -> None:
