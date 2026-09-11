@@ -2,23 +2,91 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#f6f7f8">
   <title>Home Center</title>
   <link rel="stylesheet" href="app.css">
 </head>
 <body>
-  <header><strong>Home Center</strong><span id="version">development</span></header>
-  <main>
-    <section>
-      <h1>Инфраструктура</h1>
-      <p>Узлы и роли отображаются из фактического состояния Home Center. Интерфейс не предполагает фиксированное количество серверов.</p>
-      <div id="nodes" class="node-grid" aria-live="polite"></div>
-    </section>
-    <section>
-      <h2>Возможности</h2>
-      <div id="capabilities"></div>
-    </section>
-  </main>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">HC</span>
+        <div>
+          <strong>Home Center</strong>
+          <small id="version">0.46.0</small>
+        </div>
+      </div>
+      <div class="mode-switch" role="tablist" aria-label="Режим интерфейса">
+        <button id="mode-cozy" class="mode-button" type="button" role="tab" data-mode="cozy" aria-controls="cozy-view" aria-selected="true">Уютный</button>
+        <button id="mode-full" class="mode-button" type="button" role="tab" data-mode="full" aria-controls="full-view" aria-selected="false">Полный</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="cozy-view" class="view cozy-view" role="tabpanel" aria-labelledby="mode-cozy cozy-title">
+        <div class="cozy-heading">
+          <div>
+            <span class="eyebrow">Уютный режим</span>
+            <h1 id="cozy-title">Домой</h1>
+            <p>Главное состояние дома без лишних технических деталей. Для диагностики и сложных настроек всегда доступен полный режим.</p>
+          </div>
+          <span id="cozy-state" class="state-pill neutral" aria-live="polite">Проверяем дом</span>
+        </div>
+
+        <div class="cozy-summary" aria-live="polite">
+          <article class="cozy-card primary-card">
+            <span class="card-kicker">Состояние</span>
+            <strong id="cozy-health">Подключаемся…</strong>
+            <p id="cozy-health-copy">Получаем актуальное состояние Home Center.</p>
+          </article>
+          <article class="cozy-card">
+            <span class="card-kicker">Серверы</span>
+            <strong id="cozy-nodes">—</strong>
+            <p>Home Center сам учитывает обнаруженные узлы и их состояние.</p>
+          </article>
+          <article class="cozy-card">
+            <span class="card-kicker">Возможности</span>
+            <strong id="cozy-capabilities">—</strong>
+            <p>Доступные домашние функции определяются по фактическому состоянию.</p>
+          </article>
+        </div>
+
+        <div class="cozy-next">
+          <strong>«Уютный» — основной режим для повседневного домашнего использования.</strong>
+          <p>В 0.46 доступен безопасный экран «Домой» и постоянное переключение режимов. Полная навигация «Домой / Семья / Мой дом» относится к следующей версии.</p>
+        </div>
+      </section>
+
+      <section id="full-view" class="view" role="tabpanel" aria-labelledby="mode-full full-title" hidden>
+        <div class="page-heading">
+          <div>
+            <span class="eyebrow">Полный интерфейс</span>
+            <h1 id="full-title">Инфраструктура</h1>
+            <p>Узлы, роли и возможности из фактического состояния Home Center. Количество серверов определяется текущей конфигурацией.</p>
+          </div>
+          <button id="refresh-button" class="secondary-button" type="button">Обновить</button>
+        </div>
+
+        <section class="section-block">
+          <div class="section-heading">
+            <h2>Узлы</h2>
+            <p>Техническое представление подключённых серверов.</p>
+          </div>
+          <div id="nodes" class="node-grid" aria-live="polite"></div>
+        </section>
+
+        <section class="section-block">
+          <div class="section-heading">
+            <h2>Возможности</h2>
+            <p>Функции, доступные в текущей инфраструктуре.</p>
+          </div>
+          <div id="capabilities" class="capability-list" aria-live="polite"></div>
+        </section>
+      </section>
+    </main>
+  </div>
   <script src="app.js"></script>
 </body>
 </html>
