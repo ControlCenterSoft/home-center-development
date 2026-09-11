@@ -4,9 +4,9 @@ Home Center — инфраструктурно-независимая платф
 
 ## Текущий релизный статус
 
-- Последний официальный canonical/source release в линии выпуска: **0.42.0**; фактическая canonical availability подтверждается только tag `v0.42.0` и официальным GitHub Release после завершения release governance.
-- До завершения отдельного полноценного public export/release для 0.42.0 текущим подтверждённым **PUBLIC STABLE RELEASE** остаётся **0.41.0** в [`ControlCenterSoft/home-center-stable`](https://github.com/ControlCenterSoft/home-center-stable).
-- Canonical и public stable используют раздельные подтверждённые release identities; sanitization/export может закономерно давать другой public commit SHA, поэтому соответствие фиксируется через version/digest/manifest mapping.
+- Последний официальный canonical/source release в линии выпуска: **0.42.0**; canonical availability подтверждена tag `v0.42.0` и официальным GitHub Release с `draft=false` / `prerelease=false`.
+- Полноценный **PUBLIC STABLE RELEASE 0.42.0** подтверждён в [`ControlCenterSoft/home-center-stable`](https://github.com/ControlCenterSoft/home-center-stable): актуальны stable/default branch, tag `v0.42.0`, официальный GitHub Release и предусмотренные public artifacts/manifest/checksums/SBOM/acceptance.
+- Canonical и public stable используют раздельные подтверждённые release identities; для `0.42.0` canonical tag указывает на `980e9d84736b64a6e1558bae524e4da2a1c8115a`, а public stable связывается с ним через `APPROVED-SOURCE.json` и manifest/digest mapping, поэтому равенство commit SHA между репозиториями не требуется.
 - Более новые development-возможности считаются доступными только после собственной release qualification и официальной публикации соответствующей release identity.
 
 Home Center 0.42.0 добавляет canonical versioned requirement-set contract для точных Home Service/API contract revisions, требуемых модулю. Requirement-set evidence остаётся descriptive-only и не предоставляет authority на admission, installation, execution, production mutation или external publication.
