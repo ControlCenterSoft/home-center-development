@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/device-management-enrollment-provider-observation.v1.schema.json",
+  "title": "Home Center device management enrollment provider observation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "provider_id",
+    "provider_operation_id",
+    "device_id",
+    "provider_state",
+    "checks",
+    "observed_at",
+    "read_only"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.device-management-enrollment-provider-observation.v1"},
+    "provider_id": {"type": "string", "minLength": 1},
+    "provider_operation_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "device_id": {"type": "string", "minLength": 1},
+    "provider_state": {"enum": ["enrolled", "not-enrolled", "cancelled", "unknown"]},
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["certificate", "profile", "agent"],
+      "properties": {
+        "certificate": {"enum": ["present", "missing", "unknown", "not-applicable"]},
+        "profile": {"enum": ["present", "missing", "unknown", "not-applicable"]},
+        "agent": {"enum": ["present", "missing", "unknown", "not-applicable"]}
+      }
+    },
+    "observed_at": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"},
+    "read_only": {"const": true}
+  }
+}
