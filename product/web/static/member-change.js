@@ -24,6 +24,17 @@
     return ({parent: 'Родитель', child: 'Ребёнок', guest: 'Гость'})[role] || 'Член семьи';
   }
 
+  function loadDeviceRegistration() {
+    if (document.querySelector('script[data-hc-device-registration]')) return;
+    const script = document.createElement('script');
+    script.src = '/static/device-registration.js';
+    script.dataset.hcDeviceRegistration = 'true';
+    script.async = false;
+    document.head.appendChild(script);
+  }
+
+  loadDeviceRegistration();
+
   function clearMemberConfirmation() {
     pendingMemberProposal = null;
     const card = $member('#member-confirm-card');
