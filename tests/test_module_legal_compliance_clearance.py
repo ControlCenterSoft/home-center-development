@@ -6,6 +6,7 @@ from home_center.module_legal_compliance import build_module_legal_compliance_ev
 from home_center.module_legal_compliance_clearance import (
     BLOCKED,
     CLEAR,
+    CLEARANCE_SCHEMA,
     REVIEW_REQUIRED,
     evaluate_module_legal_compliance_clearance,
 )
@@ -35,6 +36,7 @@ class ModuleLegalComplianceClearanceTests(unittest.TestCase):
         evidence = _evidence()
         result = evaluate_module_legal_compliance_clearance(evidence)
 
+        self.assertEqual(result.schema, CLEARANCE_SCHEMA)
         self.assertEqual(result.status, CLEAR)
         self.assertEqual(result.reasons, ())
         self.assertEqual(result.evidence_id, evidence.evidence_id)
@@ -56,6 +58,7 @@ class ModuleLegalComplianceClearanceTests(unittest.TestCase):
         evidence = _evidence()
         result = evaluate_module_legal_compliance_clearance(evidence).to_dict()
 
+        self.assertEqual(result["schema"], CLEARANCE_SCHEMA)
         self.assertEqual(result["evidence_id"], evidence.evidence_id)
         self.assertEqual(result["module_id"], "media.torrent-client")
         self.assertEqual(result["module_version"], "1.2.3")
