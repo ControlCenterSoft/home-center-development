@@ -146,7 +146,13 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         path = urlsplit(self.path).path
-        if path not in {"/api/v1/household/bootstrap", "/api/v1/household/intents/plan"}:
+        household_posts = {
+            "/api/v1/household/bootstrap",
+            "/api/v1/household/intents/plan",
+            "/api/v1/household/members/plan",
+            "/api/v1/household/members/confirm",
+        }
+        if path not in household_posts:
             super().do_POST()
             return
 
@@ -182,24 +188,38 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
         try:
             body = self._read_json(max_bytes=8192)
             if path == "/api/v1/household/bootstrap":
-                value = self.runtime.household.bootstrap(
-                    actor=actor,
-                    request=body,
-                    correlation_id=correlation_id,
-                )
+                value = self.runtime.household.bootstrap(actor=actor, request=body, correlation_id=correlation_id)
                 self._json(HTTPStatus.CREATED, value)
                 return
-            value = self.runtime.household.plan_intent(
-                actor=actor,
-                request=body,
-                correlation_id=correlation_id,
-            )
+            if path == "/api/v1/household/intents/plan":
+                value = self.runtime.household.plan_intent(actor=actor, request=body, correlation_id=correlation_id)
+                self._json(HTTPStatus.OK, value)
+                return
+            if path == "/api/v1/household/members/plan":
+                value = self.runtime.household.plan_member_add(actor=actor, request=body, correlation_id=correlation_id)
+                self._json(HTTPStatus.OK, value)
+                return
+            value = self.runtime.household.confirm_member_add(actor=actor, request=body, correlation_id=correlation_id)
             self._json(HTTPStatus.OK, value)
             return
         except HouseholdRuntimeError as exc:
-            conflict_codes = {"household_already_configured", "household_intent_target_exists"}
-            forbidden_codes = {"household_actor_not_bound", "household_intent_not_authorized"}
-            not_found_codes = {"household_not_configured", "household_member_not_found"}
+            conflict_codes = {
+                "household_already_configured",
+                "household_intent_target_exists",
+                "household_member_already_exists",
+                "household_member_change_stale",
+            }
+            forbidden_codes = {
+                "household_actor_not_bound",
+                "household_intent_not_authorized",
+                "household_member_change_not_authorized",
+                "household_member_change_actor_mismatch",
+            }
+            not_found_codes = {
+                "household_not_configured",
+                "household_member_not_found",
+                "household_member_proposal_not_found",
+            }
             if exc.code in conflict_codes:
                 status = HTTPStatus.CONFLICT
             elif exc.code in forbidden_codes:

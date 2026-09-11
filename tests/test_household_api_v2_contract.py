@@ -9,12 +9,19 @@ RUNTIME = ROOT / "product" / "control-plane" / "src" / "home_center" / "runtime.
 def test_household_routes_are_on_authenticated_v2_handler() -> None:
     source = API_V2.read_text(encoding="utf-8")
     assert 'path == "/api/v1/household"' in source
-    assert '"/api/v1/household/bootstrap"' in source
-    assert '"/api/v1/household/intents/plan"' in source
+    for path in (
+        "/api/v1/household/bootstrap",
+        "/api/v1/household/intents/plan",
+        "/api/v1/household/members/plan",
+        "/api/v1/household/members/confirm",
+    ):
+        assert f'"{path}"' in source
     assert "self._require_actor(correlation_id)" in source
     assert "self._same_origin_post_allowed(context)" in source
     assert "self.runtime.household.bootstrap" in source
     assert "self.runtime.household.plan_intent" in source
+    assert "self.runtime.household.plan_member_add" in source
+    assert "self.runtime.household.confirm_member_add" in source
 
 
 def test_runtime_composes_household_service() -> None:
