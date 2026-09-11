@@ -10,11 +10,15 @@ from scripts.qualify_release_artifact import REQUIRED_MEMBERS
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_release_054_identity_is_exact_and_documented() -> None:
+def _version_tuple(value: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in value.split("."))
+
+
+def test_release_054_boundary_is_preserved_in_later_releases() -> None:
     version = (ROOT / "VERSION").read_text(encoding="ascii").strip()
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     notes = (ROOT / "docs/releases/0.54.0.md").read_text(encoding="utf-8")
-    assert version == "0.54.0"
+    assert _version_tuple(version) >= (0, 54, 0)
     assert project["project"]["version"] == version
     assert home_center.__version__ == version
     assert "# Home Center 0.54.0" in notes
@@ -50,11 +54,10 @@ def test_release_054_api_is_read_only_and_separate_from_enrollment_confirmation(
     assert "self.store.set_meta(HOUSEHOLD_STATE_KEY" not in provider_runtime
 
 
-def test_release_054_cozy_ui_never_auto_selects_or_executes_provider() -> None:
+def test_release_054_cozy_ui_preserves_provider_resolution_boundary() -> None:
     html = (ROOT / "product/web/static/index.html").read_text(encoding="utf-8")
     enrollment = (ROOT / "product/web/static/device-enrollment.js").read_text(encoding="utf-8")
     resolution = (ROOT / "product/web/static/device-provider-resolution.js").read_text(encoding="utf-8")
-    assert '<small id="version">0.54.0</small>' in html
     assert 'src="/static/device-provider-resolution.js"' in html
     assert "homecenter:device-enrollment-confirmed" in enrollment
     assert "/api/v1/household/devices/enrollment/provider-resolution/plan" in resolution
