@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
-import unittest
 from pathlib import Path
+
+import jsonschema
+import pytest
 
 from home_center.module_home_service_contract_binding import (
     bind_module_home_service_contracts,
@@ -15,7 +16,6 @@ from home_center.module_home_service_contract_requirements import (
 from home_center.module_home_service_requirement_binding import (
     ModuleHomeServiceRequirementBindingError,
     bind_module_home_service_requirement_set,
-    validate_module_home_service_requirement_binding,
 )
 
 
@@ -100,225 +100,159 @@ def _requirements(
     )
 
 
-def _binding(*, contracts: tuple[str, ...] = ("devices.zigbee.v1",)):
-    return bind_module_home_service_requirement_set(
-        _requirements(contracts=contracts),
+def test_binding_is_deterministic_and_binds_exact_compatibility() -> None:
+    requirements = _requirements(
+        contracts=("smart-home.bridge.v1", "devices.zigbee.v1")
+    )
+    first = bind_module_home_service_requirement_set(
+        requirements,
         _module_binding(),
         _service_profile(),
     )
+    second = bind_module_home_service_requirement_set(
+        requirements,
+        _module_binding(),
+        _service_profile(),
+    )
+    compatibility = bind_module_home_service_contracts(
+        _module_binding(),
+        _service_profile(),
+        requirements.required_service_contracts,
+    )
+    assert first == second
+    assert first.requirement_set_id == requirements.requirement_set_id
+    assert first.home_service_contract_binding_id == compatibility.binding_id
+    assert first.compatibility_status == "compatible"
 
 
-class ModuleHomeServiceRequirementBindingTests(unittest.TestCase):
-    def test_binding_is_deterministic_and_binds_exact_compatibility(self) -> None:
-        requirements = _requirements(
-            contracts=("smart-home.bridge.v1", "devices.zigbee.v1")
-        )
-        first = bind_module_home_service_requirement_set(
+def test_unsupported_requirement_is_bound_as_blocked_evidence() -> None:
+    result = bind_module_home_service_requirement_set(
+        _requirements(contracts=("devices.zigbee.v2",)),
+        _module_binding(),
+        _service_profile(),
+    )
+    assert result.compatibility_status == "blocked"
+    assert result.admission_authorized is False
+    assert result.installation_authorized is False
+    assert result.execution_authorized is False
+    assert result.production_mutation_enabled is False
+    assert result.external_publication_authorized is False
+
+
+def test_blocked_admission_is_preserved_as_blocked_compatibility() -> None:
+    result = bind_module_home_service_requirement_set(
+        _requirements(),
+        _module_binding(admission_status="blocked"),
+        _service_profile(),
+    )
+    assert result.compatibility_status == "blocked"
+
+
+def test_profile_drift_changes_binding_but_not_requirement_identity() -> None:
+    requirements = _requirements()
+    first = bind_module_home_service_requirement_set(
+        requirements,
+        _module_binding(),
+        _service_profile(),
+    )
+    changed = _service_profile()
+    changed["minimum_storage_gib"] = 8
+    second = bind_module_home_service_requirement_set(
+        requirements,
+        _module_binding(),
+        changed,
+    )
+    assert first.requirement_set_id == second.requirement_set_id
+    assert first.service_profile_sha256 != second.service_profile_sha256
+    assert first.home_service_contract_binding_id != (
+        second.home_service_contract_binding_id
+    )
+    assert first.requirement_binding_id != second.requirement_binding_id
+
+
+@pytest.mark.parametrize(
+    "requirements",
+    [
+        _requirements(home_center_version="0.42.0"),
+        _requirements(module_id="other.module"),
+        _requirements(module_version="1.2.4"),
+        _requirements(service_id="minecraft-server"),
+    ],
+)
+def test_requirement_context_mismatch_is_rejected(requirements: object) -> None:
+    with pytest.raises(
+        ModuleHomeServiceRequirementBindingError,
+        match="requirement_context_mismatch",
+    ):
+        bind_module_home_service_requirement_set(
             requirements,
             _module_binding(),
             _service_profile(),
         )
-        second = bind_module_home_service_requirement_set(
+
+
+def test_tampered_requirement_set_is_rejected() -> None:
+    requirements = _requirements().to_dict()
+    requirements["required_service_contracts"] = ["devices.zigbee.v2"]
+    with pytest.raises(
+        ModuleHomeServiceRequirementBindingError,
+        match="requirement_set_rejected",
+    ):
+        bind_module_home_service_requirement_set(
             requirements,
             _module_binding(),
             _service_profile(),
         )
-        compatibility = bind_module_home_service_contracts(
-            _module_binding(),
-            _service_profile(),
-            requirements.required_service_contracts,
-        )
-        self.assertEqual(first, second)
-        self.assertEqual(first.requirement_set_id, requirements.requirement_set_id)
-        self.assertEqual(
-            first.home_service_contract_binding_id,
-            compatibility.binding_id,
-        )
-        self.assertEqual(first.compatibility_status, "compatible")
 
-    def test_unsupported_requirement_is_bound_as_blocked_evidence(self) -> None:
-        result = bind_module_home_service_requirement_set(
-            _requirements(contracts=("devices.zigbee.v2",)),
+
+def test_authority_bearing_requirement_set_is_rejected() -> None:
+    requirements = _requirements().to_dict()
+    requirements["execution_authorized"] = True
+    with pytest.raises(
+        ModuleHomeServiceRequirementBindingError,
+        match="requirement_set_rejected",
+    ):
+        bind_module_home_service_requirement_set(
+            requirements,
             _module_binding(),
             _service_profile(),
         )
-        self.assertEqual(result.compatibility_status, "blocked")
-        self.assertFalse(result.admission_authorized)
-        self.assertFalse(result.installation_authorized)
-        self.assertFalse(result.execution_authorized)
-        self.assertFalse(result.production_mutation_enabled)
-        self.assertFalse(result.external_publication_authorized)
 
-    def test_blocked_admission_is_preserved_as_blocked_compatibility(self) -> None:
-        result = bind_module_home_service_requirement_set(
+
+def test_invalid_compatibility_context_is_rejected() -> None:
+    module_binding = _module_binding()
+    module_binding["artifact_sha256"] = "9" * 64
+    with pytest.raises(
+        ModuleHomeServiceRequirementBindingError,
+        match="home_service_compatibility_rejected",
+    ):
+        bind_module_home_service_requirement_set(
             _requirements(),
-            _module_binding(admission_status="blocked"),
+            module_binding,
             _service_profile(),
         )
-        self.assertEqual(result.compatibility_status, "blocked")
-
-    def test_profile_drift_changes_binding_not_requirement_identity(self) -> None:
-        requirements = _requirements()
-        first = bind_module_home_service_requirement_set(
-            requirements,
-            _module_binding(),
-            _service_profile(),
-        )
-        changed = _service_profile()
-        changed["minimum_storage_gib"] = 8
-        second = bind_module_home_service_requirement_set(
-            requirements,
-            _module_binding(),
-            changed,
-        )
-        self.assertEqual(first.requirement_set_id, second.requirement_set_id)
-        self.assertNotEqual(first.service_profile_sha256, second.service_profile_sha256)
-        self.assertNotEqual(
-            first.home_service_contract_binding_id,
-            second.home_service_contract_binding_id,
-        )
-        self.assertNotEqual(first.requirement_binding_id, second.requirement_binding_id)
-
-    def test_requirement_context_mismatch_is_rejected(self) -> None:
-        mismatches = (
-            _requirements(home_center_version="0.42.0"),
-            _requirements(module_id="other.module"),
-            _requirements(module_version="1.2.4"),
-            _requirements(service_id="minecraft-server"),
-        )
-        for requirements in mismatches:
-            with self.subTest(requirement_set_id=requirements.requirement_set_id):
-                with self.assertRaisesRegex(
-                    ModuleHomeServiceRequirementBindingError,
-                    "requirement_context_mismatch",
-                ):
-                    bind_module_home_service_requirement_set(
-                        requirements,
-                        _module_binding(),
-                        _service_profile(),
-                    )
-
-    def test_tampered_requirement_set_is_rejected(self) -> None:
-        requirements = _requirements().to_dict()
-        requirements["required_service_contracts"] = ["devices.zigbee.v2"]
-        with self.assertRaisesRegex(
-            ModuleHomeServiceRequirementBindingError,
-            "requirement_set_rejected",
-        ):
-            bind_module_home_service_requirement_set(
-                requirements,
-                _module_binding(),
-                _service_profile(),
-            )
-
-    def test_authority_bearing_requirement_set_is_rejected(self) -> None:
-        requirements = _requirements().to_dict()
-        requirements["execution_authorized"] = True
-        with self.assertRaisesRegex(
-            ModuleHomeServiceRequirementBindingError,
-            "requirement_set_rejected",
-        ):
-            bind_module_home_service_requirement_set(
-                requirements,
-                _module_binding(),
-                _service_profile(),
-            )
-
-    def test_invalid_compatibility_context_is_rejected(self) -> None:
-        module_binding = _module_binding()
-        module_binding["artifact_sha256"] = "9" * 64
-        with self.assertRaisesRegex(
-            ModuleHomeServiceRequirementBindingError,
-            "home_service_compatibility_rejected",
-        ):
-            bind_module_home_service_requirement_set(
-                _requirements(),
-                module_binding,
-                _service_profile(),
-            )
-
-    def test_serialized_binding_round_trips(self) -> None:
-        original = _binding(
-            contracts=("smart-home.bridge.v1", "devices.zigbee.v1")
-        )
-        validated = validate_module_home_service_requirement_binding(
-            original.to_dict()
-        )
-        self.assertEqual(validated, original)
-
-    def test_serialized_binding_tamper_is_rejected(self) -> None:
-        payload = _binding().to_dict()
-        payload["service_profile_sha256"] = "9" * 64
-        with self.assertRaisesRegex(
-            ModuleHomeServiceRequirementBindingError,
-            "requirement_binding_rejected",
-        ):
-            validate_module_home_service_requirement_binding(payload)
-
-    def test_serialized_binding_noncanonical_contract_order_is_rejected(self) -> None:
-        payload = _binding(
-            contracts=("smart-home.bridge.v1", "devices.zigbee.v1")
-        ).to_dict()
-        payload["required_service_contracts"] = list(
-            reversed(payload["required_service_contracts"])
-        )
-        with self.assertRaisesRegex(
-            ModuleHomeServiceRequirementBindingError,
-            "requirement_binding_rejected",
-        ):
-            validate_module_home_service_requirement_binding(payload)
-
-    def test_serialized_binding_authority_or_shape_tamper_is_rejected(self) -> None:
-        for mutation in ("authority", "extra-field"):
-            payload = _binding().to_dict()
-            if mutation == "authority":
-                payload["execution_authorized"] = True
-            else:
-                payload["unexpected"] = "value"
-            with self.subTest(mutation=mutation):
-                with self.assertRaisesRegex(
-                    ModuleHomeServiceRequirementBindingError,
-                    "requirement_binding_rejected",
-                ):
-                    validate_module_home_service_requirement_binding(payload)
-
-    def test_schema_is_closed_non_authorizing_and_matches_runtime_output(self) -> None:
-        schema_path = (
-            Path(__file__).parents[1]
-            / "contracts/modules/"
-            "module-home-service-contract-requirement-binding.v1.schema.json"
-        )
-        schema = json.loads(schema_path.read_text(encoding="utf-8"))
-        result = _binding().to_dict()
-
-        self.assertFalse(schema["additionalProperties"])
-        self.assertEqual(set(result), set(schema["required"]))
-        self.assertEqual(
-            result["schema"], schema["properties"]["schema"]["const"]
-        )
-        self.assertRegex(
-            result["requirement_binding_id"],
-            re.compile(r"^mhsrb-[0-9a-f]{24}$"),
-        )
-        self.assertRegex(
-            result["requirement_set_id"],
-            re.compile(r"^mhscr-[0-9a-f]{24}$"),
-        )
-        self.assertRegex(
-            result["home_service_contract_binding_id"],
-            re.compile(r"^mhscb-[0-9a-f]{24}$"),
-        )
-        self.assertIn(result["compatibility_status"], ("compatible", "blocked"))
-        for name in (
-            "admission_authorized",
-            "installation_authorized",
-            "execution_authorized",
-            "production_mutation_enabled",
-            "external_publication_authorized",
-        ):
-            self.assertEqual(schema["properties"][name], {"const": False})
-            self.assertIs(result[name], False)
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_schema_is_closed_non_authorizing_and_accepts_runtime_output() -> None:
+    schema_path = (
+        Path(__file__).parents[1]
+        / "contracts/modules/"
+        "module-home-service-contract-requirement-binding.v1.schema.json"
+    )
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    jsonschema.Draft202012Validator.check_schema(schema)
+    result = bind_module_home_service_requirement_set(
+        _requirements(),
+        _module_binding(),
+        _service_profile(),
+    )
+    jsonschema.Draft202012Validator(schema).validate(result.to_dict())
+    assert schema["additionalProperties"] is False
+    for name in (
+        "admission_authorized",
+        "installation_authorized",
+        "execution_authorized",
+        "production_mutation_enabled",
+        "external_publication_authorized",
+    ):
+        assert schema["properties"][name] == {"const": False}

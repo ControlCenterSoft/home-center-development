@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "home-center.module-legal-compliance-clearance.v1.schema.json",
+  "title": "Home Center Module Legal Compliance Clearance v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "evidence_id",
+    "module_id",
+    "module_version",
+    "artifact_sha256",
+    "license_evidence_version",
+    "license_evidence_sha256",
+    "status",
+    "reasons",
+    "obligations",
+    "release_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {
+      "const": "home-center.module-legal-compliance-clearance.v1"
+    },
+    "evidence_id": {
+      "type": "string",
+      "pattern": "^mlce-[0-9a-f]{24}$"
+    },
+    "module_id": {
+      "type": "string",
+      "maxLength": 128,
+      "pattern": "^[a-z0-9](?:[a-z0-9.-]{0,126}[a-z0-9])?$"
+    },
+    "module_version": {
+      "$ref": "#/$defs/semver"
+    },
+    "artifact_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "license_evidence_version": {
+      "$ref": "#/$defs/semver"
+    },
+    "license_evidence_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "status": {
+      "enum": ["clear", "review-required", "blocked"]
+    },
+    "reasons": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "commercial-use-prohibited",
+          "redistribution-prohibited",
+          "commercial-use-conditional",
+          "commercial-use-unknown",
+          "redistribution-conditional",
+          "redistribution-unknown"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "obligations": {
+      "type": "array",
+      "items": {
+        "enum": ["notice-required", "source-offer-required"]
+      },
+      "uniqueItems": true
+    },
+    "release_authorized": {
+      "const": false
+    },
+    "external_publication_authorized": {
+      "const": false
+    }
+  },
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

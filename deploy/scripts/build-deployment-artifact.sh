@@ -39,7 +39,6 @@ cp -a "$ROOT/product/web/static/." "$STAGE/web/"
 cp -a "$ROOT/contracts/." "$STAGE/contracts/"
 cp "$ROOT/deploy/runtime/run.py" "$ROOT/deploy/runtime/backup-run.py" "$STAGE/"
 cp "$ROOT/deploy/scripts/install-node.sh" \
-   "$ROOT/deploy/scripts/install-node-core.sh" \
    "$ROOT/deploy/scripts/rollback-node.sh" \
    "$ROOT/deploy/scripts/bootstrap-two-node.sh" \
    "$STAGE/deploy/"

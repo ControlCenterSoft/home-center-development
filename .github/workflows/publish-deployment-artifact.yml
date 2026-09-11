@@ -11,58 +11,32 @@ on:
         description: Type PROMOTE to publish the deployment artifact
         required: true
         type: string
-  workflow_run:
-    workflows:
-      - Publish official release
-    types:
-      - completed
-    branches:
-      - main
 
 permissions:
   contents: write
 
 concurrency:
-  group: home-center-deployment-artifact-${{ github.repository }}
+  group: home-center-deployment-artifact-${{ inputs.release_tag }}
   cancel-in-progress: false
 
 jobs:
   promote:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Checkout release-event context
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Resolve promotion request
-        id: release
+      - name: Validate promotion request
         shell: bash
         env:
-          EVENT_NAME: ${{ github.event_name }}
-          REQUESTED_RELEASE_TAG: ${{ inputs.release_tag }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
           CONFIRMATION: ${{ inputs.confirmation }}
         run: |
           set -Eeuo pipefail
-          if [[ "$EVENT_NAME" == workflow_dispatch ]]; then
-            [[ "$CONFIRMATION" == PROMOTE ]] || { echo 'confirmation must be PROMOTE' >&2; exit 64; }
-            release_tag="$REQUESTED_RELEASE_TAG"
-          else
-            version="$(tr -d '[:space:]' < VERSION)"
-            [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'VERSION must be MAJOR.MINOR.PATCH' >&2; exit 64; }
-            release_tag="v${version}"
-          fi
-          [[ "$release_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'release_tag must be vMAJOR.MINOR.PATCH' >&2; exit 64; }
-          echo "tag=$release_tag" >> "$GITHUB_OUTPUT"
+          [[ "$CONFIRMATION" == PROMOTE ]] || { echo 'confirmation must be PROMOTE' >&2; exit 64; }
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'release_tag must be vMAJOR.MINOR.PATCH' >&2; exit 64; }
 
-      - name: Checkout exact stable release
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: ${{ steps.release.outputs.tag }}
+          ref: ${{ inputs.release_tag }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -75,7 +49,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           set -Eeuo pipefail
           tag_commit=$(git rev-list -n1 "$RELEASE_TAG")
@@ -91,54 +65,15 @@ jobs:
               raise SystemExit('invalid_tag')
           PY
 
-      - name: Check existing immutable deployment assets
-        id: existing
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ steps.release.outputs.tag }}
-        run: |
-          set -Eeuo pipefail
-          version=${RELEASE_TAG#v}
-          artifact_name="home-center-${version}-linux-amd64.tar.gz"
-          sidecar_name="${artifact_name}.sha256"
-          existing=$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
-          artifact_present=0
-          sidecar_present=0
-          grep -Fxq "$artifact_name" <<<"$existing" && artifact_present=1 || true
-          grep -Fxq "$sidecar_name" <<<"$existing" && sidecar_present=1 || true
-          if (( artifact_present == 1 && sidecar_present == 1 )); then
-            echo 'already_published=true' >> "$GITHUB_OUTPUT"
-            echo "deployment assets already published for ${RELEASE_TAG}; idempotent success"
-          elif (( artifact_present == 0 && sidecar_present == 0 )); then
-            echo 'already_published=false' >> "$GITHUB_OUTPUT"
-          else
-            echo 'partial deployment asset set detected; refusing mutation' >&2
-            exit 66
-          fi
-
       - name: Run release qualification tests
-        if: steps.existing.outputs.already_published != 'true'
         shell: bash
-        env:
-          PYTHONPATH: product/control-plane/src
         run: |
           set -Eeuo pipefail
           python -m compileall -q product/control-plane/src deploy/runtime
           python -m unittest discover -s tests -p 'test_*.py' -v
           for script in deploy/scripts/*.sh; do bash -n "$script"; done
 
-      - name: Restore clean exact-tag worktree
-        if: steps.existing.outputs.already_published != 'true'
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          git reset --hard HEAD
-          git clean -ffdx
-          [[ -z "$(git status --porcelain --untracked-files=all)" ]] || { echo 'release worktree remains dirty after cleanup' >&2; exit 66; }
-
       - name: Build deployment artifact
-        if: steps.existing.outputs.already_published != 'true'
         shell: bash
         env:
           HOME_CENTER_RELEASE_BUILD: "1"
@@ -147,10 +82,9 @@ jobs:
           bash deploy/scripts/build-deployment-artifact.sh "$RUNNER_TEMP/deployment-dist"
 
       - name: Validate artifact privacy and content
-        if: steps.existing.outputs.already_published != 'true'
         shell: bash
         env:
-          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           set -Eeuo pipefail
           version=${RELEASE_TAG#v}
@@ -158,21 +92,19 @@ jobs:
           sidecar="$artifact.sha256"
           [[ -f "$artifact" && -f "$sidecar" ]]
           (cd "$RUNNER_TEMP/deployment-dist" && sha256sum -c "$(basename "$sidecar")")
-          members=$(tar -tzf "$artifact")
           for entry in ./DEPLOYMENT-ARTIFACT.json ./VERSION ./REVISION ./MANIFEST.sha256 ./deploy/bootstrap-two-node.sh ./deploy/install-node.sh ./deploy/rollback-node.sh; do
-            grep -Fxq "$entry" <<<"$members" || { echo "missing required entry: $entry" >&2; exit 66; }
+            tar -tzf "$artifact" | grep -Fxq "$entry" || { echo "missing required entry: $entry" >&2; exit 66; }
           done
-          if grep -Eq 'current-environment|private-overlays|production-overlays' <<<"$members"; then
+          if tar -tzf "$artifact" | grep -Eq 'current-environment|private-overlays|production-overlays'; then
             echo 'environment-specific path found in deployment artifact' >&2
             exit 66
           fi
 
-      - name: Recheck duplicate deployment assets before publish
-        if: steps.existing.outputs.already_published != 'true'
+      - name: Refuse duplicate deployment assets
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           set -Eeuo pipefail
           version=${RELEASE_TAG#v}
@@ -180,16 +112,15 @@ jobs:
           sidecar_name="${artifact_name}.sha256"
           existing=$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
           if grep -Fxq "$artifact_name" <<<"$existing" || grep -Fxq "$sidecar_name" <<<"$existing"; then
-            echo 'deployment asset appeared during qualification; refusing replacement' >&2
+            echo 'deployment artifact already exists; immutable promotion refuses replacement' >&2
             exit 66
           fi
 
       - name: Publish immutable deployment assets
-        if: steps.existing.outputs.already_published != 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           set -Eeuo pipefail
           version=${RELEASE_TAG#v}
