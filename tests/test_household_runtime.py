@@ -58,6 +58,7 @@ def test_bootstrap_persists_parent_and_actor_binding_atomically(tmp_path: Path) 
         assert len(persisted["bindings"]) == 1
         assert persisted["bindings"][0]["actor"] == "local-admin:admin"
         assert persisted["bindings"][0]["member_id"] == members[0]["member_id"]
+        assert len(persisted["state_evidence_sha256"]) == 64
 
         # A fresh service instance proves the state survives the facade lifetime.
         restored = HouseholdRuntimeService(store)
@@ -142,6 +143,38 @@ def test_tampered_persisted_snapshot_fails_closed(tmp_path: Path) -> None:
         persisted["snapshot"]["resource_version"] = "hrv-000000000000000000000000"
         store.set_meta(HOUSEHOLD_STATE_KEY, persisted)
         with pytest.raises(HouseholdRuntimeError, match="household_state_evidence_mismatch"):
+            service.status()
+    finally:
+        store.close()
+
+
+def test_tampered_actor_binding_fails_closed(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    try:
+        service = HouseholdRuntimeService(store)
+        _bootstrap(service)
+        persisted = store.get_meta(HOUSEHOLD_STATE_KEY)
+        persisted["bindings"][0]["actor"] = "ad-admin:attacker@example.test"
+        store.set_meta(HOUSEHOLD_STATE_KEY, persisted)
+
+        with pytest.raises(HouseholdRuntimeError, match="household_state_evidence_mismatch"):
+            service.status()
+        with pytest.raises(HouseholdRuntimeError, match="household_state_evidence_mismatch"):
+            service.actor_member_id("ad-admin:attacker@example.test")
+    finally:
+        store.close()
+
+
+def test_missing_state_evidence_fails_closed(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    try:
+        service = HouseholdRuntimeService(store)
+        _bootstrap(service)
+        persisted = store.get_meta(HOUSEHOLD_STATE_KEY)
+        del persisted["state_evidence_sha256"]
+        store.set_meta(HOUSEHOLD_STATE_KEY, persisted)
+
+        with pytest.raises(HouseholdRuntimeError, match="household_state_invalid"):
             service.status()
     finally:
         store.close()
