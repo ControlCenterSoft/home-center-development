@@ -37,6 +37,7 @@ REQUIRED_MEMBERS = frozenset(
         "home_center/home_service_transition_verify.py",
         "home_center/household.py",
         "home_center/household_intent.py",
+        "home_center/household_desired_state_0500.py",
         "home_center/node_discovery.py",
         "home_center/node_drain_preflight.py",
         "home_center/node_health.py",
