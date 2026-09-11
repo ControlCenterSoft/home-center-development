@@ -10,6 +10,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from .api import RuntimeRequestHandler
+from .device_management_provider_runtime import DeviceManagementProviderRuntimeError
 from .household_device_enrollment_runtime import HouseholdDeviceEnrollmentRuntimeError
 from .household_device_management_runtime import HouseholdDeviceManagementRuntimeError
 from .household_device_runtime import HouseholdDeviceRuntimeError
@@ -159,6 +160,7 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
             "/api/v1/household/devices/management/plan",
             "/api/v1/household/devices/enrollment/plan",
             "/api/v1/household/devices/enrollment/confirm",
+            "/api/v1/household/devices/enrollment/provider-resolution/plan",
         }
         if path not in household_posts:
             super().do_POST()
@@ -243,7 +245,15 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
                 )
                 self._json(HTTPStatus.OK, value)
                 return
-            value = self.runtime.household_device_enrollment.confirm(
+            if path == "/api/v1/household/devices/enrollment/confirm":
+                value = self.runtime.household_device_enrollment.confirm(
+                    actor=actor,
+                    request=body,
+                    correlation_id=correlation_id,
+                )
+                self._json(HTTPStatus.OK, value)
+                return
+            value = self.runtime.device_management_providers.plan(
                 actor=actor,
                 request=body,
                 correlation_id=correlation_id,
@@ -255,6 +265,7 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
             HouseholdDeviceRuntimeError,
             HouseholdDeviceManagementRuntimeError,
             HouseholdDeviceEnrollmentRuntimeError,
+            DeviceManagementProviderRuntimeError,
         ) as exc:
             conflict_codes = {
                 "household_already_configured",
@@ -264,6 +275,7 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
                 "household_device_already_exists",
                 "household_device_change_stale",
                 "household_device_enrollment_stale",
+                "household_device_enrollment_not_confirmed",
             }
             forbidden_codes = {
                 "household_actor_not_bound",
@@ -283,12 +295,29 @@ class RuntimeRequestHandlerV2(RuntimeRequestHandler):
                 "household_device_not_found",
                 "household_device_enrollment_proposal_not_found",
             }
+            unavailable_codes = {
+                "household_state_invalid",
+                "household_device_enrollment_state_invalid",
+                "household_device_enrollment_receipt_invalid",
+                "invalid_device_management_provider_catalog",
+                "unsupported_device_management_provider_catalog",
+                "invalid_device_management_provider_profile",
+                "duplicate_device_management_provider_id",
+                "invalid_device_management_provider_name",
+                "invalid_device_management_provider_platforms",
+                "duplicate_device_management_provider_platform",
+                "invalid_device_management_enrollment_modes",
+                "duplicate_device_management_enrollment_mode",
+                "invalid_device_management_provider_readiness",
+            }
             if exc.code in conflict_codes:
                 status = HTTPStatus.CONFLICT
             elif exc.code in forbidden_codes:
                 status = HTTPStatus.FORBIDDEN
             elif exc.code in not_found_codes:
                 status = HTTPStatus.NOT_FOUND
+            elif exc.code in unavailable_codes:
+                status = HTTPStatus.SERVICE_UNAVAILABLE
             else:
                 status = HTTPStatus.BAD_REQUEST
             self.runtime.store.audit(
