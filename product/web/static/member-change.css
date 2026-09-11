@@ -1,0 +1,12 @@
+.member-form{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(160px,.6fr) auto;gap:12px;align-items:end}
+.member-form label{display:grid;gap:7px}
+.member-form label>span{font-size:13px;font-weight:700;color:#4f5660}
+.member-form input,.member-form select{width:100%;border:1px solid #cfd5dc;background:#fff;color:#17191c;padding:11px 12px;border-radius:11px}
+.member-form .primary-button{min-height:43px}
+.confirm-card{display:grid;gap:16px;margin:16px 0;padding:20px;background:#fffaf0;border:1px solid #ead8ac;border-radius:20px}
+.confirm-card h2{margin:5px 0 7px;font-size:24px}
+.confirm-card p{max-width:700px;margin:0;color:#646b74;line-height:1.55}
+.confirm-actions{display:flex;gap:10px;flex-wrap:wrap}
+@media(max-width:900px){.member-form{grid-template-columns:1fr 1fr}.member-form .primary-button{grid-column:1/-1}}
+@media(max-width:800px){.member-form{grid-template-columns:1fr}.member-form .primary-button{width:100%;grid-column:auto}}
+@media(max-width:520px){.confirm-actions{display:grid}.confirm-actions button{width:100%}}
