@@ -58,7 +58,7 @@ def test_bootstrap_persists_parent_and_actor_binding_atomically(tmp_path: Path) 
         assert len(persisted["bindings"]) == 1
         assert persisted["bindings"][0]["actor"] == "local-admin:admin"
         assert persisted["bindings"][0]["member_id"] == members[0]["member_id"]
-        assert len(persisted["state_evidence_sha256"]) == 64
+        assert len(persisted["state_evidence_hmac_sha256"]) == 64
 
         # A fresh service instance proves the state survives the facade lifetime.
         restored = HouseholdRuntimeService(store)
@@ -171,7 +171,7 @@ def test_missing_state_evidence_fails_closed(tmp_path: Path) -> None:
         service = HouseholdRuntimeService(store)
         _bootstrap(service)
         persisted = store.get_meta(HOUSEHOLD_STATE_KEY)
-        del persisted["state_evidence_sha256"]
+        del persisted["state_evidence_hmac_sha256"]
         store.set_meta(HOUSEHOLD_STATE_KEY, persisted)
 
         with pytest.raises(HouseholdRuntimeError, match="household_state_invalid"):
