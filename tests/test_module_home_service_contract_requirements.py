@@ -76,6 +76,52 @@ class ModuleHomeServiceContractRequirementTests(unittest.TestCase):
                 ):
                     _build(required_service_contracts=requirements)
 
+    def test_contract_count_boundary_matches_schema(self) -> None:
+        accepted = tuple(
+            f"service.contract{index}.v1" for index in range(64)
+        )
+        self.assertEqual(
+            len(_build(required_service_contracts=accepted).required_service_contracts),
+            64,
+        )
+        with self.assertRaisesRegex(
+            ModuleHomeServiceContractRequirementError,
+            "required_service_contracts_rejected",
+        ):
+            _build(
+                required_service_contracts=(
+                    *accepted,
+                    "service.contract64.v1",
+                )
+            )
+
+    def test_contract_iterable_consumption_is_bounded(self) -> None:
+        consumed = 0
+
+        def endless_contracts():
+            nonlocal consumed
+            while True:
+                consumed += 1
+                yield f"service.contract{consumed}.v1"
+
+        with self.assertRaisesRegex(
+            ModuleHomeServiceContractRequirementError,
+            "required_service_contracts_rejected",
+        ):
+            _build(required_service_contracts=endless_contracts())
+        self.assertEqual(consumed, 65)
+
+    def test_iterable_exception_is_rejected_stably(self) -> None:
+        def broken_contracts():
+            yield "devices.zigbee.v1"
+            raise OSError("source failed")
+
+        with self.assertRaisesRegex(
+            ModuleHomeServiceContractRequirementError,
+            "required_service_contracts_rejected",
+        ):
+            _build(required_service_contracts=broken_contracts())
+
     def test_non_string_unhashable_contract_is_rejected_stably(self) -> None:
         with self.assertRaisesRegex(
             ModuleHomeServiceContractRequirementError,
@@ -83,12 +129,73 @@ class ModuleHomeServiceContractRequirementTests(unittest.TestCase):
         ):
             _build(required_service_contracts=(["devices.zigbee.v1"],))
 
+    def test_string_subclasses_are_rejected(self) -> None:
+        class StringSubclass(str):
+            pass
+
+        with self.assertRaisesRegex(
+            ModuleHomeServiceContractRequirementError,
+            "requirement_set_rejected",
+        ):
+            _build(home_center_version=StringSubclass("0.42.0"))
+        with self.assertRaisesRegex(
+            ModuleHomeServiceContractRequirementError,
+            "required_service_contracts_rejected",
+        ):
+            _build(
+                required_service_contracts=(
+                    StringSubclass("devices.zigbee.v1"),
+                )
+            )
+
     def test_serialized_evidence_round_trips(self) -> None:
         original = _build()
         validated = validate_module_home_service_contract_requirement_set(
             original.to_dict()
         )
         self.assertEqual(validated, original)
+        self.assertEqual(
+            validate_module_home_service_contract_requirement_set(original),
+            original,
+        )
+
+    def test_serialized_boundary_rejects_polymorphic_containers(self) -> None:
+        class DictSubclass(dict):
+            pass
+
+        class ListSubclass(list):
+            pass
+
+        class PretendEvidence:
+            def to_dict(self):
+                return _build().to_dict()
+
+        payload = _build().to_dict()
+        with self.assertRaisesRegex(
+            ModuleHomeServiceContractRequirementError,
+            "requirement_set_rejected",
+        ):
+            validate_module_home_service_contract_requirement_set(
+                DictSubclass(payload)
+            )
+
+        payload = _build().to_dict()
+        payload["required_service_contracts"] = ListSubclass(
+            payload["required_service_contracts"]
+        )
+        with self.assertRaisesRegex(
+            ModuleHomeServiceContractRequirementError,
+            "requirement_set_rejected",
+        ):
+            validate_module_home_service_contract_requirement_set(payload)
+
+        with self.assertRaisesRegex(
+            ModuleHomeServiceContractRequirementError,
+            "requirement_set_rejected",
+        ):
+            validate_module_home_service_contract_requirement_set(
+                PretendEvidence()
+            )
 
     def test_noncanonical_serialized_order_is_rejected(self) -> None:
         payload = _build().to_dict()
@@ -140,6 +247,10 @@ class ModuleHomeServiceContractRequirementTests(unittest.TestCase):
         self.assertEqual(
             result["required_service_contracts"],
             sorted(result["required_service_contracts"]),
+        )
+        self.assertEqual(
+            schema["properties"]["required_service_contracts"]["maxItems"],
+            64,
         )
         for name in (
             "admission_authorized",
