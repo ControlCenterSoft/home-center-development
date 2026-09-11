@@ -20,13 +20,14 @@ class CozyUiReleaseTests(unittest.TestCase):
         self.css = (STATIC / "app.css").read_text(encoding="utf-8")
         self.api = API.read_text(encoding="utf-8")
 
-    def test_release_identity_is_aligned_for_qualification(self) -> None:
+    def test_release_identity_is_aligned_for_official_release(self) -> None:
         self.assertEqual(VERSION.read_text(encoding="utf-8").strip(), "0.47.0")
         self.assertIn('__version__ = "0.47.0"', PACKAGE_INIT.read_text(encoding="utf-8"))
         self.assertIn('version = "0.47.0"', PYPROJECT.read_text(encoding="utf-8"))
         release_notes = RELEASE_NOTES.read_text(encoding="utf-8")
         self.assertIn("# Home Center 0.47.0", release_notes)
-        self.assertIn("Status: development candidate.", release_notes)
+        self.assertIn("Status: official release", release_notes)
+        self.assertNotIn("Status: development candidate", release_notes)
 
     def test_cozy_and_full_modes_are_present(self) -> None:
         for marker in (
