@@ -1,0 +1,255 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "home-center.module-home-service-contract-binding-revalidation.v1.schema.json",
+  "title": "Home Center Module Home Service Contract Binding Revalidation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "revalidation_id",
+    "status",
+    "original_binding_id",
+    "fresh_binding_id",
+    "original_module_contract_admission_binding_id",
+    "fresh_module_contract_admission_binding_id",
+    "original_home_center_version",
+    "fresh_home_center_version",
+    "original_module_id",
+    "fresh_module_id",
+    "original_module_version",
+    "fresh_module_version",
+    "original_service_profile_sha256",
+    "fresh_service_profile_sha256",
+    "original_service_id",
+    "fresh_service_id",
+    "original_service_kind",
+    "fresh_service_kind",
+    "original_required_service_contracts",
+    "fresh_required_service_contracts",
+    "original_provided_service_contracts",
+    "fresh_provided_service_contracts",
+    "original_unsupported_service_contracts",
+    "fresh_unsupported_service_contracts",
+    "original_compatibility_status",
+    "fresh_compatibility_status",
+    "drift_reasons",
+    "admission_authorized",
+    "installation_authorized",
+    "execution_authorized",
+    "production_mutation_enabled",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {
+      "const": "home-center.module-home-service-contract-binding-revalidation.v1"
+    },
+    "revalidation_id": {
+      "type": "string",
+      "pattern": "^mhscbr-[0-9a-f]{24}$"
+    },
+    "status": {
+      "enum": [
+        "current",
+        "stale"
+      ]
+    },
+    "original_binding_id": {
+      "$ref": "#/$defs/bindingId"
+    },
+    "fresh_binding_id": {
+      "$ref": "#/$defs/bindingId"
+    },
+    "original_module_contract_admission_binding_id": {
+      "$ref": "#/$defs/moduleBindingId"
+    },
+    "fresh_module_contract_admission_binding_id": {
+      "$ref": "#/$defs/moduleBindingId"
+    },
+    "original_home_center_version": {
+      "$ref": "#/$defs/semver"
+    },
+    "fresh_home_center_version": {
+      "$ref": "#/$defs/semver"
+    },
+    "original_module_id": {
+      "$ref": "#/$defs/moduleId"
+    },
+    "fresh_module_id": {
+      "$ref": "#/$defs/moduleId"
+    },
+    "original_module_version": {
+      "$ref": "#/$defs/semver"
+    },
+    "fresh_module_version": {
+      "$ref": "#/$defs/semver"
+    },
+    "original_service_profile_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "fresh_service_profile_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "original_service_id": {
+      "$ref": "#/$defs/serviceId"
+    },
+    "fresh_service_id": {
+      "$ref": "#/$defs/serviceId"
+    },
+    "original_service_kind": {
+      "$ref": "#/$defs/serviceKind"
+    },
+    "fresh_service_kind": {
+      "$ref": "#/$defs/serviceKind"
+    },
+    "original_required_service_contracts": {
+      "$ref": "#/$defs/contracts"
+    },
+    "fresh_required_service_contracts": {
+      "$ref": "#/$defs/contracts"
+    },
+    "original_provided_service_contracts": {
+      "$ref": "#/$defs/contractsMaybeEmpty"
+    },
+    "fresh_provided_service_contracts": {
+      "$ref": "#/$defs/contractsMaybeEmpty"
+    },
+    "original_unsupported_service_contracts": {
+      "$ref": "#/$defs/contractsMaybeEmpty"
+    },
+    "fresh_unsupported_service_contracts": {
+      "$ref": "#/$defs/contractsMaybeEmpty"
+    },
+    "original_compatibility_status": {
+      "$ref": "#/$defs/compatibilityStatus"
+    },
+    "fresh_compatibility_status": {
+      "$ref": "#/$defs/compatibilityStatus"
+    },
+    "drift_reasons": {
+      "type": "array",
+      "maxItems": 11,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "compatibility_status_changed",
+          "home_center_version_changed",
+          "home_service_binding_evidence_changed",
+          "home_service_identity_changed",
+          "home_service_profile_changed",
+          "module_contract_admission_binding_changed",
+          "module_identity_changed",
+          "module_version_changed",
+          "provided_service_contracts_changed",
+          "required_service_contracts_changed",
+          "unsupported_service_contracts_changed"
+        ]
+      }
+    },
+    "admission_authorized": {
+      "const": false
+    },
+    "installation_authorized": {
+      "const": false
+    },
+    "execution_authorized": {
+      "const": false
+    },
+    "production_mutation_enabled": {
+      "const": false
+    },
+    "external_publication_authorized": {
+      "const": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "current"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "drift_reasons": {
+            "maxItems": 0
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "drift_reasons": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "bindingId": {
+      "type": "string",
+      "pattern": "^mhscb-[0-9a-f]{24}$"
+    },
+    "moduleBindingId": {
+      "type": "string",
+      "pattern": "^mcab-[0-9a-f]{24}$"
+    },
+    "moduleId": {
+      "type": "string",
+      "pattern": "^[a-z0-9](?:[a-z0-9.-]{0,126}[a-z0-9])?$"
+    },
+    "serviceId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"
+    },
+    "serviceKind": {
+      "enum": [
+        "yandex-smart-home",
+        "torrserver",
+        "torrent-client",
+        "zigbee-bridge",
+        "minecraft-server",
+        "android-mdm"
+      ]
+    },
+    "contract": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9.-]{1,126}\\.v[1-9][0-9]*$"
+    },
+    "contracts": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/contract"
+      }
+    },
+    "contractsMaybeEmpty": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/contract"
+      }
+    },
+    "compatibilityStatus": {
+      "enum": [
+        "compatible",
+        "blocked"
+      ]
+    }
+  }
+}
