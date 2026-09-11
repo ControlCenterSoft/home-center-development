@@ -20,14 +20,38 @@ BLOCKED = "blocked"
 
 @dataclass(frozen=True, slots=True)
 class ModuleLegalComplianceClearance:
-    """Deterministic advisory disposition for one validated evidence object."""
+    """Deterministic advisory disposition bound to exact validated evidence."""
 
     evidence_id: str
+    module_id: str
+    module_version: str
+    artifact_sha256: str
+    license_evidence_version: str
+    license_evidence_sha256: str
     status: str
     reasons: tuple[str, ...]
     obligations: tuple[str, ...]
     release_authorized: bool = False
     external_publication_authorized: bool = False
+
+    def to_dict(self) -> dict[str, object]:
+        """Return a stable JSON-ready advisory result with exact provenance."""
+
+        return {
+            "evidence_id": self.evidence_id,
+            "module_id": self.module_id,
+            "module_version": self.module_version,
+            "artifact_sha256": self.artifact_sha256,
+            "license_evidence_version": self.license_evidence_version,
+            "license_evidence_sha256": self.license_evidence_sha256,
+            "status": self.status,
+            "reasons": list(self.reasons),
+            "obligations": list(self.obligations),
+            "release_authorized": self.release_authorized,
+            "external_publication_authorized": (
+                self.external_publication_authorized
+            ),
+        }
 
 
 def evaluate_module_legal_compliance_clearance(
@@ -72,6 +96,11 @@ def evaluate_module_legal_compliance_clearance(
 
     return ModuleLegalComplianceClearance(
         evidence_id=evidence.evidence_id,
+        module_id=evidence.module_id,
+        module_version=evidence.module_version,
+        artifact_sha256=evidence.artifact_sha256,
+        license_evidence_version=evidence.license_evidence_version,
+        license_evidence_sha256=evidence.license_evidence_sha256,
         status=status,
         reasons=tuple(reasons),
         obligations=tuple(obligations),
