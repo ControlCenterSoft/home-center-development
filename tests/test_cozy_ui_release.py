@@ -20,13 +20,15 @@ class CozyUiReleaseTests(unittest.TestCase):
         self.css = (STATIC / "app.css").read_text(encoding="utf-8")
         self.api = API.read_text(encoding="utf-8")
 
-    def test_release_identity_is_aligned_for_qualification_candidate(self) -> None:
+    def test_release_identity_is_aligned_for_official_release(self) -> None:
         self.assertEqual(VERSION.read_text(encoding="utf-8").strip(), "0.48.0")
         self.assertIn('__version__ = "0.48.0"', PACKAGE_INIT.read_text(encoding="utf-8"))
         self.assertIn('version = "0.48.0"', PYPROJECT.read_text(encoding="utf-8"))
         release_notes = RELEASE_NOTES.read_text(encoding="utf-8")
         self.assertIn("# Home Center 0.48.0", release_notes)
-        self.assertIn("Status: development qualification candidate.", release_notes)
+        self.assertIn("Status: official release.", release_notes)
+        self.assertNotIn("qualification candidate", release_notes.lower())
+        self.assertNotIn("development candidate", release_notes.lower())
         self.assertIn("## Security and commercial boundary", release_notes)
         self.assertIn("## Release qualification", release_notes)
 
