@@ -10,6 +10,7 @@ every accepted mutation is recorded in the audit chain.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import re
 import threading
@@ -33,6 +34,7 @@ HOUSEHOLD_BOOTSTRAP_RESULT_SCHEMA = "home-center.household-bootstrap-result.v1"
 HOUSEHOLD_INTENT_REQUEST_SCHEMA = "home-center.household-intent-request.v1"
 SNAPSHOT_ID = re.compile(r"^hsnap-[a-f0-9]{24}$")
 RESOURCE_VERSION = re.compile(r"^hrv-[a-f0-9]{24}$")
+STATE_EVIDENCE_SHA256 = re.compile(r"^[a-f0-9]{64}$")
 
 
 class HouseholdRuntimeError(ValueError):
@@ -140,8 +142,27 @@ def _snapshot_from_dict(value: object) -> HouseholdSnapshot:
     )
 
 
+def _state_evidence_sha256(snapshot: HouseholdSnapshot, bindings: tuple[ActorBinding, ...]) -> str:
+    """Bind authorization-critical actor mappings to the validated snapshot identity."""
+
+    canonical = {
+        "schema": HOUSEHOLD_PERSISTED_SCHEMA,
+        "snapshot_id": snapshot.snapshot_id,
+        "resource_version": snapshot.resource_version,
+        "household_id": snapshot.household_id,
+        "generation": snapshot.generation,
+        "bindings": [binding.to_dict() for binding in bindings],
+    }
+    return hashlib.sha256(
+        json.dumps(canonical, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode("ascii")
+    ).hexdigest()
+
+
 def _state_from_dict(value: object) -> tuple[HouseholdSnapshot, tuple[ActorBinding, ...]]:
     if not isinstance(value, dict) or value.get("schema") != HOUSEHOLD_PERSISTED_SCHEMA:
+        raise HouseholdRuntimeError("household_state_invalid")
+    state_evidence = value.get("state_evidence_sha256")
+    if not isinstance(state_evidence, str) or STATE_EVIDENCE_SHA256.fullmatch(state_evidence) is None:
         raise HouseholdRuntimeError("household_state_invalid")
     snapshot = _snapshot_from_dict(value.get("snapshot"))
     raw_bindings = value.get("bindings")
@@ -169,7 +190,11 @@ def _state_from_dict(value: object) -> tuple[HouseholdSnapshot, tuple[ActorBindi
         seen_actors.add(actor)
         seen_members.add(member_id)
         bindings.append(ActorBinding(actor=actor, member_id=member_id))
-    return snapshot, tuple(bindings)
+    result = tuple(bindings)
+    expected_evidence = _state_evidence_sha256(snapshot, result)
+    if not hmac.compare_digest(state_evidence, expected_evidence):
+        raise HouseholdRuntimeError("household_state_evidence_mismatch")
+    return snapshot, result
 
 
 def _persisted(snapshot: HouseholdSnapshot, bindings: tuple[ActorBinding, ...]) -> dict[str, object]:
@@ -177,6 +202,7 @@ def _persisted(snapshot: HouseholdSnapshot, bindings: tuple[ActorBinding, ...]) 
         "schema": HOUSEHOLD_PERSISTED_SCHEMA,
         "snapshot": snapshot.to_dict(),
         "bindings": [binding.to_dict() for binding in bindings],
+        "state_evidence_sha256": _state_evidence_sha256(snapshot, bindings),
     }
 
 
@@ -242,8 +268,8 @@ class HouseholdRuntimeService:
             commit = reference.create(household)
             snapshot = reference.read(household.household_id)
             binding = ActorBinding(actor=actor, member_id=member_id)
-            # One SQLite-backed meta write keeps the snapshot and its first
-            # administrative actor binding atomic from the runtime's perspective.
+            # One SQLite-backed meta write keeps the snapshot, its first
+            # administrative actor binding, and their integrity evidence together.
             self.store.set_meta(HOUSEHOLD_STATE_KEY, _persisted(snapshot, (binding,)))
             audit_event_id = self.store.audit(
                 actor=actor,
