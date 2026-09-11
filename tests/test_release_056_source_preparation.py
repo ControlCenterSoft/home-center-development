@@ -49,6 +49,50 @@ def test_release_056_request_shape_does_not_accept_credentials_or_execution_flag
     assert "provider_execution_authorized: bool = field(default=False" in selection
 
 
+def test_release_056_request_contracts_are_closed_and_match_runtime_boundary() -> None:
+    plan = json.loads(
+        (
+            ROOT
+            / "contracts/devices/device-management-provider-selection-plan-request.v1.schema.json"
+        ).read_text(encoding="utf-8")
+    )
+    confirm = json.loads(
+        (
+            ROOT
+            / "contracts/devices/device-management-provider-selection-confirm-request.v1.schema.json"
+        ).read_text(encoding="utf-8")
+    )
+    runtime = (
+        ROOT / "product/control-plane/src/home_center/device_management_provider_selection_runtime.py"
+    ).read_text(encoding="utf-8")
+
+    assert plan["additionalProperties"] is False
+    assert confirm["additionalProperties"] is False
+    assert set(plan["required"]) == {
+        "schema",
+        "resolution_plan_id",
+        "enrollment_proposal_id",
+        "device_platform",
+        "provider_id",
+    }
+    assert set(confirm["required"]) == {"schema", "proposal_id", "confirmed"}
+    assert plan["properties"]["schema"] == {
+        "const": "home-center.device-management-provider-selection-plan-request.v1"
+    }
+    assert confirm["properties"]["schema"] == {
+        "const": "home-center.device-management-provider-selection-confirm-request.v1"
+    }
+    assert confirm["properties"]["confirmed"] == {"const": True}
+    assert plan["properties"]["resolution_plan_id"]["pattern"] == "^dmpr-[0-9a-f]{24}$"
+    assert plan["properties"]["enrollment_proposal_id"]["pattern"] == "^hdenroll-[0-9a-f]{24}$"
+    assert confirm["properties"]["proposal_id"]["pattern"] == "^dmpsel-[0-9a-f]{24}$"
+    serialized = json.dumps({"plan": plan, "confirm": confirm}, sort_keys=True).lower()
+    for forbidden in ("credential", "secret", "token", "execution_authorized"):
+        assert forbidden not in serialized
+    assert 'PROVIDER_SELECTION_PLAN_REQUEST_SCHEMA = "home-center.device-management-provider-selection-plan-request.v1"' in runtime
+    assert 'PROVIDER_SELECTION_CONFIRM_REQUEST_SCHEMA = "home-center.device-management-provider-selection-confirm-request.v1"' in runtime
+
+
 def test_release_056_contracts_are_closed_and_non_authorizing() -> None:
     proposal = json.loads(
         (
@@ -98,3 +142,5 @@ def test_release_056_notes_do_not_claim_provider_execution() -> None:
     assert "Выполнение выбранного провайдера в 0.56 отсутствует." in notes
     assert "credential_access_authorized=false" in notes
     assert "provider_execution_authorized=false" in notes
+    assert "device-management-provider-selection-plan-request.v1.schema.json" in notes
+    assert "device-management-provider-selection-confirm-request.v1.schema.json" in notes
