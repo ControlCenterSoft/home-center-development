@@ -55,8 +55,7 @@ class HouseholdDesiredStatePlan:
             "administration_allowed",
             "external_publication_allowed",
         ):
-            if not isinstance(getattr(self, field_name), bool):
-                raise HomeServiceCatalogError("invalid_household_desired_state_boolean")
+            _policy_bool(getattr(self, field_name))
         if self.external_publication_allowed:
             raise HomeServiceCatalogError("household_external_publication_forbidden")
         _generation(self.expected_generation, "invalid_household_desired_state_generation")
@@ -96,9 +95,19 @@ def _generation(value: object, error: str) -> int:
     return value
 
 
+def _policy_bool(value: object) -> bool:
+    if not isinstance(value, bool):
+        raise HomeServiceCatalogError("invalid_household_desired_state_boolean")
+    return value
+
+
 def _canonical_policy(policy: EffectivePolicy) -> dict[str, object]:
     if not isinstance(policy, EffectivePolicy):
         raise TypeError("invalid_effective_policy")
+    if not isinstance(policy.role, HouseholdRole):
+        raise HomeServiceCatalogError("invalid_household_role")
+    if not isinstance(policy.internet_policy, InternetPolicy):
+        raise HomeServiceCatalogError("invalid_household_internet_policy")
     if policy.production_mutation_enabled:
         raise HomeServiceCatalogError("household_policy_mutation_authority_forbidden")
     if policy.external_publication_allowed:
@@ -109,11 +118,11 @@ def _canonical_policy(policy: EffectivePolicy) -> dict[str, object]:
         "member_id": _identifier(policy.member_id, "invalid_household_member_id"),
         "role": policy.role.value,
         "internet_policy": policy.internet_policy.value,
-        "vpn_allowed": policy.vpn_allowed,
-        "managed_device_required": policy.managed_device_required,
-        "home_files_allowed": policy.home_files_allowed,
-        "smart_home_control_allowed": policy.smart_home_control_allowed,
-        "administration_allowed": policy.administration_allowed,
+        "vpn_allowed": _policy_bool(policy.vpn_allowed),
+        "managed_device_required": _policy_bool(policy.managed_device_required),
+        "home_files_allowed": _policy_bool(policy.home_files_allowed),
+        "smart_home_control_allowed": _policy_bool(policy.smart_home_control_allowed),
+        "administration_allowed": _policy_bool(policy.administration_allowed),
         "external_publication_allowed": False,
     }
 
