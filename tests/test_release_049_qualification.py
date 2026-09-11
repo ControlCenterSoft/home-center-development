@@ -13,16 +13,16 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_release_049_identity_is_exact_and_documented() -> None:
     version = (ROOT / "VERSION").read_text(encoding="ascii").strip()
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    notes = (ROOT / "docs/releases/0.49.0.md").read_text(encoding="utf-8")
+    notes = (ROOT / "docs/releases/0.49.1.md").read_text(encoding="utf-8")
 
-    assert version == "0.49.0"
+    assert version == "0.49.1"
     assert project["project"]["version"] == version
     assert home_center.__version__ == version
-    assert "# Home Center 0.49.0" in notes
+    assert "# Home Center 0.49.1" in notes
     assert "Status: official release." in notes
-    assert "Агрегированная совместимость модулей" in notes
-    assert "Подтверждаемое изменение состава семьи" in notes
-    assert "план изменения → проверка имени/роли/исходной версии → явное подтверждение" in notes
+    assert "Public Stable" in notes
+    assert "home-center-stable" in notes
+    assert "home-center-development/releases" in notes
 
 
 def test_release_049_wheel_requires_both_runtime_boundaries() -> None:
