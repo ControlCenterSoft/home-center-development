@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass, field
 
 from .device_management_provider import (
@@ -19,6 +20,9 @@ from .household_store import HouseholdSnapshot
 
 PROVIDER_SELECTION_PROPOSAL_SCHEMA = "home-center.device-management-provider-selection-proposal.v1"
 PROVIDER_SELECTION_CONFIRMATION_SCHEMA = "home-center.device-management-provider-selection-confirmation.v1"
+RESOLUTION_PLAN_ID = re.compile(r"^dmpr-[0-9a-f]{24}$")
+SELECTION_PROPOSAL_ID = re.compile(r"^dmpsel-[0-9a-f]{24}$")
+CATALOG_ID = re.compile(r"^dmpcat-[0-9a-f]{24}$")
 
 
 class DeviceManagementProviderSelectionError(ValueError):
@@ -146,6 +150,39 @@ def _provider_id(value: object) -> str:
         raise DeviceManagementProviderSelectionError(exc.code) from exc
 
 
+def _selection_identity(
+    *,
+    resolution_plan_id: str,
+    enrollment_proposal_id: str,
+    household_id: str,
+    snapshot_id: str,
+    resource_version: str,
+    generation: int,
+    actor_member_id: str,
+    device_id: str,
+    member_id: str,
+    catalog_id: str,
+    device_platform: DevicePlatform,
+    proposed_provider_id: str,
+) -> str:
+    canonical = {
+        "resolution_plan_id": resolution_plan_id,
+        "enrollment_proposal_id": enrollment_proposal_id,
+        "household_id": household_id,
+        "snapshot_id": snapshot_id,
+        "resource_version": resource_version,
+        "generation": generation,
+        "actor_member_id": actor_member_id,
+        "device_id": device_id,
+        "member_id": member_id,
+        "catalog_id": catalog_id,
+        "device_platform": device_platform.value,
+        "proposed_provider_id": proposed_provider_id,
+    }
+    encoded = json.dumps(canonical, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode("ascii")
+    return "dmpsel-" + hashlib.sha256(encoded).hexdigest()[:24]
+
+
 def build_provider_selection_proposal(
     snapshot: HouseholdSnapshot,
     enrollment_proposal: HouseholdDeviceEnrollmentProposal,
@@ -156,7 +193,7 @@ def build_provider_selection_proposal(
     device_platform: DevicePlatform,
     provider_id: str,
 ) -> DeviceManagementProviderSelectionProposal:
-    if not isinstance(resolution_plan_id, str) or not resolution_plan_id.startswith("dmpr-"):
+    if not isinstance(resolution_plan_id, str) or RESOLUTION_PLAN_ID.fullmatch(resolution_plan_id) is None:
         raise DeviceManagementProviderSelectionError("invalid_device_management_provider_resolution_plan_id")
     provider_id = _provider_id(provider_id)
     try:
@@ -175,23 +212,22 @@ def build_provider_selection_proposal(
     if candidate is None or not candidate.ready or device_platform not in candidate.supported_platforms:
         raise DeviceManagementProviderSelectionError("device_management_provider_not_available")
 
-    canonical = {
-        "resolution_plan_id": resolution.plan_id,
-        "enrollment_proposal_id": resolution.enrollment_proposal_id,
-        "household_id": resolution.household_id,
-        "snapshot_id": resolution.snapshot_id,
-        "resource_version": resolution.resource_version,
-        "generation": resolution.generation,
-        "actor_member_id": resolution.actor_member_id,
-        "device_id": resolution.device_id,
-        "member_id": resolution.member_id,
-        "catalog_id": resolution.catalog_id,
-        "device_platform": resolution.device_platform.value,
-        "proposed_provider_id": provider_id,
-    }
-    encoded = json.dumps(canonical, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode("ascii")
+    proposal_id = _selection_identity(
+        resolution_plan_id=resolution.plan_id,
+        enrollment_proposal_id=resolution.enrollment_proposal_id,
+        household_id=resolution.household_id,
+        snapshot_id=resolution.snapshot_id,
+        resource_version=resolution.resource_version,
+        generation=resolution.generation,
+        actor_member_id=resolution.actor_member_id,
+        device_id=resolution.device_id,
+        member_id=resolution.member_id,
+        catalog_id=resolution.catalog_id,
+        device_platform=resolution.device_platform,
+        proposed_provider_id=provider_id,
+    )
     return DeviceManagementProviderSelectionProposal(
-        proposal_id="dmpsel-" + hashlib.sha256(encoded).hexdigest()[:24],
+        proposal_id=proposal_id,
         resolution_plan_id=resolution.plan_id,
         enrollment_proposal_id=resolution.enrollment_proposal_id,
         household_id=resolution.household_id,
@@ -228,20 +264,28 @@ def provider_selection_proposal_from_dict(value: object) -> DeviceManagementProv
     provider_id = _provider_id(value.get("proposed_provider_id"))
     if (
         not isinstance(value.get("proposal_id"), str)
-        or not value["proposal_id"].startswith("dmpsel-")
+        or SELECTION_PROPOSAL_ID.fullmatch(value["proposal_id"]) is None
         or not isinstance(value.get("resolution_plan_id"), str)
-        or not value["resolution_plan_id"].startswith("dmpr-")
+        or RESOLUTION_PLAN_ID.fullmatch(value["resolution_plan_id"]) is None
         or not isinstance(value.get("enrollment_proposal_id"), str)
+        or not value["enrollment_proposal_id"]
         or not isinstance(value.get("household_id"), str)
+        or not value["household_id"]
         or not isinstance(value.get("snapshot_id"), str)
+        or not value["snapshot_id"]
         or not isinstance(value.get("resource_version"), str)
+        or not value["resource_version"]
         or isinstance(value.get("generation"), bool)
         or not isinstance(value.get("generation"), int)
         or value["generation"] < 1
         or not isinstance(value.get("actor_member_id"), str)
+        or not value["actor_member_id"]
         or not isinstance(value.get("device_id"), str)
+        or not value["device_id"]
         or not isinstance(value.get("member_id"), str)
+        or not value["member_id"]
         or not isinstance(value.get("catalog_id"), str)
+        or CATALOG_ID.fullmatch(value["catalog_id"]) is None
         or value.get("platform_claim_source") != "user"
         or value.get("platform_verified") is not False
         or value.get("provider_ready") is not True
@@ -256,6 +300,22 @@ def provider_selection_proposal_from_dict(value: object) -> DeviceManagementProv
         or value.get("infrastructure_mutation_authorized") is not False
         or value.get("external_publication_authorized") is not False
     ):
+        raise DeviceManagementProviderSelectionError("device_management_provider_selection_evidence_rejected")
+    expected_proposal_id = _selection_identity(
+        resolution_plan_id=value["resolution_plan_id"],
+        enrollment_proposal_id=value["enrollment_proposal_id"],
+        household_id=value["household_id"],
+        snapshot_id=value["snapshot_id"],
+        resource_version=value["resource_version"],
+        generation=value["generation"],
+        actor_member_id=value["actor_member_id"],
+        device_id=value["device_id"],
+        member_id=value["member_id"],
+        catalog_id=value["catalog_id"],
+        device_platform=platform,
+        proposed_provider_id=provider_id,
+    )
+    if value["proposal_id"] != expected_proposal_id:
         raise DeviceManagementProviderSelectionError("device_management_provider_selection_evidence_rejected")
     proposal = DeviceManagementProviderSelectionProposal(
         proposal_id=value["proposal_id"],
