@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/devices/device-management-provider-selection-plan-request.v1.schema.json",
+  "title": "Home Center device management provider selection plan request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "resolution_plan_id",
+    "enrollment_proposal_id",
+    "device_platform",
+    "provider_id"
+  ],
+  "properties": {
+    "schema": {
+      "const": "home-center.device-management-provider-selection-plan-request.v1"
+    },
+    "resolution_plan_id": {
+      "type": "string",
+      "pattern": "^dmpr-[0-9a-f]{24}$"
+    },
+    "enrollment_proposal_id": {
+      "type": "string",
+      "pattern": "^hdenroll-[0-9a-f]{24}$"
+    },
+    "device_platform": {
+      "type": "string",
+      "enum": ["android", "ios", "windows", "linux", "other"]
+    },
+    "provider_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"
+    }
+  }
+}

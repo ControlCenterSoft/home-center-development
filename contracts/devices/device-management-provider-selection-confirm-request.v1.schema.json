@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/devices/device-management-provider-selection-confirm-request.v1.schema.json",
+  "title": "Home Center device management provider selection confirm request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "proposal_id", "confirmed"],
+  "properties": {
+    "schema": {
+      "const": "home-center.device-management-provider-selection-confirm-request.v1"
+    },
+    "proposal_id": {
+      "type": "string",
+      "pattern": "^dmpsel-[0-9a-f]{24}$"
+    },
+    "confirmed": {
+      "const": true
+    }
+  }
+}
