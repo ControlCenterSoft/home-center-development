@@ -1,8 +1,9 @@
 """Safety guard for the 0.57 provider-enrollment execution runtime.
 
 The core runtime owns execution mechanics. This guard closes replay ambiguity,
-validates the complete upstream enrollment receipt and avoids a bounded job-history
-window when deciding whether another provider command may be emitted.
+validates complete upstream evidence, validates adapter cancellation acceptance and
+avoids a bounded job-history window when deciding whether another provider command
+may be emitted.
 """
 from __future__ import annotations
 
@@ -18,7 +19,44 @@ from .device_management_enrollment_execution_runtime import (
 from .household_device_enrollment_runtime import DEVICE_ENROLLMENT_STATE_SCHEMA, _proposal_key
 
 
+CANCEL_ADAPTER_RESULT_SCHEMA = "home-center.device-management-enrollment-adapter-cancel-result.v1"
+
+
+class _ValidatedProviderAdapter:
+    """Require a closed, non-authorizing acknowledgement for provider cancellation."""
+
+    def __init__(self, inner: object) -> None:
+        self._inner = inner
+
+    def start(self, request: object) -> object:
+        return self._inner.start(request)
+
+    def cancel(self, *, provider_operation_id: str, job_id: str) -> object:
+        value = self._inner.cancel(provider_operation_id=provider_operation_id, job_id=job_id)
+        expected = {
+            "schema",
+            "state",
+            "provider_operation_id",
+            "post_condition_verified",
+            "managed_state_change_authorized",
+        }
+        if (
+            not isinstance(value, dict)
+            or set(value) != expected
+            or value.get("schema") != CANCEL_ADAPTER_RESULT_SCHEMA
+            or value.get("state") != "cancel-accepted"
+            or value.get("provider_operation_id") != provider_operation_id
+            or value.get("post_condition_verified") is not False
+            or value.get("managed_state_change_authorized") is not False
+        ):
+            raise ValueError("device_management_enrollment_adapter_cancel_result_rejected")
+        return value
+
+
 class SafeDeviceManagementEnrollmentExecutionRuntimeService(DeviceManagementEnrollmentExecutionRuntimeService):
+    def register_adapter(self, provider_id: str, adapter: object) -> None:
+        super().register_adapter(provider_id, _ValidatedProviderAdapter(adapter))
+
     def _enrollment(self, proposal_id: object):
         """Require the complete confirmation evidence before execution planning."""
         proposal = super()._enrollment(proposal_id)
@@ -104,7 +142,6 @@ class SafeDeviceManagementEnrollmentExecutionRuntimeService(DeviceManagementEnro
         if any(job.get("state") == "failed" for job in previous):
             raise DeviceManagementEnrollmentExecutionRuntimeError("device_management_enrollment_execution_retry_required")
         if any(job.get("state") == "succeeded" for job in previous):
-            # A succeeded durable job without a valid receipt is inconsistent; never re-emit.
             raise DeviceManagementEnrollmentExecutionRuntimeError("device_management_enrollment_execution_state_invalid")
         return super().start(actor=actor, request=request, correlation_id=correlation_id)
 
