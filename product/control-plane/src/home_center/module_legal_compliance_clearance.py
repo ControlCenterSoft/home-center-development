@@ -2,6 +2,9 @@
 
 This evaluator is intentionally non-authorizing. It does not grant admission,
 installation, execution, production mutation, publication, or release authority.
+Known legal obligations remain review-required until separate fulfillment evidence
+exists; this evaluator never treats an unsatisfied notice/source-offer obligation as
+fully clear.
 """
 
 from __future__ import annotations
@@ -59,24 +62,28 @@ def evaluate_module_legal_compliance_clearance(value: object) -> ModuleLegalComp
         reasons.append("commercial-use-prohibited")
     if evidence.redistribution_disposition == "prohibited":
         reasons.append("redistribution-prohibited")
-    if reasons:
-        status = BLOCKED
-    elif evidence.commercial_use_disposition in {"conditional", "unknown"} or evidence.redistribution_disposition in {"conditional", "unknown"}:
-        status = REVIEW_REQUIRED
-        if evidence.commercial_use_disposition == "conditional":
-            reasons.append("commercial-use-conditional")
-        elif evidence.commercial_use_disposition == "unknown":
-            reasons.append("commercial-use-unknown")
-        if evidence.redistribution_disposition == "conditional":
-            reasons.append("redistribution-conditional")
-        elif evidence.redistribution_disposition == "unknown":
-            reasons.append("redistribution-unknown")
-    else:
-        status = CLEAR
+    if evidence.commercial_use_disposition == "conditional":
+        reasons.append("commercial-use-conditional")
+    elif evidence.commercial_use_disposition == "unknown":
+        reasons.append("commercial-use-unknown")
+    if evidence.redistribution_disposition == "conditional":
+        reasons.append("redistribution-conditional")
+    elif evidence.redistribution_disposition == "unknown":
+        reasons.append("redistribution-unknown")
     if evidence.notice_required:
         obligations.append("notice-required")
+        reasons.append("notice-obligation-pending")
     if evidence.source_offer_required:
         obligations.append("source-offer-required")
+        reasons.append("source-offer-obligation-pending")
+
+    if evidence.commercial_use_disposition == "prohibited" or evidence.redistribution_disposition == "prohibited":
+        status = BLOCKED
+    elif reasons:
+        status = REVIEW_REQUIRED
+    else:
+        status = CLEAR
+
     return ModuleLegalComplianceClearance(
         evidence_id=evidence.evidence_id,
         module_id=evidence.module_id,
