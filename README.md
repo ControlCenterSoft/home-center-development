@@ -4,10 +4,12 @@ Home Center — инфраструктурно-независимая платф
 
 ## Текущий релизный статус
 
-- Последний официально опубликованный исходный релиз: **0.40.0**.
-- Отдельный stable-канал подтверждён до **0.15.0**.
-- Более новые возможности считаются доступными только в том канале, где соответствующая версия официально опубликована.
-- Предварительные кандидатные версии не должны описываться как уже доступные пользователю.
+- Последний официальный canonical/source release в линии выпуска: **0.42.0**; фактическая canonical availability подтверждается только tag `v0.42.0` и официальным GitHub Release после завершения release governance.
+- До завершения отдельного полноценного public export/release для 0.42.0 текущим подтверждённым **PUBLIC STABLE RELEASE** остаётся **0.41.0** в [`ControlCenterSoft/home-center-stable`](https://github.com/ControlCenterSoft/home-center-stable).
+- Canonical и public stable используют раздельные подтверждённые release identities; sanitization/export может закономерно давать другой public commit SHA, поэтому соответствие фиксируется через version/digest/manifest mapping.
+- Более новые development-возможности считаются доступными только после собственной release qualification и официальной публикации соответствующей release identity.
+
+Home Center 0.42.0 добавляет canonical versioned requirement-set contract для точных Home Service/API contract revisions, требуемых модулю. Requirement-set evidence остаётся descriptive-only и не предоставляет authority на admission, installation, execution, production mutation или external publication.
 
 ## Архитектурная граница продукта
 
@@ -21,7 +23,7 @@ Home Center имеет два дополняющих уровня интерфе
 
 Каноническая архитектурная граница «Уютного» описана в `docs/architecture/cozy-interface.md`. Пользователь формулирует бытовое намерение, а Home Center преобразует его в безопасный policy/desired-state plan через обычные Identity/RBAC, Change/Job, verification и recovery boundaries.
 
-Household/Intent foundation начинается в опубликованной исходной линии с 0.26.0. Пользовательские возможности последующих версий считаются доступными только после их официальной публикации.
+Household/Intent foundation формировался в development-линии начиная с версии 0.26.0 и входит в накопленную более позднюю исходную линию. Сам номер development-версии не означает наличие отдельного официального GitHub Release: пользовательская доступность определяется только фактически опубликованной release identity соответствующего канала.
 
 ## Основные требования безопасности
 
