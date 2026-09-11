@@ -1,16 +1,19 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "home-center.module-home-service-contract-multi-requirement-set.v1.schema.json",
-  "title": "Home Center Module Home Service Contract Multi Requirement Set v1",
+  "$id": "home-center.module-home-service-contract-multi-compatibility-binding.v1.schema.json",
+  "title": "Home Center Module Home Service Contract Multi Compatibility Binding v1",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schema",
+    "multi_compatibility_binding_id",
     "multi_requirement_set_id",
     "home_center_version",
     "module_id",
     "module_version",
-    "service_requirement_sets",
+    "service_compatibility_bindings",
+    "blocked_service_ids",
+    "compatibility_status",
     "admission_authorized",
     "installation_authorized",
     "execution_authorized",
@@ -19,7 +22,11 @@
   ],
   "properties": {
     "schema": {
-      "const": "home-center.module-home-service-contract-multi-requirement-set.v1"
+      "const": "home-center.module-home-service-contract-multi-compatibility-binding.v1"
+    },
+    "multi_compatibility_binding_id": {
+      "type": "string",
+      "pattern": "^mhsmcb-[0-9a-f]{24}$"
     },
     "multi_requirement_set_id": {
       "type": "string",
@@ -35,14 +42,28 @@
     "module_version": {
       "$ref": "#/$defs/semver"
     },
-    "service_requirement_sets": {
+    "service_compatibility_bindings": {
       "type": "array",
       "minItems": 1,
       "maxItems": 64,
       "uniqueItems": true,
       "items": {
-        "$ref": "#/$defs/serviceRequirement"
+        "$ref": "#/$defs/serviceCompatibility"
       }
+    },
+    "blocked_service_ids": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/serviceId"
+      }
+    },
+    "compatibility_status": {
+      "enum": [
+        "compatible",
+        "blocked"
+      ]
     },
     "admission_authorized": {
       "const": false
@@ -65,26 +86,45 @@
       "type": "string",
       "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
     },
+    "serviceId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"
+    },
     "contract": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9.-]{1,126}\\.v[1-9][0-9]*$"
     },
-    "serviceRequirement": {
+    "serviceCompatibility": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "service_id",
         "requirement_set_id",
-        "required_service_contracts"
+        "requirement_binding_id",
+        "home_service_contract_binding_id",
+        "service_profile_sha256",
+        "required_service_contracts",
+        "compatibility_status"
       ],
       "properties": {
         "service_id": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"
+          "$ref": "#/$defs/serviceId"
         },
         "requirement_set_id": {
           "type": "string",
           "pattern": "^mhscr-[0-9a-f]{24}$"
+        },
+        "requirement_binding_id": {
+          "type": "string",
+          "pattern": "^mhsrb-[0-9a-f]{24}$"
+        },
+        "home_service_contract_binding_id": {
+          "type": "string",
+          "pattern": "^mhscb-[0-9a-f]{24}$"
+        },
+        "service_profile_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
         },
         "required_service_contracts": {
           "type": "array",
@@ -94,6 +134,12 @@
           "items": {
             "$ref": "#/$defs/contract"
           }
+        },
+        "compatibility_status": {
+          "enum": [
+            "compatible",
+            "blocked"
+          ]
         }
       }
     }

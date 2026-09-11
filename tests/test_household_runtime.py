@@ -59,6 +59,7 @@ def test_bootstrap_persists_parent_and_actor_binding_atomically(tmp_path: Path) 
         assert persisted["bindings"][0]["actor"] == "local-admin:admin"
         assert persisted["bindings"][0]["member_id"] == members[0]["member_id"]
 
+        # A fresh service instance proves the state survives the facade lifetime.
         restored = HouseholdRuntimeService(store)
         assert restored.status()["configured"] is True
         assert restored.actor_member_id("local-admin:admin") == members[0]["member_id"]

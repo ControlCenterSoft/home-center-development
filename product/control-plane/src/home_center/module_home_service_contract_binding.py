@@ -6,14 +6,12 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
-from itertools import islice
 from typing import Any, Iterable, Mapping
 
 
 BINDING_SCHEMA = "home-center.module-home-service-contract-binding.v1"
 MODULE_BINDING_SCHEMA = "home-center.module-contract-admission-binding.v1"
 SERVICE_PROFILE_SCHEMA = "home-center.home-service-catalog.v1"
-MAX_REQUIRED_SERVICE_CONTRACTS = 64
 
 ID24 = re.compile(r"^[0-9a-f]{24}$")
 DIGEST = re.compile(r"^[0-9a-f]{64}$")
@@ -233,14 +231,13 @@ def _string_list(
     result = tuple(value)
     if (
         not minimum <= len(result) <= maximum
+        or len(result) != len(set(result))
         or any(
             not isinstance(item, str)
             or pattern.fullmatch(item) is None
             for item in result
         )
     ):
-        raise ModuleHomeServiceContractBindingError(code)
-    if len(result) != len(set(result)):
         raise ModuleHomeServiceContractBindingError(code)
     return tuple(sorted(result))
 
@@ -380,15 +377,13 @@ def _validate_service_profile(value: object) -> dict[str, Any]:
 
 
 def _required_contracts(value: Iterable[str]) -> tuple[str, ...]:
-    if isinstance(value, (str, bytes, bytearray, dict)):
+    if isinstance(value, (str, bytes)):
         raise ModuleHomeServiceContractBindingError(
             "required_service_contracts_rejected"
         )
     try:
-        raw = tuple(
-            islice(iter(value), MAX_REQUIRED_SERVICE_CONTRACTS + 1)
-        )
-    except Exception as exc:
+        raw = tuple(value)
+    except TypeError as exc:
         raise ModuleHomeServiceContractBindingError(
             "required_service_contracts_rejected"
         ) from exc
@@ -397,7 +392,7 @@ def _required_contracts(value: Iterable[str]) -> tuple[str, ...]:
         pattern=SERVICE_CONTRACT,
         code="required_service_contracts_rejected",
         minimum=1,
-        maximum=MAX_REQUIRED_SERVICE_CONTRACTS,
+        maximum=64,
     )
 
 

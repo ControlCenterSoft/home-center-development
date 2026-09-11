@@ -6,14 +6,12 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
-from itertools import islice
-from typing import Iterable
+from typing import Any, Iterable, Mapping
 
 
 REQUIREMENT_SET_SCHEMA = (
     "home-center.module-home-service-contract-requirement-set.v1"
 )
-MAX_REQUIRED_SERVICE_CONTRACTS = 64
 ID24 = re.compile(r"^[0-9a-f]{24}$")
 SEMVER = re.compile(
     r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$"
@@ -114,7 +112,7 @@ def _canonical_sha256(value: object) -> str:
 
 
 def _semver(value: object) -> str:
-    if type(value) is not str or SEMVER.fullmatch(value) is None:
+    if not isinstance(value, str) or SEMVER.fullmatch(value) is None:
         raise ModuleHomeServiceContractRequirementError(
             "requirement_set_rejected"
         )
@@ -122,7 +120,7 @@ def _semver(value: object) -> str:
 
 
 def _module_id(value: object) -> str:
-    if type(value) is not str or MODULE_ID.fullmatch(value) is None:
+    if not isinstance(value, str) or MODULE_ID.fullmatch(value) is None:
         raise ModuleHomeServiceContractRequirementError(
             "requirement_set_rejected"
         )
@@ -130,7 +128,7 @@ def _module_id(value: object) -> str:
 
 
 def _service_id(value: object) -> str:
-    if type(value) is not str or SERVICE_ID.fullmatch(value) is None:
+    if not isinstance(value, str) or SERVICE_ID.fullmatch(value) is None:
         raise ModuleHomeServiceContractRequirementError(
             "requirement_set_rejected"
         )
@@ -138,30 +136,25 @@ def _service_id(value: object) -> str:
 
 
 def _required_contracts(value: Iterable[str]) -> tuple[str, ...]:
-    if isinstance(value, (str, bytes, bytearray, dict)):
+    if isinstance(value, (str, bytes)):
         raise ModuleHomeServiceContractRequirementError(
             "required_service_contracts_rejected"
         )
     try:
-        raw = tuple(
-            islice(iter(value), MAX_REQUIRED_SERVICE_CONTRACTS + 1)
-        )
-    except Exception as exc:
+        raw = tuple(value)
+    except TypeError as exc:
         raise ModuleHomeServiceContractRequirementError(
             "required_service_contracts_rejected"
         ) from exc
     if (
-        not 1 <= len(raw) <= MAX_REQUIRED_SERVICE_CONTRACTS
+        not 1 <= len(raw) <= 64
+        or len(raw) != len(set(raw))
         or any(
-            type(item) is not str
+            not isinstance(item, str)
             or SERVICE_CONTRACT.fullmatch(item) is None
             for item in raw
         )
     ):
-        raise ModuleHomeServiceContractRequirementError(
-            "required_service_contracts_rejected"
-        )
-    if len(raw) != len(set(raw)):
         raise ModuleHomeServiceContractRequirementError(
             "required_service_contracts_rejected"
         )
@@ -210,21 +203,30 @@ def build_module_home_service_contract_requirement_set(
 def validate_module_home_service_contract_requirement_set(
     value: object,
 ) -> ModuleHomeServiceContractRequirementSet:
-    """Validate plain serialized evidence and its canonical identity."""
+    """Validate serialized requirement evidence and its canonical identity."""
 
-    if type(value) is ModuleHomeServiceContractRequirementSet:
-        payload = value.to_dict()
-    elif type(value) is dict:
-        payload = value.copy()
+    if isinstance(value, Mapping):
+        payload: dict[str, Any] = dict(value)
     else:
-        raise ModuleHomeServiceContractRequirementError(
-            "requirement_set_rejected"
-        )
+        to_dict = getattr(value, "to_dict", None)
+        if not callable(to_dict):
+            raise ModuleHomeServiceContractRequirementError(
+                "requirement_set_rejected"
+            )
+        try:
+            raw = to_dict()
+        except (TypeError, ValueError) as exc:
+            raise ModuleHomeServiceContractRequirementError(
+                "requirement_set_rejected"
+            ) from exc
+        if not isinstance(raw, dict):
+            raise ModuleHomeServiceContractRequirementError(
+                "requirement_set_rejected"
+            )
+        payload = raw
 
     if (
-        any(type(key) is not str for key in payload)
-        or set(payload) != REQUIREMENT_SET_FIELDS
-        or type(payload.get("schema")) is not str
+        set(payload) != REQUIREMENT_SET_FIELDS
         or payload.get("schema") != REQUIREMENT_SET_SCHEMA
         or any(payload.get(flag) is not False for flag in AUTHORITY_FLAGS)
     ):
@@ -234,7 +236,7 @@ def validate_module_home_service_contract_requirement_set(
 
     requirement_set_id = payload.get("requirement_set_id")
     if (
-        type(requirement_set_id) is not str
+        not isinstance(requirement_set_id, str)
         or not requirement_set_id.startswith("mhscr-")
         or ID24.fullmatch(requirement_set_id[6:]) is None
     ):
@@ -242,21 +244,18 @@ def validate_module_home_service_contract_requirement_set(
             "requirement_set_rejected"
         )
 
-    serialized_contracts = payload.get("required_service_contracts")
-    if type(serialized_contracts) is not list:
-        raise ModuleHomeServiceContractRequirementError(
-            "requirement_set_rejected"
-        )
-    contracts = _required_contracts(serialized_contracts)
-
     result = build_module_home_service_contract_requirement_set(
         home_center_version=_semver(payload.get("home_center_version")),
         module_id=_module_id(payload.get("module_id")),
         module_version=_semver(payload.get("module_version")),
         service_id=_service_id(payload.get("service_id")),
-        required_service_contracts=contracts,
+        required_service_contracts=_required_contracts(
+            payload.get("required_service_contracts", ())
+        ),
     )
-    if list(result.required_service_contracts) != serialized_contracts:
+    if list(result.required_service_contracts) != payload.get(
+        "required_service_contracts"
+    ):
         raise ModuleHomeServiceContractRequirementError(
             "requirement_set_rejected"
         )
