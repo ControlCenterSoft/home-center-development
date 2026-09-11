@@ -13,6 +13,7 @@ from home_center.module_legal_compliance import (
     validate_module_legal_compliance_evidence,
 )
 
+CLEARANCE_SCHEMA = "home-center.module-legal-compliance-clearance.v1"
 CLEAR = "clear"
 REVIEW_REQUIRED = "review-required"
 BLOCKED = "blocked"
@@ -31,6 +32,7 @@ class ModuleLegalComplianceClearance:
     status: str
     reasons: tuple[str, ...]
     obligations: tuple[str, ...]
+    schema: str = CLEARANCE_SCHEMA
     release_authorized: bool = False
     external_publication_authorized: bool = False
 
@@ -38,6 +40,7 @@ class ModuleLegalComplianceClearance:
         """Return a stable JSON-ready advisory result with exact provenance."""
 
         return {
+            "schema": self.schema,
             "evidence_id": self.evidence_id,
             "module_id": self.module_id,
             "module_version": self.module_version,
