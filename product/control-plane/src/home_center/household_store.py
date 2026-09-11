@@ -31,6 +31,27 @@ def _canonical_digest(household: Household, generation: int, previous_snapshot_i
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _commit_digest(
+    *,
+    operation: str,
+    household_id: str,
+    previous_resource_version: str | None,
+    resource_version: str,
+    generation: int,
+    snapshot_id: str,
+) -> str:
+    canonical = {
+        "operation": operation,
+        "household_id": household_id,
+        "previous_resource_version": previous_resource_version,
+        "resource_version": resource_version,
+        "generation": generation,
+        "snapshot_id": snapshot_id,
+    }
+    encoded = json.dumps(canonical, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode("ascii")
+    return hashlib.sha256(encoded).hexdigest()
+
+
 @dataclass(frozen=True, slots=True)
 class HouseholdSnapshot:
     snapshot_id: str
@@ -43,13 +64,7 @@ class HouseholdSnapshot:
     infrastructure_mutation_authorized: bool = field(default=False, init=False)
 
     def __post_init__(self) -> None:
-        """Fail closed when callers attempt to construct forged snapshot evidence.
-
-        Household snapshots are content-addressed evidence, not plain transport
-        records. Keeping the invariant on the value object itself prevents pure
-        planning code from accidentally accepting a manually constructed snapshot
-        whose ids do not correspond to the embedded Household state.
-        """
+        """Fail closed when callers attempt to construct forged snapshot evidence."""
 
         if not isinstance(self.household, Household):
             raise TypeError("invalid_household")
@@ -106,6 +121,45 @@ class HouseholdCommit:
     infrastructure_mutation_authorized: bool = field(default=False, init=False)
     external_publication_authorized: bool = field(default=False, init=False)
 
+    def __post_init__(self) -> None:
+        """Keep commit evidence self-consistent even when directly constructed."""
+
+        if self.operation not in {"create", "replace"}:
+            raise HomeServiceCatalogError("invalid_household_commit_operation")
+        household_id = _identifier(self.household_id, "invalid_household_id")
+        resource_version = _identifier(self.resource_version, "invalid_household_resource_version")
+        snapshot_id = _identifier(self.snapshot_id, "invalid_household_snapshot_id")
+        commit_id = _identifier(self.commit_id, "invalid_household_commit_id")
+        if (
+            isinstance(self.generation, bool)
+            or not isinstance(self.generation, int)
+            or not 1 <= self.generation <= MAX_GENERATION
+        ):
+            raise HomeServiceCatalogError("invalid_household_generation")
+
+        previous_resource_version = self.previous_resource_version
+        if self.operation == "create":
+            if previous_resource_version is not None or self.generation != 1:
+                raise HomeServiceCatalogError("invalid_household_commit_transition")
+        else:
+            if self.generation < 2:
+                raise HomeServiceCatalogError("invalid_household_commit_transition")
+            previous_resource_version = _identifier(
+                previous_resource_version,
+                "invalid_household_resource_version",
+            )
+
+        digest = _commit_digest(
+            operation=self.operation,
+            household_id=household_id,
+            previous_resource_version=previous_resource_version,
+            resource_version=resource_version,
+            generation=self.generation,
+            snapshot_id=snapshot_id,
+        )
+        if commit_id != "hcommit-" + digest[:24]:
+            raise HomeServiceCatalogError("household_commit_evidence_mismatch")
+
     def to_dict(self) -> dict[str, object]:
         return {
             "schema": self.schema,
@@ -160,23 +214,26 @@ def build_household_commit(
         raise HomeServiceCatalogError("invalid_household_commit_operation")
     if not isinstance(snapshot, HouseholdSnapshot):
         raise TypeError("invalid_household_snapshot")
-    if previous_resource_version is not None:
+    if operation == "create":
+        if previous_resource_version is not None or snapshot.generation != 1:
+            raise HomeServiceCatalogError("invalid_household_commit_transition")
+    else:
+        if previous_resource_version is None or snapshot.generation < 2:
+            raise HomeServiceCatalogError("invalid_household_commit_transition")
         previous_resource_version = _identifier(
             previous_resource_version,
             "invalid_household_resource_version",
         )
-    canonical = {
-        "operation": operation,
-        "household_id": snapshot.household_id,
-        "previous_resource_version": previous_resource_version,
-        "resource_version": snapshot.resource_version,
-        "generation": snapshot.generation,
-        "snapshot_id": snapshot.snapshot_id,
-    }
-    encoded = json.dumps(canonical, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode("ascii")
-    commit_id = "hcommit-" + hashlib.sha256(encoded).hexdigest()[:24]
+    digest = _commit_digest(
+        operation=operation,
+        household_id=snapshot.household_id,
+        previous_resource_version=previous_resource_version,
+        resource_version=snapshot.resource_version,
+        generation=snapshot.generation,
+        snapshot_id=snapshot.snapshot_id,
+    )
     return HouseholdCommit(
-        commit_id=commit_id,
+        commit_id="hcommit-" + digest[:24],
         operation=operation,
         household_id=snapshot.household_id,
         previous_resource_version=previous_resource_version,
