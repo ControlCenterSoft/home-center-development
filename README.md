@@ -1,36 +1,35 @@
 # Home Center
 
-Home Center is an infrastructure-neutral platform for managing home and small-server infrastructure through a unified Web UI and API.
+Home Center — infrastructure-neutral и local-first платформа управления домашней и малой серверной инфраструктурой через единый Web UI и API.
 
-## Active development repository
+## Текущий релизный статус
 
-This repository is the authoritative workspace for active Home Center product development.
+- Последний официальный canonical/source release: **0.47.0**.
+- Полноценный **PUBLIC STABLE RELEASE 0.47.0** опубликован в [`ControlCenterSoft/home-center-stable`](https://github.com/ControlCenterSoft/home-center-stable) с tag `v0.47.0`, официальным GitHub Release, Linux/source artifacts, SHA256SUMS, acceptance/release manifests и SPDX SBOM.
+- Более новые возможности не считаются доступными пользователю до собственной qualification и официальной публикации соответствующей release identity.
 
-Home Center must be installable on a new or existing supported infrastructure without any dependency on a particular deployment. Product source must not hard-code real node names, domain names, directory identifiers, network addresses, credentials, certificates, or topology from an operator environment.
+## Основные принципы
 
-Runtime identity and topology are supplied by discovery, enrollment and deployment profiles. Directory integration is optional and configured by the administrator. Compute, storage, device, automation, certificate and remote-access providers are selected through capabilities and provider profiles rather than fixed hosts.
+Home Center устанавливается на новую или существующую поддерживаемую инфраструктуру и не зависит от конкретных имён узлов, доменов, сетевых адресов или одной фиксированной топологии. Runtime identity и topology задаются через discovery, enrollment и deployment profiles. Directory integration является опциональной и настраивается администратором.
 
-## Repository boundary
+Single-node является полноценным режимом. Multi-node/HA расширяет продукт только там, где роли и providers имеют проверенные failure/recovery semantics. Опасные изменения проходят общий безопасный путь authorization → plan/Desired State → Change/Job → typed execution → Actual State → post-condition verification → Audit/evidence → recovery/rollback.
 
-Allowed here:
+## Интерфейс 0.47
 
-- product source and Web UI;
-- portable deployment and enrollment logic;
-- schemas and API contracts;
-- tests and GitHub Actions CI;
-- infrastructure-neutral documentation and examples;
-- release and feature branches for active development.
+Home Center 0.47.0 завершает первый полный navigation boundary интерфейса «Уютный» и сохраняет профессиональный интерфейс «Полный».
 
-Not allowed here:
+- «Домой» показывает понятное состояние дома, серверов и доступных возможностей.
+- «Семья» отображает household-oriented людей и роли; mutation/provisioning остаются за отдельными защищёнными границами последующих версий.
+- «Мой дом» показывает только реально обнаруженные capabilities, а не заранее заявленный набор сервисов.
+- На мобильных устройствах используется нижняя навигация с крупными touch targets; на desktop — компактная боковая навигация.
+- Переключение «Уютный ↔ Полный» не создаёт отдельного execution path и не ослабляет RBAC, Audit, stale-state, recovery и post-condition проверки.
 
-- credentials, private keys or production certificates;
-- real deployment IP addresses, host names, directory SIDs or private realms;
-- operator-specific deployment overlays;
-- production acceptance evidence containing private infrastructure details;
-- internal server-only operational data.
+## Аутентификация после чистой установки
 
-Those restricted operational materials remain outside the public product-development repository.
+После чистой установки создаётся локальный пользователь `admin` с первоначальным паролем `admin`. При первом входе пароль требуется сменить; до смены обычная работа запрещена. При обновлении установленный пользователем пароль сохраняется и не сбрасывается к первоначальному значению.
 
-## Development model
+## Публичная граница
 
-`main` is the infrastructure-neutral integration baseline. Active versions are developed in parallel release and feature branches. Every push and pull request is checked by the infrastructure-neutrality gate on GitHub-hosted runners.
+Публичные материалы Home Center не должны содержать реальные deployment IP/host/domain/SID, credentials, private keys, production certificates, operator-specific overlays, внутреннюю инфраструктуру разработки, runner-инфраструктуру, названия внутренних AI/reviewer-процессов или иные сведения, не требующиеся пользователю продукта.
+
+Технические инструкции и release notes должны соответствовать фактически опубликованной версии. Возможности последующих версий необходимо явно отделять от текущего Public Stable.
