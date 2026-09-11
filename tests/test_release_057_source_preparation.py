@@ -49,8 +49,10 @@ def test_release_057_requests_are_closed_and_mutating_commands_require_confirmat
 def test_release_057_provider_adapter_contract_never_receives_raw_secret_authority() -> None:
     request = _contract("device-management-enrollment-adapter-start-request.v1.schema.json")
     result = _contract("device-management-enrollment-adapter-start-result.v1.schema.json")
+    cancel_result = _contract("device-management-enrollment-adapter-cancel-result.v1.schema.json")
     assert request["additionalProperties"] is False
     assert result["additionalProperties"] is False
+    assert cancel_result["additionalProperties"] is False
     assert request["properties"]["provider_execution_authorized"] == {"const": True}
     assert request["properties"]["credential_value_access_authorized"] == {"const": False}
     assert request["properties"]["managed_state_change_authorized"] == {"const": False}
@@ -59,6 +61,9 @@ def test_release_057_provider_adapter_contract_never_receives_raw_secret_authori
     assert request["properties"]["external_publication_authorized"] == {"const": False}
     assert result["properties"]["post_condition_verified"] == {"const": False}
     assert result["properties"]["managed_state_change_authorized"] == {"const": False}
+    assert cancel_result["properties"]["state"] == {"const": "cancel-accepted"}
+    assert cancel_result["properties"]["post_condition_verified"] == {"const": False}
+    assert cancel_result["properties"]["managed_state_change_authorized"] == {"const": False}
 
 
 def test_release_057_receipts_cannot_claim_enrollment_or_managed_state() -> None:
@@ -85,6 +90,7 @@ def test_release_057_runtime_fails_closed_on_replay_and_ambiguous_retry() -> Non
     assert "device_management_enrollment_execution_retry_not_safe" in safe
     assert "latest durable attempt" in safe
     assert "device_management_enrollment_execution_cancel_retry_not_safe" in safe
+    assert "device_management_enrollment_adapter_cancel_result_rejected" in safe
     assert 'receipt.get("provider_execution_authorized") is not False' in safe
     assert 'receipt.get("managed_state_change_authorized") is not False' in safe
 
