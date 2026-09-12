@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/devices/device-management-failed-enrollment-cleanup-executor-result.v1.schema.json",
+  "title": "Home Center failed enrollment transient cleanup executor result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "state", "reference_sha256", "provider_mutation_performed", "managed_state_changed"],
+  "properties": {
+    "schema": {"const": "home-center.device-management-failed-enrollment-cleanup-executor-result.v1"},
+    "state": {"type": "string", "enum": ["deleted", "absent"]},
+    "reference_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "provider_mutation_performed": {"const": false},
+    "managed_state_changed": {"const": false}
+  }
+}
