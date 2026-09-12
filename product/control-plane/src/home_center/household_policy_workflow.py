@@ -22,7 +22,13 @@ from .household_policy_desired_state import (
 )
 from .household_policy_history import HouseholdPolicyHistoryError, HouseholdPolicyHistoryService
 from .household_policy_presentation import build_policy_presentation
-from .household_policy_runtime import HouseholdPolicyRuntimeError, HouseholdPolicyRuntimeService
+from .household_policy_runtime import (
+    POLICY_CONFIRMATION_SCHEMA,
+    POLICY_PROPOSAL_KEY_PREFIX,
+    HouseholdPolicyRuntimeError,
+    HouseholdPolicyRuntimeService,
+    _confirmation_id,
+)
 from .household_runtime import ActorBinding, HOUSEHOLD_STATE_KEY, _state_from_dict
 from .store import StateStore
 
@@ -81,6 +87,46 @@ class HouseholdPolicyWorkflowService:
             raise HouseholdPolicyRuntimeError("household_policy_proposal_evidence_mismatch")
         return snapshot, proposal
 
+    @staticmethod
+    def _validate_confirmation_evidence(
+        proposal: PolicyCompositionProposal,
+        confirmation: dict[str, Any],
+    ) -> None:
+        """Fail closed unless confirmation is bound to the exact immutable proposal evidence."""
+
+        expected = {
+            "proposal_id": proposal.proposal_id,
+            "household_id": proposal.household_id,
+            "snapshot_id": proposal.snapshot_id,
+            "resource_version": proposal.resource_version,
+            "generation": proposal.generation,
+            "actor_member_id": proposal.actor_member_id,
+            "member_id": proposal.member_id,
+            "bundle_id": proposal.bundle.bundle_id,
+            "desired_state_resource_key": proposal.bundle.desired_state_resource_key,
+            "expected_desired_state_generation": proposal.expected_desired_state_generation,
+            "expected_desired_state_bundle_id": proposal.expected_desired_state_bundle_id,
+        }
+        if confirmation.get("schema") != POLICY_CONFIRMATION_SCHEMA:
+            raise HouseholdPolicyRuntimeError("household_policy_confirmation_evidence_mismatch")
+        if confirmation.get("confirmation_id") != _confirmation_id(proposal):
+            raise HouseholdPolicyRuntimeError("household_policy_confirmation_evidence_mismatch")
+        if any(confirmation.get(key) != value for key, value in expected.items()):
+            raise HouseholdPolicyRuntimeError("household_policy_confirmation_evidence_mismatch")
+        if confirmation.get("outcome") not in {"confirmed-for-desired-state-write", "already-confirmed"}:
+            raise HouseholdPolicyRuntimeError("household_policy_confirmation_evidence_mismatch")
+        if confirmation.get("desired_state_write_ready") is not True:
+            raise HouseholdPolicyRuntimeError("household_policy_confirmation_evidence_mismatch")
+        if (
+            confirmation.get("desired_state_write_authorized") is not False
+            or confirmation.get("infrastructure_mutation_authorized") is not False
+            or confirmation.get("external_publication_authorized") is not False
+        ):
+            raise HouseholdPolicyRuntimeError("household_policy_confirmation_evidence_mismatch")
+        audit_event_id = confirmation.get("audit_event_id")
+        if not isinstance(audit_event_id, str) or not audit_event_id:
+            raise HouseholdPolicyRuntimeError("household_policy_confirmation_evidence_mismatch")
+
     def plan(self, *, actor: str, request: dict[str, Any], correlation_id: str) -> dict[str, object]:
         """Persist an exact proposal and return the same evidence for Cozy and Full UI."""
 
@@ -120,6 +166,20 @@ class HouseholdPolicyWorkflowService:
         proposal_id = confirmation.get("proposal_id")
         if not isinstance(confirmation_id, str) or not isinstance(proposal_id, str):
             raise HouseholdPolicyRuntimeError("household_policy_confirmation_invalid")
+
+        envelope = self.store.get_meta(POLICY_PROPOSAL_KEY_PREFIX + proposal_id)
+        if not isinstance(envelope, dict):
+            raise HouseholdPolicyRuntimeError("household_policy_proposal_state_invalid")
+        raw_proposal = envelope.get("proposal")
+        stored_confirmation = envelope.get("confirmation")
+        if not isinstance(raw_proposal, dict) or not isinstance(stored_confirmation, dict):
+            raise HouseholdPolicyRuntimeError("household_policy_confirmation_invalid")
+        _snapshot, proposal = self._rebuild_exact_proposal(actor=actor, raw=raw_proposal)
+        self._validate_confirmation_evidence(proposal, stored_confirmation)
+        self._validate_confirmation_evidence(proposal, confirmation)
+        if confirmation.get("audit_event_id") != stored_confirmation.get("audit_event_id"):
+            raise HouseholdPolicyRuntimeError("household_policy_confirmation_evidence_mismatch")
+
         receipt = self.history.materialize(
             actor=actor,
             request={
