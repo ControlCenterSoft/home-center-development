@@ -115,9 +115,14 @@ def _artifacts(revision: str = REVISION, *, stable: bool = False) -> ArtifactEvi
     )
 
 
-def _commercial(revision: str = REVISION) -> CommercialEvidence:
+def _commercial(
+    revision: str = REVISION,
+    *,
+    artifact_sha256: str = DIGEST,
+) -> CommercialEvidence:
     return CommercialEvidence(
         binding=_binding(revision),
+        candidate_artifact_sha256=artifact_sha256,
         disposition=APPROVED,
         evidence_sha256=DIGEST,
         dependencies_reviewed=True,
@@ -126,6 +131,7 @@ def _commercial(revision: str = REVISION) -> CommercialEvidence:
         source_obligations_resolved=True,
         sbom_reviewed=True,
         legal_terms_dispositioned=True,
+        support_terms_dispositioned=True,
         release_claims_reviewed=True,
     )
 
@@ -183,6 +189,7 @@ class ReleasePromotionGateTests(unittest.TestCase):
         provider = _provider(qualified=False)
         commercial = CommercialEvidence(
             binding=_binding(),
+            candidate_artifact_sha256=DIGEST,
             disposition="review-required",
             evidence_sha256=DIGEST,
             dependencies_reviewed=True,
@@ -191,6 +198,7 @@ class ReleasePromotionGateTests(unittest.TestCase):
             source_obligations_resolved=True,
             sbom_reviewed=True,
             legal_terms_dispositioned=False,
+            support_terms_dispositioned=False,
             release_claims_reviewed=False,
         )
         decision = evaluate_release_promotion(
@@ -216,6 +224,7 @@ class ReleasePromotionGateTests(unittest.TestCase):
                 "commercial_disposition",
                 "notices_prepared",
                 "legal_terms_dispositioned",
+                "support_terms_dispositioned",
                 "release_claims_reviewed",
             ),
         )
@@ -250,6 +259,21 @@ class ReleasePromotionGateTests(unittest.TestCase):
         )
         self.assertEqual(decision.blockers, ("provider_candidate_artifact_binding",))
 
+    def test_commercial_evidence_must_bind_exact_candidate_artifact(self) -> None:
+        decision = evaluate_release_promotion(
+            target_channel=CANDIDATE,
+            version=VERSION,
+            revision=REVISION,
+            qualification=_qualification(),
+            security=_security(),
+            recovery=_recovery(),
+            real_environment=_real_environment(),
+            provider=_provider(),
+            artifacts=_artifacts(),
+            commercial=_commercial(artifact_sha256=OTHER_DIGEST),
+        )
+        self.assertEqual(decision.blockers, ("commercial_candidate_artifact_binding",))
+
     def test_real_environment_digest_is_required_even_when_booleans_are_true(self) -> None:
         decision = evaluate_release_promotion(
             target_channel=CANDIDATE,
@@ -279,6 +303,21 @@ class ReleasePromotionGateTests(unittest.TestCase):
             commercial=_commercial(),
         )
         self.assertEqual(decision.blockers, ("provider_evidence",))
+
+    def test_commercial_candidate_digest_is_required_even_when_approved(self) -> None:
+        decision = evaluate_release_promotion(
+            target_channel=CANDIDATE,
+            version=VERSION,
+            revision=REVISION,
+            qualification=_qualification(),
+            security=_security(),
+            recovery=_recovery(),
+            real_environment=_real_environment(),
+            provider=_provider(),
+            artifacts=_artifacts(),
+            commercial=_commercial(artifact_sha256=""),
+        )
+        self.assertEqual(decision.blockers, ("commercial_candidate_artifact_digest",))
 
     def test_cross_revision_evidence_is_rejected(self) -> None:
         other = "d" * 40
@@ -310,6 +349,7 @@ class ReleasePromotionGateTests(unittest.TestCase):
     def test_approved_label_alone_is_not_commercial_evidence(self) -> None:
         commercial = CommercialEvidence(
             binding=_binding(),
+            candidate_artifact_sha256=DIGEST,
             disposition=APPROVED,
             evidence_sha256="",
             dependencies_reviewed=False,
@@ -318,6 +358,7 @@ class ReleasePromotionGateTests(unittest.TestCase):
             source_obligations_resolved=False,
             sbom_reviewed=False,
             legal_terms_dispositioned=False,
+            support_terms_dispositioned=False,
             release_claims_reviewed=False,
         )
         decision = evaluate_release_promotion(
@@ -342,6 +383,7 @@ class ReleasePromotionGateTests(unittest.TestCase):
                 "source_obligations_resolved",
                 "sbom_reviewed",
                 "legal_terms_dispositioned",
+                "support_terms_dispositioned",
                 "release_claims_reviewed",
             ),
         )

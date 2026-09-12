@@ -97,6 +97,7 @@ class ArtifactEvidence:
 @dataclass(frozen=True, slots=True)
 class CommercialEvidence:
     binding: ReleaseBinding
+    candidate_artifact_sha256: str
     disposition: str
     evidence_sha256: str
     dependencies_reviewed: bool
@@ -105,6 +106,7 @@ class CommercialEvidence:
     source_obligations_resolved: bool
     sbom_reviewed: bool
     legal_terms_dispositioned: bool
+    support_terms_dispositioned: bool
     release_claims_reviewed: bool
 
 
@@ -264,6 +266,14 @@ def evaluate_release_promotion(
 
     if not commercial.binding.matches(version, revision):
         blockers.append("commercial_binding")
+    if not _valid_sha256(commercial.candidate_artifact_sha256):
+        blockers.append("commercial_candidate_artifact_digest")
+    if (
+        _valid_sha256(commercial.candidate_artifact_sha256)
+        and _valid_sha256(artifacts.candidate_artifact_sha256)
+        and commercial.candidate_artifact_sha256 != artifacts.candidate_artifact_sha256
+    ):
+        blockers.append("commercial_candidate_artifact_binding")
     if commercial.disposition != APPROVED:
         blockers.append("commercial_disposition")
     if not _valid_sha256(commercial.evidence_sha256):
@@ -280,6 +290,8 @@ def evaluate_release_promotion(
         blockers.append("sbom_reviewed")
     if not commercial.legal_terms_dispositioned:
         blockers.append("legal_terms_dispositioned")
+    if not commercial.support_terms_dispositioned:
+        blockers.append("support_terms_dispositioned")
     if not commercial.release_claims_reviewed:
         blockers.append("release_claims_reviewed")
 
