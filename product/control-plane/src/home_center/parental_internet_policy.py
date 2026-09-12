@@ -69,7 +69,12 @@ def _category(value: object) -> str:
 def _rule_list(values: object, normalizer, code: str, maximum: int) -> tuple[str, ...]:
     if not isinstance(values, (list, tuple)) or len(values) > maximum:
         raise ParentalInternetPolicyError(code)
-    result = tuple(sorted(normalizer(value) for value in values))
+    try:
+        result = tuple(sorted(normalizer(value) for value in values))
+    except ParentalInternetPolicyError:
+        raise
+    except (TypeError, ValueError) as exc:
+        raise ParentalInternetPolicyError(code) from exc
     if len(result) != len(set(result)):
         raise ParentalInternetPolicyError(code)
     return result
@@ -99,7 +104,26 @@ class ScheduleWindow:
 def _schedule(values: object) -> tuple[ScheduleWindow, ...]:
     if not isinstance(values, (list, tuple)) or len(values) > 64:
         raise ParentalInternetPolicyError("parental_schedule_invalid")
-    result = tuple(sorted(value if isinstance(value, ScheduleWindow) else ScheduleWindow(**value) for value in values))
+    windows: list[ScheduleWindow] = []
+    for value in values:
+        if isinstance(value, ScheduleWindow):
+            windows.append(value)
+            continue
+        if not isinstance(value, dict) or set(value) != {"weekday", "start_minute", "end_minute"}:
+            raise ParentalInternetPolicyError("parental_schedule_invalid")
+        try:
+            windows.append(
+                ScheduleWindow(
+                    weekday=value["weekday"],
+                    start_minute=value["start_minute"],
+                    end_minute=value["end_minute"],
+                )
+            )
+        except ParentalInternetPolicyError:
+            raise
+        except (TypeError, ValueError) as exc:
+            raise ParentalInternetPolicyError("parental_schedule_invalid") from exc
+    result = tuple(sorted(windows))
     for left, right in zip(result, result[1:]):
         if left.weekday == right.weekday and right.start_minute < left.end_minute:
             raise ParentalInternetPolicyError("parental_schedule_overlap")
@@ -194,10 +218,13 @@ def build_parental_internet_policy(*, base: ComposedPolicy, rule_source_id: str,
         raise TypeError("parental_base_policy_invalid")
     if base.role is not HouseholdRole.CHILD or base.internet_policy is InternetPolicy.FULL or base.vpn_allowed:
         raise ParentalInternetPolicyError("parental_policy_child_boundary_rejected")
-    source_id = _identifier(rule_source_id, "parental_rule_source_id_invalid")
-    if not _SOURCE_VERSION.fullmatch(rule_source_version or ""):
+    try:
+        source_id = _identifier(rule_source_id, "parental_rule_source_id_invalid")
+    except (TypeError, ValueError) as exc:
+        raise ParentalInternetPolicyError("parental_rule_source_id_invalid") from exc
+    if not isinstance(rule_source_version, str) or not _SOURCE_VERSION.fullmatch(rule_source_version):
         raise ParentalInternetPolicyError("parental_rule_source_version_invalid")
-    if not _SHA256.fullmatch(rule_source_sha256 or ""):
+    if not isinstance(rule_source_sha256, str) or not _SHA256.fullmatch(rule_source_sha256):
         raise ParentalInternetPolicyError("parental_rule_source_sha256_invalid")
     allow_d = _rule_list(allow_domains, _domain, "parental_allow_domains_invalid", 512)
     deny_d = _rule_list(deny_domains, _domain, "parental_deny_domains_invalid", 512)
@@ -260,6 +287,6 @@ def evaluate_parental_internet_policy(*, policy: ParentalInternetPolicy, query: 
         return out(AccessDecision.DENY, "classification_unknown")
     if category in policy.deny_categories:
         return out(AccessDecision.DENY, "category_deny")
-    if policy.allow_categories and category not in policy.allow_categories:
+    if category not in policy.allow_categories:
         return out(AccessDecision.DENY, "category_not_allowed")
     return out(AccessDecision.ALLOW, "category_allowed")
