@@ -74,6 +74,7 @@ class ProviderAdapterEvidence:
     binding: ReleaseBinding
     adapter_id: str
     adapter_version: str
+    candidate_artifact_sha256: str
     evidence_sha256: str
     qualified: bool
 
@@ -146,6 +147,7 @@ def _provider_identity_valid(evidence: ProviderAdapterEvidence) -> bool:
     return bool(
         _PROVIDER_ID.fullmatch(evidence.adapter_id)
         and _SEMVER.fullmatch(evidence.adapter_version)
+        and _valid_sha256(evidence.candidate_artifact_sha256)
         and _valid_sha256(evidence.evidence_sha256)
     )
 
@@ -226,6 +228,12 @@ def evaluate_release_promotion(
         blockers.append("provider_binding")
     if not _provider_identity_valid(provider):
         blockers.append("provider_evidence")
+    if (
+        _valid_sha256(provider.candidate_artifact_sha256)
+        and _valid_sha256(artifacts.candidate_artifact_sha256)
+        and provider.candidate_artifact_sha256 != artifacts.candidate_artifact_sha256
+    ):
+        blockers.append("provider_candidate_artifact_binding")
     if not provider.qualified:
         blockers.append("provider_adapter_qualification")
 

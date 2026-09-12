@@ -10,6 +10,7 @@
     "revision",
     "adapter_id",
     "adapter_version",
+    "candidate_artifact_sha256",
     "evidence_sha256",
     "qualified",
     "blockers",
@@ -22,6 +23,7 @@
     "revision": {"type": "string", "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"},
     "adapter_id": {"type": "string", "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$"},
     "adapter_version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+    "candidate_artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "qualified": {"type": "boolean"},
     "blockers": {
