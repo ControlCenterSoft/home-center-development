@@ -71,14 +71,15 @@ def test_policy_desired_state_job_and_audit_survive_sqlite_backup_restore(tmp_pa
     )
     desired_before = service.desired_state(actor=ACTOR, member_id=CHILD)
     assert desired_before is not None
-    assert source.verify_audit_chain() is True
+    audit_head = source.verify_audit_chain()
+    assert audit_head != "0" * 64
     source.backup_to(backup_path)
     source.close()
 
     restored = StateStore(backup_path, b"r" * 32, "cluster-test")
     restored_service = HouseholdPolicyRuntimeService(restored)
     assert restored.integrity_check() is True
-    assert restored.verify_audit_chain() is True
+    assert restored.verify_audit_chain() == audit_head
     assert restored_service.desired_state(actor=ACTOR, member_id=CHILD) == desired_before
     restored_job = restored.job(receipt["job_id"])
     assert restored_job is not None
