@@ -355,3 +355,50 @@ def test_snapshot_contract_is_valid_and_matches_runtime_value(tmp_path: Path) ->
     snapshot = load_enforcement_reconciliation_snapshot(store, str(plan["plan_id"]))
     Draft202012Validator(schema).validate(snapshot)
     store.close()
+
+
+def test_new_wrapper_after_restart_still_forbids_backend_reinvocation(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    _commit_desired(store)
+    enforcement, _wrapper, delegate = _services(store)
+    plan = _plan_confirm(enforcement)
+    enforcement.execute(
+        actor=PARENT_ACTOR,
+        plan_id=str(plan["plan_id"]),
+        correlation_id="enforcement-execute",
+    )
+    request = delegate.requests[0]
+
+    restarted_wrapper = ReconciliationSnapshotPolicyAdapter(store, BACKEND, delegate)
+    with pytest.raises(
+        HouseholdPolicyEnforcementReconciliationSnapshotError,
+        match="household_policy_enforcement_backend_reinvocation_forbidden",
+    ):
+        restarted_wrapper.apply_policy(request)
+
+    assert delegate.calls == 1
+    snapshot = load_enforcement_reconciliation_snapshot(store, str(plan["plan_id"]))
+    assert snapshot["backend_reinvocation_authorized"] is False
+    store.close()
+
+
+def test_snapshot_survives_state_store_backup_restore(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    _commit_desired(store)
+    enforcement, _wrapper, _delegate = _services(store)
+    plan = _plan_confirm(enforcement)
+    enforcement.execute(
+        actor=PARENT_ACTOR,
+        plan_id=str(plan["plan_id"]),
+        correlation_id="enforcement-execute",
+    )
+    before = load_enforcement_reconciliation_snapshot(store, str(plan["plan_id"]))
+
+    backup_path = tmp_path / "backup" / "state.db"
+    store.backup_to(backup_path)
+    store.close()
+
+    restored = StateStore(backup_path, b"s" * 32, "cluster-test")
+    after = load_enforcement_reconciliation_snapshot(restored, str(plan["plan_id"]))
+    assert after == before
+    restored.close()
