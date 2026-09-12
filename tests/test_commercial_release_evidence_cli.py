@@ -70,6 +70,7 @@ class CommercialReleaseEvidenceCliTests(unittest.TestCase):
             "source_obligations_resolved": True,
             "sbom_reviewed": True,
             "legal_terms_dispositioned": True,
+            "support_terms_dispositioned": True,
             "release_claims_reviewed": True,
         }
         value.update(overrides)
@@ -111,6 +112,11 @@ class CommercialReleaseEvidenceCliTests(unittest.TestCase):
             "legal_terms_digest_mismatch",
         ):
             self._qualify(self._manifest(legal_terms_sha256="e" * 64))
+
+    def test_support_terms_require_explicit_disposition(self) -> None:
+        decision = self._qualify(self._manifest(support_terms_dispositioned=False))
+        self.assertFalse(decision.qualified)
+        self.assertEqual(decision.blockers, ("support_terms_dispositioned",))
 
     def test_review_required_remains_blocked_after_exact_file_binding(self) -> None:
         decision = self._qualify(self._manifest(disposition="review-required"))
