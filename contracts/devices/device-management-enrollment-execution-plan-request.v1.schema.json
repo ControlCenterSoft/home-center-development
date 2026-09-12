@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/devices/device-management-enrollment-execution-plan-request.v1.schema.json",
+  "title": "Home Center device management enrollment execution plan request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "selection_proposal_id", "enrollment_mode", "credential_references", "timeout_seconds", "one_time_artifact"],
+  "properties": {
+    "schema": {"const": "home-center.device-management-enrollment-execution-plan-request.v1"},
+    "selection_proposal_id": {"type": "string", "pattern": "^dmpsel-[0-9a-f]{24}$"},
+    "enrollment_mode": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "credential_references": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "reference"],
+        "properties": {
+          "name": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+          "reference": {"type": "string", "pattern": "^secret://[A-Za-z0-9][A-Za-z0-9._/-]{0,239}$"}
+        }
+      }
+    },
+    "timeout_seconds": {"type": "integer", "minimum": 30, "maximum": 1800},
+    "one_time_artifact": {"type": "string", "enum": ["none", "token", "qr"]}
+  }
+}

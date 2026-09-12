@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/devices/device-management-enrollment-cancel-receipt.v1.schema.json",
+  "title": "Home Center device management enrollment cancel receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "state", "job_id", "start_job_id", "plan_id", "provider_id", "provider_operation_id", "post_condition_verified", "managed_state_change_authorized"],
+  "properties": {
+    "schema": {"const": "home-center.device-management-enrollment-cancel-receipt.v1"},
+    "state": {"const": "cancel-requested"},
+    "job_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "start_job_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "plan_id": {"type": "string", "pattern": "^dmpexec-[0-9a-f]{24}$"},
+    "provider_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "provider_operation_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "post_condition_verified": {"const": false},
+    "managed_state_change_authorized": {"const": false}
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/devices/device-management-enrollment-execution-start-request.v1.schema.json",
+  "title": "Home Center device management enrollment execution start request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "plan_id", "confirmed", "idempotency_key"],
+  "properties": {
+    "schema": {"const": "home-center.device-management-enrollment-execution-start-request.v1"},
+    "plan_id": {"type": "string", "pattern": "^dmpexec-[0-9a-f]{24}$"},
+    "confirmed": {"const": true},
+    "idempotency_key": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"}
+  }
+}

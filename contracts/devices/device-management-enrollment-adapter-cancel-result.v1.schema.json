@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/devices/device-management-enrollment-adapter-cancel-result.v1.schema.json",
+  "title": "Home Center provider enrollment adapter cancel result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "state", "provider_operation_id", "post_condition_verified", "managed_state_change_authorized"],
+  "properties": {
+    "schema": {"const": "home-center.device-management-enrollment-adapter-cancel-result.v1"},
+    "state": {"const": "cancel-accepted"},
+    "provider_operation_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "post_condition_verified": {"const": false},
+    "managed_state_change_authorized": {"const": false}
+  }
+}

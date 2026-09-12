@@ -15,6 +15,7 @@ from .automation_execution import AutomationPlanningService
 from .auth import LoginRateLimiter, SessionManager
 from .certificate_api import CertificateLifecycleApi, runtime_certificate_records
 from .config import Config
+from .device_management_enrollment_execution_recovery import RecoverableDeviceManagementEnrollmentExecutionRuntimeService
 from .device_management_provider_runtime import DeviceManagementProviderRuntimeService
 from .device_management_provider_selection_runtime import DeviceManagementProviderSelectionRuntimeService
 from .external_access import ExternalAccessPolicy, ExternalRequestRateLimiter
@@ -73,6 +74,7 @@ class Runtime:
         self.household_device_enrollment = HouseholdDeviceEnrollmentRuntimeService(self.store)
         self.device_management_providers = DeviceManagementProviderRuntimeService(self.store)
         self.device_management_provider_selection = DeviceManagementProviderSelectionRuntimeService(self.store)
+        self.device_management_enrollment_execution = RecoverableDeviceManagementEnrollmentExecutionRuntimeService(self.store)
         self.reconciler = Reconciler(config, self.store)
 
     def actor_requires_password_change(self, actor: str) -> bool:
