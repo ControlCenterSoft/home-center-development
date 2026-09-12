@@ -93,14 +93,24 @@ class ContractQualifiedDeviceManagementEnrollmentPostConditionRuntimeService(
         request: dict[str, Any],
         correlation_id: str,
     ) -> dict[str, object]:
-        """Bind the exact verifier qualification receipt to the durable verification plan."""
+        """Require qualification before persistence, then bind it to the exact plan."""
         with self._lock:
+            # Resolve the already-durable 0.57 execution receipt only to identify the
+            # provider. This is read-only and prevents creation/audit of a 0.58 plan
+            # when no currently valid contract-qualified verifier is registered.
+            execution_plan, _execution_envelope, _execution_receipt = self._execution(
+                request.get("execution_plan_id")
+            )
+            self._validated_qualification(execution_plan.provider_id)
+
             plan = super().plan(
                 actor=actor,
                 request=request,
                 correlation_id=correlation_id,
             )
             provider_id = plan.get("provider_id")
+            # Revalidate after base planning as well so descriptor drift cannot race
+            # between preflight admission and durable qualification binding.
             qualification = self._validated_qualification(provider_id)
             key, envelope, loaded_plan = self._load(plan.get("verification_id"))
             if loaded_plan != plan:
