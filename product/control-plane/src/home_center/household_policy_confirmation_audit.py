@@ -3,8 +3,9 @@
 The 0.59 confirmation envelope is stored in cluster metadata while the authoritative
 confirmation event lives in the keyed append-only Audit chain. This production
 writer refuses every Desired State apply/replay unless the persisted confirmation
-points to the exact matching Audit event. It never grants provider execution or
-infrastructure mutation authority.
+points to the exact matching Audit event. Its repository also semantically verifies
+every existing and newly written PolicyBundle instead of trusting only bundle IDs.
+It never grants provider execution or infrastructure mutation authority.
 """
 
 from __future__ import annotations
@@ -16,12 +17,32 @@ from typing import Any
 from .household_policy_desired_state import (
     POLICY_APPLY_REQUEST_SCHEMA,
     HouseholdPolicyDesiredStateError,
+    HouseholdPolicyDesiredStateRepository,
     HouseholdPolicyDesiredStateService,
     _proposal_key,
 )
+from .household_policy_evidence import HouseholdPolicyEvidenceError, validate_policy_bundle_evidence
 
 
 CONFIRM_ACTION = "household.policy.confirm"
+
+
+class SemanticHouseholdPolicyDesiredStateRepository(HouseholdPolicyDesiredStateRepository):
+    """Production repository that rejects semantically forged persisted PolicyBundle state."""
+
+    @staticmethod
+    def _decode(row: sqlite3.Row | None) -> dict[str, object] | None:
+        record = HouseholdPolicyDesiredStateRepository._decode(row)
+        if record is None:
+            return None
+        resource_key = record.get("resource_key")
+        if not isinstance(resource_key, str):
+            raise HouseholdPolicyDesiredStateError("household_policy_desired_state_invalid")
+        try:
+            validate_policy_bundle_evidence(record.get("value"), expected_resource_key=resource_key)
+        except HouseholdPolicyEvidenceError as exc:
+            raise HouseholdPolicyDesiredStateError("household_policy_desired_state_invalid") from exc
+        return record
 
 
 def validate_confirmation_audit_binding(
@@ -91,7 +112,11 @@ def validate_confirmation_audit_binding(
 
 
 class AuditBoundHouseholdPolicyDesiredStateService(HouseholdPolicyDesiredStateService):
-    """Production 0.59 writer that verifies confirmation Audit evidence before use."""
+    """Production 0.59 writer with Audit binding and semantic persisted-state validation."""
+
+    def __init__(self, store) -> None:
+        super().__init__(store)
+        self.repository = SemanticHouseholdPolicyDesiredStateRepository(store.path)
 
     def apply(self, *, actor: str, request: dict[str, Any], correlation_id: str) -> dict[str, object]:
         # Preserve the base writer's closed request contract before touching persisted state.
