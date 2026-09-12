@@ -79,11 +79,14 @@ def compare_and_swap_meta_succeed_job_and_audit(
     audit_outcome: str,
     audit_correlation_id: str,
     audit_details: dict[str, Any],
+    audit_event_id: str | None = None,
 ) -> str | None:
     """Atomically replace metadata, succeed one action Job, and append Audit.
 
     ``None`` means the metadata or Job precondition changed and nothing was
     written. Any returned event id proves all three records committed together.
+    A caller may pre-allocate ``audit_event_id`` so the terminal Job receipt can
+    reference the exact Audit entry in the same transaction.
     """
 
     _inputs(store, key)
@@ -106,6 +109,12 @@ def compare_and_swap_meta_succeed_job_and_audit(
             raise ValueError(code)
     if not isinstance(audit_details, dict):
         raise TypeError("invalid_audit_details")
+    if audit_event_id is not None and (
+        not isinstance(audit_event_id, str)
+        or not audit_event_id
+        or len(audit_event_id) > 128
+    ):
+        raise ValueError("invalid_audit_event_id")
 
     expected_payload = canonical_json(expected)
     replacement_payload = canonical_json(replacement)
@@ -114,7 +123,7 @@ def compare_and_swap_meta_succeed_job_and_audit(
     steps_payload = canonical_json(steps)
     details_json = canonical_json(audit_details)
     now = utc_now()
-    event_id = str(uuid.uuid4())
+    event_id = audit_event_id or str(uuid.uuid4())
 
     with store._lock:
         store._connection.execute("BEGIN IMMEDIATE")
