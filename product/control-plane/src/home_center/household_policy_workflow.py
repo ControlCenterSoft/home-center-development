@@ -21,7 +21,11 @@ from .household_policy_desired_state import (
     POLICY_APPLY_REQUEST_SCHEMA,
     HouseholdPolicyDesiredStateRepository,
 )
-from .household_policy_history import HouseholdPolicyHistoryError, HouseholdPolicyHistoryService
+from .household_policy_history import (
+    POLICY_ROLLBACK_RECEIPT_SCHEMA,
+    HouseholdPolicyHistoryError,
+    HouseholdPolicyHistoryService,
+)
 from .household_policy_presentation import build_policy_presentation
 from .household_policy_runtime import (
     POLICY_CONFIRMATION_SCHEMA,
@@ -180,6 +184,66 @@ class HouseholdPolicyWorkflowService:
             raise HouseholdPolicyRuntimeError("household_policy_history_evidence_mismatch")
         return resource_key, generation
 
+    def _validate_rollback_evidence(
+        self,
+        *,
+        request: dict[str, Any],
+        receipt: dict[str, object],
+    ) -> None:
+        """Prove that rollback success is the exact historical bundle now stored as current state."""
+
+        resource_key = request.get("resource_key")
+        expected_generation = request.get("expected_generation")
+        target_generation = request.get("target_generation")
+        generation = receipt.get("generation")
+        changed = receipt.get("changed")
+        outcome = receipt.get("outcome")
+        if (
+            not isinstance(resource_key, str)
+            or not resource_key
+            or isinstance(expected_generation, bool)
+            or not isinstance(expected_generation, int)
+            or expected_generation < 1
+            or isinstance(target_generation, bool)
+            or not isinstance(target_generation, int)
+            or target_generation < 1
+            or target_generation >= expected_generation
+            or receipt.get("schema") != POLICY_ROLLBACK_RECEIPT_SCHEMA
+            or receipt.get("resource_key") != resource_key
+            or receipt.get("target_history_generation") != target_generation
+            or isinstance(generation, bool)
+            or not isinstance(generation, int)
+            or not isinstance(changed, bool)
+            or not isinstance(receipt.get("recovered"), bool)
+            or outcome not in {"rolled-back", "already-current", "already-rolled-back"}
+            or (outcome == "rolled-back" and changed is not True)
+            or (outcome == "already-current" and changed is not False)
+            or generation != expected_generation + (1 if changed else 0)
+            or receipt.get("desired_state_materialized") is not True
+            or receipt.get("provider_execution_authorized") is not False
+            or receipt.get("infrastructure_mutation_authorized") is not False
+            or receipt.get("external_publication_authorized") is not False
+            or not isinstance(receipt.get("audit_event_id"), str)
+            or not receipt.get("audit_event_id")
+        ):
+            raise HouseholdPolicyRuntimeError("household_policy_rollback_evidence_mismatch")
+
+        target_history = self.history.read(resource_key=resource_key, generation=target_generation)
+        current = self.history.repository.read(resource_key)
+        if current is None:
+            raise HouseholdPolicyRuntimeError("household_policy_rollback_evidence_mismatch")
+        current_generation, current_bundle_id = HouseholdPolicyDesiredStateRepository.revision(current)
+        current_history = self.history.read(resource_key=resource_key, generation=generation)
+        if (
+            receipt.get("target_history_bundle_id") != target_history.get("bundle_id")
+            or current_generation != generation
+            or current_bundle_id != receipt.get("bundle_id")
+            or current.get("value") != target_history.get("value")
+            or current_history.get("bundle_id") != current_bundle_id
+            or current_history.get("value") != current.get("value")
+        ):
+            raise HouseholdPolicyRuntimeError("household_policy_rollback_evidence_mismatch")
+
     def plan(self, *, actor: str, request: dict[str, Any], correlation_id: str) -> dict[str, object]:
         """Persist an exact proposal and return the same evidence for Cozy and Full UI."""
 
@@ -249,7 +313,7 @@ class HouseholdPolicyWorkflowService:
         if not isinstance(resource_key, str) or isinstance(generation, bool) or not isinstance(generation, int):
             raise HouseholdPolicyRuntimeError("household_policy_materialization_receipt_invalid")
         history = self.history.read(resource_key=resource_key, generation=generation)
-        resource_key, generation = self._validate_materialized_evidence(
+        self._validate_materialized_evidence(
             proposal,
             confirmation_id=confirmation_id,
             receipt=receipt,
@@ -319,8 +383,12 @@ class HouseholdPolicyWorkflowService:
     def rollback(self, *, actor: str, request: dict[str, Any], correlation_id: str) -> dict[str, object]:
         """Restore one exact historical policy bundle as a new monotonic revision."""
 
-        return self.history.rollback(
+        receipt = self.history.rollback(
             actor=actor,
             request=request,
             correlation_id=correlation_id,
         )
+        if not isinstance(receipt, dict):
+            raise HouseholdPolicyRuntimeError("household_policy_rollback_evidence_mismatch")
+        self._validate_rollback_evidence(request=request, receipt=receipt)
+        return receipt
