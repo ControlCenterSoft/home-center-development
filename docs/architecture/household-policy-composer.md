@@ -14,6 +14,8 @@ Policy Composer переводит бытовую роль участника с
 6. **История проверяема.** Каждая сохранённая policy revision связывается с SHA-256 evidence и keyed append-only Audit chain. Повреждение payload/evidence/audit трактуется как недоступность доверенного состояния, а не как пользовательская ошибка.
 7. **Rollback — новая ревизия.** Откат не уменьшает generation. Ранее подтверждённый bundle материализуется как новая monotonic generation только после явного подтверждения и проверки exact current revision.
 8. **Повторы идемпотентны.** Повтор подтверждения, apply и rollback не создаёт повторную мутацию и не увеличивает generation без изменения policy.
+9. **Успех доказывается post-condition, а не receipt.** Перед успешным ответом apply/rollback orchestration связывает receipt с точным proposal/confirmation, immutable history и фактическим текущим Desired State. Несовпадение означает fail-closed integrity error.
+10. **Persisted PolicyBundle проверяется семантически.** Помимо SHA-256/Audit evidence проверяются закрытая форма bundle, точное соответствие `RolePreset`, `EffectivePolicy`, `policy_id`, `bundle_id`, resource scope, бытового explanation и всех authority-флагов. Архивированный, но семантически подменённый bundle не считается доверенным.
 
 ## Поток данных
 
@@ -42,7 +44,7 @@ Protected Desired State writer использует следующий поря�
 
 Если процесс остановился после шага 3, replay обязан сначала доказать exact target bundle в Desired State. Только доказанный exact-state разрешает финализацию evidence без второй мутации. В противном случае операция остаётся fail-closed.
 
-Rollback использует аналогичный durable `applying/applied/invalidated` протокол и exact current-state precondition.
+Rollback использует аналогичный durable `applying/applied/invalidated` протокол и exact current-state precondition. В исходном коде подготовлены fault-injection tests для потери процесса сразу после committed CAS, после completion Audit до durable `applied` marker и после rollback Desired State commit до history archive. Их фактическое выполнение относится к runner-dependent qualification и до неё не считается доказанным.
 
 ## HTTP boundary
 
