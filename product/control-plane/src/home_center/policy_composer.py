@@ -102,6 +102,7 @@ def _plan_canonical(
     current_policy_id: str,
     current_bundle_id: str,
     desired_state_id: str,
+    cozy_summary_ru: tuple[str, ...],
 ) -> dict[str, object]:
     return {
         "household_id": household_id,
@@ -113,6 +114,7 @@ def _plan_canonical(
         "current_policy_id": current_policy_id,
         "current_bundle_id": current_bundle_id,
         "desired_state_id": desired_state_id,
+        "cozy_summary_ru": list(cozy_summary_ru),
     }
 
 
@@ -292,6 +294,7 @@ class PolicyChangePlan:
             current_policy_id=current_policy_id,
             current_bundle_id=current_bundle_id,
             desired_state_id=self.desired_state.desired_state_id,
+            cozy_summary_ru=self.cozy_summary_ru,
         )
         if plan_id != "hpplan-" + _digest(canonical)[:24]:
             raise PolicyComposerError("policy_change_evidence_mismatch")
@@ -481,6 +484,7 @@ def compose_policy_change_plan(
         generation=snapshot.generation,
         bundle=target_bundle,
     )
+    summary = _summary(target_bundle)
     plan_canonical = _plan_canonical(
         household_id=snapshot.household_id,
         snapshot_id=snapshot.snapshot_id,
@@ -491,6 +495,7 @@ def compose_policy_change_plan(
         current_policy_id=current.policy_id,
         current_bundle_id=current_bundle.bundle_id,
         desired_state_id=desired_state.desired_state_id,
+        cozy_summary_ru=summary,
     )
     return PolicyChangePlan(
         plan_id="hpplan-" + _digest(plan_canonical)[:24],
@@ -503,7 +508,7 @@ def compose_policy_change_plan(
         current_policy_id=current.policy_id,
         current_bundle_id=current_bundle.bundle_id,
         desired_state=desired_state,
-        cozy_summary_ru=_summary(target_bundle),
+        cozy_summary_ru=summary,
     )
 
 
