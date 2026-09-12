@@ -48,7 +48,7 @@
       ]
     },
     "audit_event_id": {"type": "string", "minLength": 1, "maxLength": 128},
-    "outcome": {"const": "confirmed-for-desired-state-write"},
+    "outcome": {"enum": ["confirmed-for-desired-state-write", "already-confirmed"]},
     "desired_state_write_ready": {"const": true},
     "desired_state_write_authorized": {"const": false},
     "infrastructure_mutation_authorized": {"const": false},
