@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/releases/public-stable-provenance.v2.schema.json",
+  "title": "Home Center public stable provenance v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "product",
+    "version",
+    "source_identity_sha256",
+    "release_boundary_identity_sha256",
+    "approved_manifest_sha256",
+    "summary",
+    "files"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.public-stable-provenance.v2"},
+    "product": {"const": "home-center"},
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "source_identity_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "release_boundary_identity_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "approved_manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "identical", "adapted", "excluded"],
+      "properties": {
+        "total": {"type": "integer", "minimum": 1},
+        "identical": {"type": "integer", "minimum": 0},
+        "adapted": {"type": "integer", "minimum": 0},
+        "excluded": {"type": "integer", "minimum": 0}
+      }
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/file"}
+    }
+  },
+  "$defs": {
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "approved_sha256", "disposition", "stable_sha256", "reason"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"},
+        "approved_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "disposition": {"enum": ["identical", "adapted", "excluded"]},
+        "stable_sha256": {
+          "oneOf": [
+            {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            {"type": "null"}
+          ]
+        },
+        "reason": {
+          "enum": [
+            "approved-byte-copy",
+            "hardened-stable-integration",
+            "stable-public-surface",
+            "stable-release-boundary",
+            "stable-release-documentation"
+          ]
+        }
+      }
+    }
+  }
+}
