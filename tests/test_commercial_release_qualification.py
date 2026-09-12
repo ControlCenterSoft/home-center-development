@@ -41,6 +41,7 @@ def _evidence(**overrides: object) -> CommercialReleaseEvidence:
         "source_obligations_resolved": True,
         "sbom_reviewed": True,
         "legal_terms_dispositioned": True,
+        "support_terms_dispositioned": True,
         "release_claims_reviewed": True,
     }
     values.update(overrides)
@@ -66,6 +67,7 @@ class CommercialReleaseQualificationTests(unittest.TestCase):
                 source_obligations_resolved=False,
                 sbom_reviewed=False,
                 legal_terms_dispositioned=False,
+                support_terms_dispositioned=False,
                 release_claims_reviewed=False,
             )
         )
@@ -79,9 +81,18 @@ class CommercialReleaseQualificationTests(unittest.TestCase):
                 "source_obligations_resolved",
                 "sbom_reviewed",
                 "legal_terms_dispositioned",
+                "support_terms_dispositioned",
                 "release_claims_reviewed",
             ),
         )
+        self.assertEqual(decision.evidence_sha256, "0" * 64)
+
+    def test_support_terms_digest_is_not_enough_without_disposition(self) -> None:
+        decision = evaluate_commercial_release_qualification(
+            _evidence(support_terms_dispositioned=False)
+        )
+        self.assertFalse(decision.qualified)
+        self.assertEqual(decision.blockers, ("support_terms_dispositioned",))
         self.assertEqual(decision.evidence_sha256, "0" * 64)
 
     def test_review_required_and_rejected_dispositions_fail_closed(self) -> None:
