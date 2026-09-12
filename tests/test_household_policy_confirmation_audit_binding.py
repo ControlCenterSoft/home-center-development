@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sqlite3
+
 import pytest
 
 from home_center.household_policy_confirmation_audit import AuditBoundHouseholdPolicyDesiredStateService
@@ -35,7 +37,7 @@ def _services(tmp_path):
         policy_runtime=policy_runtime,
         history=history,
     )
-    return store, household, policy_runtime, workflow
+    return store, household, policy_runtime, desired_state, workflow
 
 
 def _plan(workflow, household):
@@ -74,7 +76,7 @@ def _confirm_and_apply(workflow, proposal_id: str):
 
 
 def test_exact_confirmation_audit_binding_allows_materialization(tmp_path) -> None:
-    store, household, _policy_runtime, workflow = _services(tmp_path)
+    store, household, _policy_runtime, _desired_state, workflow = _services(tmp_path)
     plan = _plan(workflow, household)
     result = _confirm_and_apply(workflow, plan["proposal"]["proposal_id"])
 
@@ -86,7 +88,7 @@ def test_exact_confirmation_audit_binding_allows_materialization(tmp_path) -> No
 
 
 def test_missing_confirmation_audit_event_blocks_materialization(tmp_path) -> None:
-    store, household, policy_runtime, workflow = _services(tmp_path)
+    store, household, policy_runtime, _desired_state, workflow = _services(tmp_path)
     plan = _plan(workflow, household)
     proposal_id = plan["proposal"]["proposal_id"]
     _confirm(policy_runtime, proposal_id)
@@ -110,7 +112,7 @@ def test_missing_confirmation_audit_event_blocks_materialization(tmp_path) -> No
 
 
 def test_unrelated_valid_audit_event_blocks_materialization(tmp_path) -> None:
-    store, household, policy_runtime, workflow = _services(tmp_path)
+    store, household, policy_runtime, _desired_state, workflow = _services(tmp_path)
     plan = _plan(workflow, household)
     proposal_id = plan["proposal"]["proposal_id"]
     _confirm(policy_runtime, proposal_id)
@@ -136,6 +138,39 @@ def test_unrelated_valid_audit_event_blocks_materialization(tmp_path) -> None:
 
     with pytest.raises(HouseholdPolicyDesiredStateError, match="household_policy_confirmation_audit_mismatch"):
         _confirm_and_apply(workflow, proposal_id)
+
+    assert store.desired_state() == []
+    store.close()
+
+
+def test_corrupted_keyed_audit_chain_blocks_materialization(tmp_path) -> None:
+    store, household, policy_runtime, _desired_state, workflow = _services(tmp_path)
+    plan = _plan(workflow, household)
+    proposal_id = plan["proposal"]["proposal_id"]
+    confirmation = _confirm(policy_runtime, proposal_id)
+
+    with sqlite3.connect(store.path, timeout=5) as connection:
+        connection.execute(
+            "UPDATE audit SET details_json=? WHERE event_id=?",
+            ('{"tampered":true}', confirmation["audit_event_id"]),
+        )
+
+    with pytest.raises(HouseholdPolicyDesiredStateError, match="household_policy_confirmation_audit_invalid"):
+        _confirm_and_apply(workflow, proposal_id)
+
+    assert store.desired_state() == []
+    store.close()
+
+
+def test_audit_bound_writer_preserves_closed_apply_request_contract(tmp_path) -> None:
+    store, _household, _policy_runtime, desired_state, _workflow = _services(tmp_path)
+
+    with pytest.raises(HouseholdPolicyDesiredStateError, match="invalid_household_policy_apply_request"):
+        desired_state.apply(
+            actor=ACTOR,
+            request={"schema": "home-center.household-policy-apply-request.v1"},
+            correlation_id="policy-confirmation-audit-invalid-request",
+        )
 
     assert store.desired_state() == []
     store.close()
