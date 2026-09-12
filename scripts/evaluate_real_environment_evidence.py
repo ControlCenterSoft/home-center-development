@@ -95,9 +95,21 @@ def canonical_json(value: object) -> bytes:
     ).encode("utf-8")
 
 
+def _reject_duplicate_object_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, item in pairs:
+        if key in value:
+            raise RealEnvironmentEvidenceInputError("input_duplicate_key")
+        value[key] = item
+    return value
+
+
 def _load_json(path: Path) -> dict[str, Any]:
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
+        value = json.loads(
+            path.read_text(encoding="utf-8"),
+            object_pairs_hook=_reject_duplicate_object_pairs,
+        )
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise RealEnvironmentEvidenceInputError("input_invalid") from exc
     _require(isinstance(value, dict), "input_not_object")
