@@ -156,7 +156,11 @@
       if (!response.ok) {
         latestHistory = null;
         byId('policy-history-list')?.replaceChildren();
-        historyMessage('История появится после первого сохранения правил.');
+        if (response.status === 404 && data?.error?.code === 'household_policy_desired_state_missing') {
+          historyMessage('История появится после первого сохранения правил.');
+        } else {
+          historyMessage(errorMessage(data, 'Не удалось проверить целостность истории правил.'), 'error');
+        }
         return;
       }
       if (
