@@ -22,7 +22,7 @@ def create_backup(retain: int = 14) -> tuple[Path, Path]:
     store = StateStore(config.state_db, config.audit_key_file.read_bytes(), config.cluster_id)
     stamp = utc_now().replace("-", "").replace(":", "")
     config.backup_dir.mkdir(parents=True, exist_ok=True)
-    os.chmod(config.backup_dir, 0o750)
+    os.chmod(config.backup_dir, 0o700)
     with tempfile.TemporaryDirectory(prefix="home-center-backup-") as raw_tmp:
         tmp = Path(raw_tmp)
         snapshot = tmp / "state.sqlite3"
@@ -47,11 +47,11 @@ def create_backup(retain: int = 14) -> tuple[Path, Path]:
         with tarfile.open(archive, "w:gz", format=tarfile.PAX_FORMAT) as bundle:
             bundle.add(snapshot, arcname="state.sqlite3", recursive=False)
             bundle.add(manifest_file, arcname="manifest.json", recursive=False)
-        os.chmod(archive, 0o640)
+        os.chmod(archive, 0o600)
     manifest["archive_sha256"] = sha256_file(archive)
     manifest["archive_bytes"] = archive.stat().st_size
     sidecar = archive.with_suffix("").with_suffix(".manifest.json")
-    atomic_write(sidecar, (canonical_json(manifest) + "\n").encode("utf-8"), 0o640)
+    atomic_write(sidecar, (canonical_json(manifest) + "\n").encode("utf-8"), 0o600)
     verify_backup(archive, expected_archive_hash=manifest["archive_sha256"], audit_key=config.audit_key_file.read_bytes())
     store.audit(actor="system:backup", action="backup.create", target=config.node_id, outcome="verified", correlation_id=archive.name, details={"archive": archive.name, "archive_sha256": manifest["archive_sha256"]})
     store.close()
@@ -138,9 +138,10 @@ def main() -> None:
     if args.command == "create":
         archive, sidecar = create_backup(args.retain)
         print(json.dumps({"status": "verified", "archive": str(archive), "manifest": str(sidecar)}))
-    else:
+    elif args.command == "verify":
         config = load_config()
-        print(json.dumps({"status": "verified", "manifest": verify_backup(args.archive, audit_key=config.audit_key_file.read_bytes())}))
+        result = verify_backup(args.archive, audit_key=config.audit_key_file.read_bytes())
+        print(json.dumps({"status": "verified", "manifest": result}, sort_keys=True))
 
 
 if __name__ == "__main__":
