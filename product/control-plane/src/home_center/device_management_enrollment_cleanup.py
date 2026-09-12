@@ -161,24 +161,38 @@ def _expected_failures(
     return tuple(failures)
 
 
-def _validated_negative_evidence(
+def _validated_observation_evidence(
     value: object,
 ) -> DeviceManagementEnrollmentVerificationEvidence:
+    """Validate read-back evidence without assuming whether state is present or absent."""
+
     if not isinstance(value, DeviceManagementEnrollmentVerificationEvidence):
         raise DeviceManagementEnrollmentCleanupError(
             "device_management_enrollment_verification_evidence_invalid"
         )
+    expected_failures = _expected_failures(value)
+    expected_verified = not expected_failures
     if (
-        value.verified
-        or value.managed_state_change_authorized
-        or not value.failure_reasons
-        or value.failure_reasons != _expected_failures(value)
+        value.failure_reasons != expected_failures
+        or value.verified is not expected_verified
+        or value.managed_state_change_authorized is not expected_verified
         or RFC3339_UTC_SECONDS.fullmatch(value.observed_at) is None
     ):
         raise DeviceManagementEnrollmentCleanupError(
             "device_management_enrollment_verification_evidence_invalid"
         )
     return value
+
+
+def _validated_negative_evidence(
+    value: object,
+) -> DeviceManagementEnrollmentVerificationEvidence:
+    evidence = _validated_observation_evidence(value)
+    if evidence.verified or evidence.managed_state_change_authorized or not evidence.failure_reasons:
+        raise DeviceManagementEnrollmentCleanupError(
+            "device_management_enrollment_verification_evidence_invalid"
+        )
+    return evidence
 
 
 def build_failed_enrollment_cleanup_plan(
@@ -241,15 +255,17 @@ def assess_retry_after_cleanup(
 ) -> DeviceManagementEnrollmentRetryAssessment:
     """Assess whether a *new retry plan* may be considered after fresh read-back.
 
-    This function never authorizes provider execution.  It only states whether
-    the normal enrollment planning boundary may be entered again.
+    This function never authorizes provider execution.  A fully residual provider
+    state is a valid observation and remains fail closed with retry planning
+    denied; it is not treated as malformed evidence merely because all enrollment
+    post-conditions still happen to be present.
     """
 
     if not isinstance(cleanup_plan, DeviceManagementEnrollmentCleanupPlan):
         raise DeviceManagementEnrollmentCleanupError(
             "device_management_enrollment_cleanup_plan_invalid"
         )
-    evidence = _validated_negative_evidence(post_cleanup_evidence)
+    evidence = _validated_observation_evidence(post_cleanup_evidence)
 
     if (
         evidence.verification_id != cleanup_plan.verification_id
