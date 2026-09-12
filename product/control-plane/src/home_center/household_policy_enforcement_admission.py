@@ -1,11 +1,11 @@
 """Fail-closed policy enforcement admission preparation for Home Center 0.59.
 
-This module deliberately stops before backend mutation.  It binds a future
+This module deliberately stops before backend mutation. It binds a future
 policy-enforcement attempt to one exact protected Desired State and one exact
 backend capability evidence identity, then evaluates whether the request is
 ready to cross into a later execution boundary.
 
-A positive admission decision is evidence only.  It never invokes a backend,
+A positive admission decision is evidence only. It never invokes a backend,
 never grants execution/publication/infrastructure authority and always requires
 fresh exact-state revalidation immediately before a future mutation.
 """
@@ -26,6 +26,26 @@ DECISION_SCHEMA = "home-center.household-policy-enforcement-admission.v1"
 _ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _PLAN_ID = re.compile(r"^hpenf-[0-9a-f]{24}$")
+_PLAN_FIELDS = {
+    "schema",
+    "plan_id",
+    "household_id",
+    "member_id",
+    "desired_generation",
+    "source_plan_id",
+    "policy_id",
+    "policy_sha256",
+    "desired_state_sha256",
+    "backend_id",
+    "backend_version",
+    "backend_capability_evidence_sha256",
+    "post_condition_verification_required",
+    "fresh_revalidation_required",
+    "automatic_retry_authorized",
+    "execution_authorized",
+    "infrastructure_mutation_authorized",
+    "external_publication_authorized",
+}
 
 
 class HouseholdPolicyEnforcementAdmissionError(ValueError):
@@ -77,18 +97,24 @@ def _validate_desired_state(value: object) -> dict[str, Any]:
     if set(value) != required:
         raise HouseholdPolicyEnforcementAdmissionError("household_policy_desired_state_invalid")
 
-    _identifier(value.get("household_id"), "household_policy_household_id_invalid")
-    _identifier(value.get("member_id"), "household_policy_member_id_invalid")
-    _identifier(value.get("plan_id"), "household_policy_source_plan_id_invalid")
-    _positive_int(value.get("generation"), "household_policy_desired_generation_invalid")
+    household_id = _identifier(
+        value.get("household_id"), "household_policy_household_id_invalid"
+    )
+    member_id = _identifier(value.get("member_id"), "household_policy_member_id_invalid")
+    source_plan_id = _identifier(
+        value.get("plan_id"), "household_policy_source_plan_id_invalid"
+    )
+    generation = _positive_int(
+        value.get("generation"), "household_policy_desired_generation_invalid"
+    )
 
     policy = value.get("policy")
     if not isinstance(policy, dict):
         raise HouseholdPolicyEnforcementAdmissionError("household_policy_desired_policy_invalid")
     policy_id = _identifier(policy.get("policy_id"), "household_policy_policy_id_invalid")
-    if policy.get("household_id") != value.get("household_id"):
+    if policy.get("household_id") != household_id:
         raise HouseholdPolicyEnforcementAdmissionError("household_policy_policy_household_mismatch")
-    if policy.get("member_id") != value.get("member_id"):
+    if policy.get("member_id") != member_id:
         raise HouseholdPolicyEnforcementAdmissionError("household_policy_policy_member_mismatch")
 
     policy_sha256 = _sha256(
@@ -119,9 +145,45 @@ def _validate_desired_state(value: object) -> dict[str, Any]:
         raise HouseholdPolicyEnforcementAdmissionError("household_policy_reason_invalid")
 
     normalized = dict(value)
+    normalized["household_id"] = household_id
+    normalized["member_id"] = member_id
+    normalized["generation"] = generation
+    normalized["plan_id"] = source_plan_id
     normalized["policy"] = dict(policy)
     normalized["policy"]["policy_id"] = policy_id
+    normalized["policy_sha256"] = policy_sha256
     return normalized
+
+
+def _plan_canonical(
+    *,
+    household_id: str,
+    member_id: str,
+    desired_generation: int,
+    source_plan_id: str,
+    policy_id: str,
+    policy_sha256: str,
+    desired_state_sha256: str,
+    backend_id: str,
+    backend_version: str,
+    backend_capability_evidence_sha256: str,
+) -> dict[str, object]:
+    return {
+        "household_id": household_id,
+        "member_id": member_id,
+        "desired_generation": desired_generation,
+        "source_plan_id": source_plan_id,
+        "policy_id": policy_id,
+        "policy_sha256": policy_sha256,
+        "desired_state_sha256": desired_state_sha256,
+        "backend_id": backend_id,
+        "backend_version": backend_version,
+        "backend_capability_evidence_sha256": backend_capability_evidence_sha256,
+    }
+
+
+def _plan_id(canonical: dict[str, object]) -> str:
+    return "hpenf-" + _digest(canonical)[:24]
 
 
 @dataclass(frozen=True, slots=True)
@@ -210,21 +272,20 @@ def build_policy_enforcement_plan(
         backend_capability_evidence_sha256,
         "household_policy_backend_capability_evidence_invalid",
     )
-    desired_digest = _digest(desired)
-    canonical = {
-        "household_id": desired["household_id"],
-        "member_id": desired["member_id"],
-        "desired_generation": desired["generation"],
-        "source_plan_id": desired["plan_id"],
-        "policy_id": desired["policy"]["policy_id"],
-        "policy_sha256": desired["policy_sha256"],
-        "desired_state_sha256": desired_digest,
-        "backend_id": backend,
-        "backend_version": version,
-        "backend_capability_evidence_sha256": capability_digest,
-    }
+    canonical = _plan_canonical(
+        household_id=desired["household_id"],
+        member_id=desired["member_id"],
+        desired_generation=desired["generation"],
+        source_plan_id=desired["plan_id"],
+        policy_id=desired["policy"]["policy_id"],
+        policy_sha256=desired["policy_sha256"],
+        desired_state_sha256=_digest(desired),
+        backend_id=backend,
+        backend_version=version,
+        backend_capability_evidence_sha256=capability_digest,
+    )
     return PolicyEnforcementPlan(
-        plan_id="hpenf-" + _digest(canonical)[:24],
+        plan_id=_plan_id(canonical),
         household_id=str(canonical["household_id"]),
         member_id=str(canonical["member_id"]),
         desired_generation=int(canonical["desired_generation"]),
@@ -239,31 +300,17 @@ def build_policy_enforcement_plan(
 
 
 def policy_enforcement_plan_from_dict(value: object) -> PolicyEnforcementPlan:
-    if not isinstance(value, dict) or value.get("schema") != PLAN_SCHEMA:
-        raise HouseholdPolicyEnforcementAdmissionError("household_policy_enforcement_plan_invalid")
-    expected = set(PolicyEnforcementPlan(
-        plan_id="hpenf-" + "0" * 24,
-        household_id="h",
-        member_id="m",
-        desired_generation=1,
-        source_plan_id="p",
-        policy_id="q",
-        policy_sha256="0" * 64,
-        desired_state_sha256="0" * 64,
-        backend_id="b",
-        backend_version="1",
-        backend_capability_evidence_sha256="0" * 64,
-    ).to_dict())
-    if set(value) != expected:
+    if (
+        not isinstance(value, dict)
+        or value.get("schema") != PLAN_SCHEMA
+        or set(value) != _PLAN_FIELDS
+    ):
         raise HouseholdPolicyEnforcementAdmissionError("household_policy_enforcement_plan_invalid")
 
-    plan_id = value.get("plan_id")
-    if not isinstance(plan_id, str) or _PLAN_ID.fullmatch(plan_id) is None:
+    supplied_plan_id = value.get("plan_id")
+    if not isinstance(supplied_plan_id, str) or _PLAN_ID.fullmatch(supplied_plan_id) is None:
         raise HouseholdPolicyEnforcementAdmissionError("household_policy_enforcement_plan_invalid")
-    for field_name in (
-        "post_condition_verification_required",
-        "fresh_revalidation_required",
-    ):
+    for field_name in ("post_condition_verification_required", "fresh_revalidation_required"):
         if value.get(field_name) is not True:
             raise HouseholdPolicyEnforcementAdmissionError("household_policy_enforcement_plan_invalid")
     for field_name in (
@@ -275,20 +322,47 @@ def policy_enforcement_plan_from_dict(value: object) -> PolicyEnforcementPlan:
         if value.get(field_name) is not False:
             raise HouseholdPolicyEnforcementAdmissionError("household_policy_enforcement_plan_invalid")
 
-    return PolicyEnforcementPlan(
-        plan_id=plan_id,
+    canonical = _plan_canonical(
         household_id=_identifier(value.get("household_id"), "household_policy_enforcement_plan_invalid"),
         member_id=_identifier(value.get("member_id"), "household_policy_enforcement_plan_invalid"),
-        desired_generation=_positive_int(value.get("desired_generation"), "household_policy_enforcement_plan_invalid"),
-        source_plan_id=_identifier(value.get("source_plan_id"), "household_policy_enforcement_plan_invalid"),
+        desired_generation=_positive_int(
+            value.get("desired_generation"), "household_policy_enforcement_plan_invalid"
+        ),
+        source_plan_id=_identifier(
+            value.get("source_plan_id"), "household_policy_enforcement_plan_invalid"
+        ),
         policy_id=_identifier(value.get("policy_id"), "household_policy_enforcement_plan_invalid"),
-        policy_sha256=_sha256(value.get("policy_sha256"), "household_policy_enforcement_plan_invalid"),
-        desired_state_sha256=_sha256(value.get("desired_state_sha256"), "household_policy_enforcement_plan_invalid"),
+        policy_sha256=_sha256(
+            value.get("policy_sha256"), "household_policy_enforcement_plan_invalid"
+        ),
+        desired_state_sha256=_sha256(
+            value.get("desired_state_sha256"), "household_policy_enforcement_plan_invalid"
+        ),
         backend_id=_identifier(value.get("backend_id"), "household_policy_enforcement_plan_invalid"),
-        backend_version=_identifier(value.get("backend_version"), "household_policy_enforcement_plan_invalid"),
+        backend_version=_identifier(
+            value.get("backend_version"), "household_policy_enforcement_plan_invalid"
+        ),
         backend_capability_evidence_sha256=_sha256(
             value.get("backend_capability_evidence_sha256"),
             "household_policy_enforcement_plan_invalid",
+        ),
+    )
+    if supplied_plan_id != _plan_id(canonical):
+        raise HouseholdPolicyEnforcementAdmissionError("household_policy_enforcement_plan_invalid")
+
+    return PolicyEnforcementPlan(
+        plan_id=supplied_plan_id,
+        household_id=str(canonical["household_id"]),
+        member_id=str(canonical["member_id"]),
+        desired_generation=int(canonical["desired_generation"]),
+        source_plan_id=str(canonical["source_plan_id"]),
+        policy_id=str(canonical["policy_id"]),
+        policy_sha256=str(canonical["policy_sha256"]),
+        desired_state_sha256=str(canonical["desired_state_sha256"]),
+        backend_id=str(canonical["backend_id"]),
+        backend_version=str(canonical["backend_version"]),
+        backend_capability_evidence_sha256=str(
+            canonical["backend_capability_evidence_sha256"]
         ),
     )
 
