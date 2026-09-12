@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/policy-change-request.v1.schema.json",
+  "title": "Home Center policy change request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "target_member_id",
+    "internet_policy",
+    "vpn_allowed",
+    "managed_device_required",
+    "home_files_allowed",
+    "smart_home_control_allowed",
+    "administration_allowed"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.policy-change-request.v1"},
+    "target_member_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "internet_policy": {"type": ["string", "null"], "enum": ["full", "filtered", "guest", null]},
+    "vpn_allowed": {"type": ["boolean", "null"]},
+    "managed_device_required": {"type": ["boolean", "null"]},
+    "home_files_allowed": {"type": ["boolean", "null"]},
+    "smart_home_control_allowed": {"type": ["boolean", "null"]},
+    "administration_allowed": {"type": ["boolean", "null"]}
+  }
+}
