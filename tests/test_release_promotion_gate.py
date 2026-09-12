@@ -131,6 +131,7 @@ def _commercial(
         source_obligations_resolved=True,
         sbom_reviewed=True,
         legal_terms_dispositioned=True,
+        support_terms_dispositioned=True,
         release_claims_reviewed=True,
     )
 
@@ -197,6 +198,7 @@ class ReleasePromotionGateTests(unittest.TestCase):
             source_obligations_resolved=True,
             sbom_reviewed=True,
             legal_terms_dispositioned=False,
+            support_terms_dispositioned=False,
             release_claims_reviewed=False,
         )
         decision = evaluate_release_promotion(
@@ -222,6 +224,7 @@ class ReleasePromotionGateTests(unittest.TestCase):
                 "commercial_disposition",
                 "notices_prepared",
                 "legal_terms_dispositioned",
+                "support_terms_dispositioned",
                 "release_claims_reviewed",
             ),
         )
@@ -355,6 +358,7 @@ class ReleasePromotionGateTests(unittest.TestCase):
             source_obligations_resolved=False,
             sbom_reviewed=False,
             legal_terms_dispositioned=False,
+            support_terms_dispositioned=False,
             release_claims_reviewed=False,
         )
         decision = evaluate_release_promotion(
@@ -379,6 +383,7 @@ class ReleasePromotionGateTests(unittest.TestCase):
                 "source_obligations_resolved",
                 "sbom_reviewed",
                 "legal_terms_dispositioned",
+                "support_terms_dispositioned",
                 "release_claims_reviewed",
             ),
         )
