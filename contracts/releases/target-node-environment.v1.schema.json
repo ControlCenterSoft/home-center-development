@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://control-center.pro/schemas/home-center/target-node-environment.v1.schema.json",
+  "title": "Home Center target-node environment snapshot v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "target_node_id",
+    "hostname",
+    "architecture",
+    "os_id",
+    "os_version",
+    "service_manager",
+    "current_version",
+    "current_revision"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.target-node-environment.v1"},
+    "target_node_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,126}[A-Za-z0-9])?$"
+    },
+    "hostname": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,126}[A-Za-z0-9])?$"
+    },
+    "architecture": {"enum": ["x86_64", "amd64"]},
+    "os_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"},
+    "os_version": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._+:-]{0,63}$"},
+    "service_manager": {"const": "systemd"},
+    "current_version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "current_revision": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+    }
+  }
+}
