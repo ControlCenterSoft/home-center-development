@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/devices/device-management-enrollment-cleanup-retry-assessment.v1.schema.json",
+  "title": "Home Center failed-enrollment cleanup retry assessment v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "assessment_id", "cleanup_id", "verification_id", "provider_id",
+    "provider_operation_id", "device_id", "cleanup_observed_at", "post_cleanup_observed_at",
+    "residual_provider_state", "retry_planning_allowed", "reason",
+    "retry_execution_authorized", "provider_mutation_authorized",
+    "managed_state_change_authorized", "policy_application_authorized",
+    "infrastructure_mutation_authorized", "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.device-management-enrollment-cleanup-retry-assessment.v1"},
+    "assessment_id": {"type": "string", "pattern": "^dmpretry-[0-9a-f]{24}$"},
+    "cleanup_id": {"type": "string", "pattern": "^dmpclean-[0-9a-f]{24}$"},
+    "verification_id": {"type": "string", "pattern": "^dmpverify-[0-9a-f]{24}$"},
+    "provider_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "provider_operation_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "device_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "cleanup_observed_at": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"},
+    "post_cleanup_observed_at": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"},
+    "residual_provider_state": {"type": "boolean"},
+    "retry_planning_allowed": {"type": "boolean"},
+    "reason": {"type": "string", "enum": ["cleanup-verified-no-residual-state", "residual-provider-state"]},
+    "retry_execution_authorized": {"const": false},
+    "provider_mutation_authorized": {"const": false},
+    "managed_state_change_authorized": {"const": false},
+    "policy_application_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
