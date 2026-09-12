@@ -15,6 +15,7 @@ from .automation_execution import AutomationPlanningService
 from .auth import LoginRateLimiter, SessionManager
 from .certificate_api import CertificateLifecycleApi, runtime_certificate_records
 from .config import Config
+from .device_management_enrollment_cleanup_verification_runtime import DeviceManagementEnrollmentCleanupVerificationRuntimeService
 from .device_management_enrollment_deenrollment_runtime import DeviceManagementEnrollmentDeenrollmentRuntimeService
 from .device_management_enrollment_execution_recovery import RecoverableDeviceManagementEnrollmentExecutionRuntimeService
 from .device_management_enrollment_managed_state_runtime import DeviceManagementEnrollmentManagedStateRuntimeService
@@ -81,6 +82,7 @@ class Runtime:
         self.device_management_enrollment_verification = DeviceManagementEnrollmentVerificationRuntimeService(self.store)
         self.device_management_enrollment_managed_state = DeviceManagementEnrollmentManagedStateRuntimeService(self.store)
         self.device_management_enrollment_deenrollment = DeviceManagementEnrollmentDeenrollmentRuntimeService(self.store)
+        self.device_management_enrollment_cleanup_verification = DeviceManagementEnrollmentCleanupVerificationRuntimeService(self.store)
         self.reconciler = Reconciler(config, self.store)
 
     def actor_requires_password_change(self, actor: str) -> bool:
