@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from .device_management_enrollment_post_condition_runtime import (
+    PLAN_REQUEST_SCHEMA,
     DeviceManagementEnrollmentPostConditionRuntimeError,
 )
 from .device_management_enrollment_post_condition_runtime_safe import (
@@ -22,6 +23,9 @@ from .device_management_verifier_qualification import (
 
 
 QUALIFICATION_BINDING_FIELD = "verifier_qualification"
+_PLAN_REQUEST_FIELDS = frozenset(
+    {"schema", "execution_plan_id", "max_observed_age_seconds", "expected_signals"}
+)
 
 
 class ContractQualifiedDeviceManagementEnrollmentPostConditionRuntimeService(
@@ -95,6 +99,15 @@ class ContractQualifiedDeviceManagementEnrollmentPostConditionRuntimeService(
     ) -> dict[str, object]:
         """Require qualification before persistence, then bind it to the exact plan."""
         with self._lock:
+            # Preserve the base API's closed-request error precedence. Invalid input
+            # is rejected by the base service before any provider/qualification lookup.
+            if set(request) != _PLAN_REQUEST_FIELDS or request.get("schema") != PLAN_REQUEST_SCHEMA:
+                return super().plan(
+                    actor=actor,
+                    request=request,
+                    correlation_id=correlation_id,
+                )
+
             # Resolve the already-durable 0.57 execution receipt only to identify the
             # provider. This is read-only and prevents creation/audit of a 0.58 plan
             # when no currently valid contract-qualified verifier is registered.
