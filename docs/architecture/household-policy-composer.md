@@ -18,10 +18,12 @@ Policy Composer переводит бытовую роль участника с
 10. **Persisted PolicyBundle проверяется семантически.** Помимо SHA-256/Audit evidence проверяются закрытая форма bundle, точное соответствие `RolePreset`, `EffectivePolicy`, `policy_id`, `bundle_id`, resource scope, бытового explanation и всех authority-флагов. Архивированный, но семантически подменённый bundle не считается доверенным.
 11. **Resource identity не зависит от разделителя внутри ID.** Для обычных delimiter-safe Household/member ID сохраняется читаемый ключ `household-policy:<household>:<member>`. Если хотя бы один ID содержит `:`, точная пара Household/member связывается с SHA-256 suffix `hpk-*`; две разные пары идентификаторов не могут получить один Desired State key из-за неоднозначной конкатенации. Semantic evidence обязан заново вычислить тот же ключ, а не доверять persisted строке.
 12. **Confirmation metadata не является самостоятельным доказательством.** Перед каждой materialization/replay production writer обязан проверить целостность keyed Audit chain и exact `household.policy.confirm` event: тот же actor, resource target, `proposal_id`, `confirmation_id`, Household revision, `bundle_id` и Desired State precondition. Проверка и последующий apply удерживаются одной re-entrant application lock, чтобы между trust-check и CAS нельзя было подменить confirmation envelope. Missing/mismatched/corrupted confirmation Audit evidence всегда закрывает write-path.
+13. **Текущая Policy Desired State revision проверяется до планирования и внутри CAS.** Production planner не принимает `generation/bundle_id` как достаточный precondition: весь persisted `PolicyBundle` обязан пройти semantic verifier до создания proposal. Production repository повторяет ту же проверку при read/CAS/replay, поэтому подмена explanation, technical policy, role-derived fields или authority flags с сохранением старого `bundle_id` не может быть тихо перезаписана как будто состояние было доверенным.
+14. **Household authorization не использует строковый prefix как доказательство scope.** History/rollback production boundary читает текущий bundle, заново вычисляет collision-safe resource key, проверяет semantic evidence и требует exact `bundle.household_id == active Household`. Идентификатор другого Household вида `<local-id>:...` не получает доступ только потому, что его строка начинается с локального префикса. Target member также обязан существовать в текущем Household.
 
 ## Поток данных
 
-`Household snapshot -> Policy Composer -> durable proposal -> presentation -> explicit confirmation -> confirmation Audit binding -> protected Desired State writer -> immutable history/Audit`
+`Household snapshot -> Policy Composer -> semantic current-state precondition -> durable proposal -> presentation -> explicit confirmation -> confirmation Audit binding -> semantic CAS writer -> exact-scoped immutable history/Audit`
 
 После записи Policy Desired State дальнейшее применение к устройству, сети, VPN, аккаунту или внешнему provider остаётся отдельной capability boundary и не входит в 0.59.
 
@@ -38,16 +40,16 @@ Confirmation recovery возвращает только доказуемо не�
 
 Protected Desired State writer использует следующий порядок:
 
-1. проверить closed request contract и exact confirmation Audit binding под общей application lock;
+1. проверить closed request contract, semantic current state и exact confirmation Audit binding под общей application lock;
 2. сохранить `applying` marker;
 3. записать pre-write Audit evidence;
-4. выполнить SQLite compare-and-set exact revision;
+4. выполнить SQLite compare-and-set exact revision с повторной semantic validation текущей записи внутри repository boundary;
 5. записать completion Audit evidence;
 6. сохранить durable apply receipt.
 
-Если процесс остановился после compare-and-set, replay обязан сначала повторно доказать confirmation Audit binding, затем exact target bundle в Desired State. Только доказанный exact-state разрешает финализацию evidence без второй мутации. В противном случае операция остаётся fail-closed.
+Если процесс остановился после compare-and-set, replay обязан сначала повторно доказать confirmation Audit binding и semantic integrity exact target bundle в Desired State. Только доказанный exact-state разрешает финализацию evidence без второй мутации. В противном случае операция остаётся fail-closed.
 
-Rollback использует аналогичный durable `applying/applied/invalidated` протокол и exact current-state precondition. В исходном коде подготовлены fault-injection tests для потери процесса сразу после committed CAS, после completion Audit до durable `applied` marker и после rollback Desired State commit до history archive. Их фактическое выполнение относится к runner-dependent qualification и до неё не считается доказанным.
+Rollback использует аналогичный durable `applying/applied/invalidated` протокол и exact current-state precondition. History/rollback authorization выполняется по semantically verified persisted identity, а не по строковому префиксу resource key. В исходном коде подготовлены fault-injection tests для потери процесса сразу после committed CAS, после completion Audit до durable `applied` marker и после rollback Desired State commit до history archive. Их фактическое выполнение относится к runner-dependent qualification и до неё не считается доказанным.
 
 ## HTTP boundary
 
@@ -61,7 +63,7 @@ Rollback использует аналогичный durable `applying/applied/i
 
 Все POST routes наследуют аутентификацию, обязательную смену начального пароля и same-origin protection. Policy-specific external access дополнительно запрещён независимо от настроек внешней публикации других Home Center endpoints.
 
-Классификация ошибок отделяет конфликт состояния (`409`), отсутствие/запрет доступа (`404/403`) и нарушения доверия к persisted evidence (`503`). Повреждение локального evidence, включая confirmation Audit binding, не маскируется под `400 Bad Request`.
+Классификация ошибок отделяет конфликт состояния (`409`), отсутствие/запрет доступа (`404/403`) и нарушения доверия к persisted evidence (`503`). Повреждение локального evidence, включая confirmation Audit binding и semantic PolicyBundle integrity, не маскируется под `400 Bad Request`.
 
 ## Контракты
 
@@ -72,7 +74,7 @@ Rollback использует аналогичный durable `applying/applied/i
 Policy state хранится через штатный StateStore/SQLite boundary и поэтому должен проходить те же backup/restart/replication требования, что и остальные критические состояния Home Center. До Release Candidate требуется доказать:
 
 - single-node restart без потери proposal/confirmation/apply/history/rollback state;
-- backup/restore с сохранением Audit evidence, confirmation Audit binding и идемпотентного replay;
+- backup/restore с сохранением Audit evidence, confirmation Audit binding, semantic persisted-state validation и идемпотентного replay;
 - поддерживаемый multi-node HA/restart path без split-brain policy materialization;
 - install/upgrade с сохранением Household, Policy Desired State, истории, пользовательских настроек и локальной аутентификации.
 
