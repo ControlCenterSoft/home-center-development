@@ -256,6 +256,9 @@ def build_enrollment_verification_plan(
         or receipt["device_id"] != plan.device_id
         or receipt["member_id"] != plan.member_id
         or snapshot.household_id != plan.household_id
+        or snapshot.snapshot_id != plan.snapshot_id
+        or snapshot.resource_version != plan.resource_version
+        or snapshot.generation != plan.generation
     ):
         raise DeviceManagementEnrollmentVerificationError("device_management_enrollment_verification_binding_mismatch")
     device = next((item for item in snapshot.household.devices if item.device_id == plan.device_id), None)
