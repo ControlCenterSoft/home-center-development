@@ -10,18 +10,26 @@ from home_center.policy_backend_qualification import (
     PolicyBackendQualificationError,
     PolicyBackendQualificationEvidence,
     evaluate_policy_backend_qualification,
+    registration_metadata_from_policy_backend_qualification,
 )
+
+VERSION = "0.59.0"
+REVISION = "a" * 40
+CANDIDATE_SHA = "b" * 64
+BACKEND = "policy-backend.test"
+ADAPTER_VERSION = "1.0.0"
+ADAPTER_SHA = "c" * 64
 
 
 def _evidence(**changes: object) -> PolicyBackendQualificationEvidence:
     values: dict[str, object] = {
-        "version": "0.59.0",
-        "revision": "a" * 40,
-        "candidate_artifact_sha256": "b" * 64,
-        "backend_id": "policy-backend.test",
-        "adapter_id": "policy-backend.test",
-        "adapter_version": "1.0.0",
-        "adapter_artifact_sha256": "c" * 64,
+        "version": VERSION,
+        "revision": REVISION,
+        "candidate_artifact_sha256": CANDIDATE_SHA,
+        "backend_id": BACKEND,
+        "adapter_id": BACKEND,
+        "adapter_version": ADAPTER_VERSION,
+        "adapter_artifact_sha256": ADAPTER_SHA,
         "execution_transcript_sha256": "d" * 64,
         "environment_evidence_sha256": "e" * 64,
         "real_backend_exercised": True,
@@ -43,6 +51,18 @@ def _evidence(**changes: object) -> PolicyBackendQualificationEvidence:
     }
     values.update(changes)
     return PolicyBackendQualificationEvidence(**values)  # type: ignore[arg-type]
+
+
+def _registration(decision: object) -> dict[str, str]:
+    return registration_metadata_from_policy_backend_qualification(
+        decision,  # type: ignore[arg-type]
+        expected_version=VERSION,
+        expected_revision=REVISION,
+        expected_candidate_artifact_sha256=CANDIDATE_SHA,
+        expected_backend_id=BACKEND,
+        expected_adapter_version=ADAPTER_VERSION,
+        expected_adapter_artifact_sha256=ADAPTER_SHA,
+    )
 
 
 def test_complete_real_backend_evidence_can_be_qualified_without_granting_authority() -> None:
@@ -84,6 +104,58 @@ def test_qualification_digest_is_bound_to_semantic_evidence() -> None:
     assert qualified.evidence_sha256 != degraded.evidence_sha256
     assert degraded.qualified is False
     assert degraded.blockers == ("restart_recovery",)
+
+
+def test_exact_qualified_decision_can_supply_registration_metadata() -> None:
+    decision = evaluate_policy_backend_qualification(_evidence())
+    metadata = _registration(decision)
+    assert metadata == {
+        "adapter_id": BACKEND,
+        "adapter_version": ADAPTER_VERSION,
+        "adapter_artifact_sha256": ADAPTER_SHA,
+        "qualification_evidence_sha256": decision.evidence_sha256,
+    }
+
+
+def test_registration_handoff_rejects_candidate_or_artifact_drift() -> None:
+    decision = evaluate_policy_backend_qualification(_evidence())
+    with pytest.raises(
+        PolicyBackendQualificationError,
+        match="policy_backend_qualification_candidate_mismatch",
+    ):
+        registration_metadata_from_policy_backend_qualification(
+            decision,
+            expected_version=VERSION,
+            expected_revision="f" * 40,
+            expected_candidate_artifact_sha256=CANDIDATE_SHA,
+            expected_backend_id=BACKEND,
+            expected_adapter_version=ADAPTER_VERSION,
+            expected_adapter_artifact_sha256=ADAPTER_SHA,
+        )
+    with pytest.raises(
+        PolicyBackendQualificationError,
+        match="policy_backend_qualification_candidate_mismatch",
+    ):
+        registration_metadata_from_policy_backend_qualification(
+            decision,
+            expected_version=VERSION,
+            expected_revision=REVISION,
+            expected_candidate_artifact_sha256=CANDIDATE_SHA,
+            expected_backend_id=BACKEND,
+            expected_adapter_version=ADAPTER_VERSION,
+            expected_adapter_artifact_sha256="f" * 64,
+        )
+
+
+def test_registration_handoff_rejects_unqualified_decision() -> None:
+    decision = evaluate_policy_backend_qualification(
+        _evidence(post_condition_readback_exercised=False)
+    )
+    with pytest.raises(
+        PolicyBackendQualificationError,
+        match="policy_backend_qualification_decision_invalid",
+    ):
+        _registration(decision)
 
 
 @pytest.mark.parametrize(
