@@ -71,6 +71,7 @@ def test_workflow_presents_same_exact_policy_and_materializes_only_after_confirm
     assert result["desired_state_materialized"] is True
     assert result["receipt"]["bundle_id"] == proposal["bundle"]["bundle_id"]
     assert len(result["history_evidence_sha256"]) == 64
+    assert isinstance(result["history_audit_event_id"], str) and result["history_audit_event_id"]
     assert result["provider_execution_authorized"] is False
     assert result["infrastructure_mutation_authorized"] is False
     assert result["external_publication_authorized"] is False
@@ -97,11 +98,12 @@ def test_workflow_confirmation_replay_does_not_advance_generation(tmp_path) -> N
     assert second["receipt"]["generation"] == 1
     assert second["receipt"]["outcome"] == "already-applied"
     assert second["history_evidence_sha256"] == first["history_evidence_sha256"]
+    assert second["history_audit_event_id"] == first["history_audit_event_id"]
     assert store.desired_state()[0]["generation"] == 1
     store.close()
 
 
-def test_production_http_boundary_keeps_auth_origin_and_no_provider_execution() -> None:
+def test_production_http_boundary_keeps_auth_origin_external_and_no_provider_execution() -> None:
     http = HTTP.read_text(encoding="utf-8")
     runtime = RUNTIME.read_text(encoding="utf-8")
     server = SERVER.read_text(encoding="utf-8")
@@ -113,6 +115,8 @@ def test_production_http_boundary_keeps_auth_origin_and_no_provider_execution() 
         "/api/v1/household/policies/rollback",
     ):
         assert f'"{path}"' in http
+    assert "context.external or self._blocked_for_external(path, context)" in http
+    assert 'action="household.policy.external-access"' in http
     assert "self._same_origin_post_allowed(context)" in http
     assert "self._require_actor(correlation_id)" in http
     assert "household_policy_workflow.plan" in http
