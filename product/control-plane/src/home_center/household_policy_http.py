@@ -87,6 +87,7 @@ class RuntimeRequestHandlerPolicy(RuntimeRequestHandlerV2):
             "household_policy_history_audit_mismatch",
             "household_policy_rollback_state_invalid",
             "household_policy_rollback_evidence_mismatch",
+            "household_policy_rollback_write_failed",
         }:
             return HTTPStatus.SERVICE_UNAVAILABLE
         return HTTPStatus.BAD_REQUEST
