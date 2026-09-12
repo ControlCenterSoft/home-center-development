@@ -17,6 +17,10 @@ import re
 import threading
 from typing import Any, Protocol
 
+from .household_policy_reconciliation import (
+    HouseholdPolicyReconciliationError,
+    request_from_dict,
+)
 from .store import StateStore
 from .util import canonical_json
 
@@ -350,6 +354,56 @@ def load_enforcement_reconciliation_snapshot(
             "household_policy_enforcement_snapshot_not_found"
         )
     return _validate_snapshot(value, plan_id)
+
+def build_reconciliation_request_from_enforcement_snapshot(
+    store: StateStore,
+    plan_id: str,
+    *,
+    requested_at: str,
+    max_observed_age_seconds: int,
+) -> dict[str, object]:
+    """Build the standard read-only reconciliation request from durable old evidence.
+
+    This intentionally does not read current Desired State.  A later Desired State
+    generation must not erase the exact binding of an earlier uncertain/accepted
+    backend mutation attempt.  Downstream verification-state promotion still has to
+    revalidate current Desired State before it can change current policy flags.
+    """
+
+    snapshot = load_enforcement_reconciliation_snapshot(store, plan_id)
+    binding = {
+        "household_id": snapshot["household_id"],
+        "member_id": snapshot["member_id"],
+        "desired_generation": snapshot["desired_generation"],
+        "desired_plan_id": snapshot["desired_plan_id"],
+        "policy_id": snapshot["policy_id"],
+        "policy_sha256": snapshot["policy_sha256"],
+    }
+    identity = {
+        "backend_id": snapshot["backend_id"],
+        "requested_at": requested_at,
+        "max_observed_age_seconds": max_observed_age_seconds,
+        "binding": binding,
+    }
+    raw_request = {
+        "schema": "home-center.household-policy-reconciliation-request.v1",
+        "request_id": "hprq-" + _digest(identity)[:24],
+        "backend_id": snapshot["backend_id"],
+        "requested_at": requested_at,
+        "max_observed_age_seconds": max_observed_age_seconds,
+        "binding": binding,
+        "backend_read_only_required": True,
+        "backend_mutation_authorized": False,
+        "infrastructure_mutation_authorized": False,
+        "external_publication_authorized": False,
+    }
+    try:
+        request = request_from_dict(raw_request)
+    except HouseholdPolicyReconciliationError as exc:
+        raise HouseholdPolicyEnforcementReconciliationSnapshotError(
+            "household_policy_enforcement_snapshot_reconciliation_request_invalid"
+        ) from exc
+    return request.to_dict()
 
 
 class ReconciliationSnapshotPolicyAdapter:
