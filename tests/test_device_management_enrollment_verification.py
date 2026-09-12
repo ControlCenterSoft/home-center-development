@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import pytest
 
-from home_center.device_management_enrollment_execution import DeviceManagementEnrollmentExecutionPlan
+from home_center.device_management_enrollment_execution import (
+    DeviceManagementEnrollmentExecutionPlan,
+    _plan_identity,
+)
 from home_center.device_management_enrollment_verification import (
     DeviceManagementEnrollmentAdapterVerifyResult,
     DeviceManagementEnrollmentVerificationError,
@@ -15,7 +18,6 @@ from home_center.household import FamilyMember, Household, HouseholdRole, Manage
 from home_center.household_store import build_household_replacement, build_household_snapshot
 
 
-PLAN_ID = "dmpexec-" + "1" * 24
 SELECTION_ID = "dmpsel-" + "2" * 24
 ENROLLMENT_ID = "hdenroll-" + "3" * 24
 CATALOG_ID = "dmpcat-" + "4" * 24
@@ -46,8 +48,28 @@ def _snapshot(*, managed: bool = False):
 
 
 def _execution_plan(snapshot):
+    selection = {
+        "proposal_id": SELECTION_ID,
+        "enrollment_proposal_id": ENROLLMENT_ID,
+        "snapshot_id": snapshot.snapshot_id,
+        "resource_version": snapshot.resource_version,
+        "generation": snapshot.generation,
+        "device_id": "device-phone",
+        "member_id": "member-parent",
+        "catalog_id": CATALOG_ID,
+    }
+    plan_id = _plan_identity(
+        selection=selection,
+        household_id=snapshot.household_id,
+        actor_member_id="member-parent",
+        provider_id="provider-mdm",
+        enrollment_mode="mdm",
+        credential_references=(),
+        timeout_seconds=120,
+        one_time_artifact="none",
+    )
     return DeviceManagementEnrollmentExecutionPlan(
-        plan_id=PLAN_ID,
+        plan_id=plan_id,
         selection_proposal_id=SELECTION_ID,
         enrollment_proposal_id=ENROLLMENT_ID,
         household_id=snapshot.household_id,
@@ -66,18 +88,18 @@ def _execution_plan(snapshot):
     ).to_dict()
 
 
-def _execution_receipt():
+def _execution_receipt(plan):
     return {
         "schema": "home-center.device-management-enrollment-execution-receipt.v1",
         "state": "provider-accepted",
         "job_id": JOB_ID,
         "retry_of_job_id": None,
-        "plan_id": PLAN_ID,
-        "selection_proposal_id": SELECTION_ID,
-        "provider_id": "provider-mdm",
+        "plan_id": plan["plan_id"],
+        "selection_proposal_id": plan["selection_proposal_id"],
+        "provider_id": plan["provider_id"],
         "provider_operation_id": OPERATION_ID,
-        "device_id": "device-phone",
-        "member_id": "member-parent",
+        "device_id": plan["device_id"],
+        "member_id": plan["member_id"],
         "one_time_artifact": None,
         "enrollment_completed": False,
         "post_condition_verified": False,
@@ -86,6 +108,16 @@ def _execution_receipt():
         "infrastructure_mutation_authorized": False,
         "external_publication_authorized": False,
     }
+
+
+def _verification(snapshot):
+    execution_plan = _execution_plan(snapshot)
+    verification = build_enrollment_verification_plan(
+        snapshot=snapshot,
+        execution_plan=execution_plan,
+        execution_receipt=_execution_receipt(execution_plan),
+    )
+    return execution_plan, verification
 
 
 def _verified_result(request):
@@ -107,11 +139,7 @@ def _verified_result(request):
 
 def test_verified_provider_postcondition_is_the_only_path_to_managed_true() -> None:
     snapshot = _snapshot()
-    plan = build_enrollment_verification_plan(
-        snapshot=snapshot,
-        execution_plan=_execution_plan(snapshot),
-        execution_receipt=_execution_receipt(),
-    )
+    _execution, plan = _verification(snapshot)
     request = adapter_request_for_plan(plan)
     result = adapter_verification_result_from_dict(_verified_result(request), expected=request)
 
@@ -136,11 +164,7 @@ def test_verified_provider_postcondition_is_the_only_path_to_managed_true() -> N
 
 def test_provider_cannot_grant_managed_state_authority() -> None:
     snapshot = _snapshot()
-    plan = build_enrollment_verification_plan(
-        snapshot=snapshot,
-        execution_plan=_execution_plan(snapshot),
-        execution_receipt=_execution_receipt(),
-    )
+    _execution, plan = _verification(snapshot)
     request = adapter_request_for_plan(plan)
     result = _verified_result(request)
     result["managed_state_change_authorized"] = True
@@ -154,11 +178,7 @@ def test_provider_cannot_grant_managed_state_authority() -> None:
 
 def test_provider_operation_binding_is_fail_closed() -> None:
     snapshot = _snapshot()
-    plan = build_enrollment_verification_plan(
-        snapshot=snapshot,
-        execution_plan=_execution_plan(snapshot),
-        execution_receipt=_execution_receipt(),
-    )
+    _execution, plan = _verification(snapshot)
     request = adapter_request_for_plan(plan)
     result = _verified_result(request)
     result["provider_operation_id"] = "provider-op-other"
@@ -172,7 +192,8 @@ def test_provider_operation_binding_is_fail_closed() -> None:
 
 def test_execution_receipt_cannot_preclaim_completion() -> None:
     snapshot = _snapshot()
-    receipt = _execution_receipt()
+    execution_plan = _execution_plan(snapshot)
+    receipt = _execution_receipt(execution_plan)
     receipt["enrollment_completed"] = True
 
     with pytest.raises(
@@ -181,31 +202,28 @@ def test_execution_receipt_cannot_preclaim_completion() -> None:
     ):
         build_enrollment_verification_plan(
             snapshot=snapshot,
-            execution_plan=_execution_plan(snapshot),
+            execution_plan=execution_plan,
             execution_receipt=receipt,
         )
 
 
 def test_verification_plan_rejects_already_managed_device() -> None:
     snapshot = _snapshot(managed=True)
+    execution_plan = _execution_plan(snapshot)
     with pytest.raises(
         DeviceManagementEnrollmentVerificationError,
         match="device_management_enrollment_device_already_managed",
     ):
         build_enrollment_verification_plan(
             snapshot=snapshot,
-            execution_plan=_execution_plan(snapshot),
-            execution_receipt=_execution_receipt(),
+            execution_plan=execution_plan,
+            execution_receipt=_execution_receipt(execution_plan),
         )
 
 
 def test_household_change_makes_verification_plan_stale() -> None:
     snapshot = _snapshot()
-    plan = build_enrollment_verification_plan(
-        snapshot=snapshot,
-        execution_plan=_execution_plan(snapshot),
-        execution_receipt=_execution_receipt(),
-    )
+    _execution, plan = _verification(snapshot)
     request = adapter_request_for_plan(plan)
     result = adapter_verification_result_from_dict(_verified_result(request), expected=request)
 
