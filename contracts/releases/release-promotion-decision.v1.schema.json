@@ -35,7 +35,7 @@
     },
     "blockers": {
       "type": "array",
-      "maxItems": 38,
+      "maxItems": 43,
       "uniqueItems": true,
       "items": {
         "enum": [
@@ -53,8 +53,13 @@
           "user_state_preservation",
           "real_target_acceptance",
           "multi_node_ha_restart",
+          "real_environment_binding",
+          "real_environment_evidence",
+          "real_environment_artifact_binding",
+          "real_environment_qualification",
           "provider_binding",
           "provider_evidence",
+          "provider_candidate_artifact_binding",
           "provider_adapter_qualification",
           "artifact_binding",
           "candidate_artifact_digest",
