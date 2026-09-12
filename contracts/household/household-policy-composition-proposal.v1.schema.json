@@ -13,6 +13,8 @@
     "generation",
     "actor_member_id",
     "member_id",
+    "expected_desired_state_generation",
+    "expected_desired_state_bundle_id",
     "bundle",
     "confirmation_required",
     "desired_state_write_authorized",
@@ -28,10 +30,31 @@
     "generation": {"type": "integer", "minimum": 1},
     "actor_member_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
     "member_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "expected_desired_state_generation": {"type": "integer", "minimum": 0},
+    "expected_desired_state_bundle_id": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "string", "pattern": "^hpb-[0-9a-f]{24}$"}
+      ]
+    },
     "bundle": {"$ref": "household-policy-bundle.v1.schema.json"},
     "confirmation_required": {"const": true},
     "desired_state_write_authorized": {"const": false},
     "infrastructure_mutation_authorized": {"const": false},
     "external_publication_authorized": {"const": false}
-  }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"expected_desired_state_generation": {"const": 0}}},
+      "then": {"properties": {"expected_desired_state_bundle_id": {"type": "null"}}},
+      "else": {
+        "properties": {
+          "expected_desired_state_bundle_id": {
+            "type": "string",
+            "pattern": "^hpb-[0-9a-f]{24}$"
+          }
+        }
+      }
+    }
+  ]
 }
