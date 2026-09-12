@@ -35,7 +35,7 @@
     },
     "blockers": {
       "type": "array",
-      "maxItems": 43,
+      "maxItems": 45,
       "uniqueItems": true,
       "items": {
         "enum": [
@@ -73,6 +73,8 @@
           "release_manifest",
           "spdx_sbom",
           "commercial_binding",
+          "commercial_candidate_artifact_digest",
+          "commercial_candidate_artifact_binding",
           "commercial_disposition",
           "commercial_evidence",
           "dependencies_reviewed",
