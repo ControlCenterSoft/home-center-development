@@ -11,11 +11,12 @@ from home_center.household_policy_runtime import (
     POLICY_CONFIRM_REQUEST_SCHEMA,
     POLICY_PLAN_REQUEST_SCHEMA,
     POLICY_PROPOSAL_KEY_PREFIX,
-    HouseholdPolicyRuntimeService,
 )
+from home_center.household_policy_semantic_runtime import SemanticHouseholdPolicyRuntimeService
 from home_center.household_policy_workflow import HouseholdPolicyWorkflowService
 from home_center.household_runtime import HOUSEHOLD_BOOTSTRAP_SCHEMA, HouseholdRuntimeService
 from home_center.store import StateStore
+from home_center.util import canonical_json
 
 
 ACTOR = "parent@example.test"
@@ -29,7 +30,7 @@ def _services(tmp_path):
         request={"schema": HOUSEHOLD_BOOTSTRAP_SCHEMA, "display_name": "Родитель"},
         correlation_id="policy-confirmation-audit-bootstrap",
     )
-    policy_runtime = HouseholdPolicyRuntimeService(store)
+    policy_runtime = SemanticHouseholdPolicyRuntimeService(store)
     desired_state = AuditBoundHouseholdPolicyDesiredStateService(store)
     history = HouseholdPolicyHistoryService(store, desired_state=desired_state)
     workflow = HouseholdPolicyWorkflowService(
@@ -159,6 +160,28 @@ def test_corrupted_keyed_audit_chain_blocks_materialization(tmp_path) -> None:
         _confirm_and_apply(workflow, proposal_id)
 
     assert store.desired_state() == []
+    store.close()
+
+
+def test_semantically_forged_materialized_state_blocks_idempotent_replay(tmp_path) -> None:
+    store, household, _policy_runtime, _desired_state, workflow = _services(tmp_path)
+    plan = _plan(workflow, household)
+    proposal_id = plan["proposal"]["proposal_id"]
+    first = _confirm_and_apply(workflow, proposal_id)
+    resource_key = first["receipt"]["resource_key"]
+
+    current = next(item for item in store.desired_state() if item["resource_key"] == resource_key)
+    forged = dict(current["value"])
+    forged["explanation"] = ["Подменённое описание при сохранённом bundle_id"]
+    with sqlite3.connect(store.path, timeout=5) as connection:
+        connection.execute(
+            "UPDATE desired_state SET value_json=? WHERE resource_key=?",
+            (canonical_json(forged), resource_key),
+        )
+
+    with pytest.raises(HouseholdPolicyDesiredStateError, match="household_policy_desired_state_invalid"):
+        _confirm_and_apply(workflow, proposal_id)
+
     store.close()
 
 
