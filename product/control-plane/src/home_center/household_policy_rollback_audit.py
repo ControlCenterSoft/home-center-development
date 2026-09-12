@@ -18,15 +18,13 @@ import sqlite3
 from typing import Any
 
 from .household_policy_authorized_history import ScopedHouseholdPolicyHistoryService
-from .household_policy_history import (
-    HouseholdPolicyHistoryError,
-    _rollback_id,
-)
+from .household_policy_history import HouseholdPolicyHistoryError, _rollback_id
 
 
 ROLLBACK_BEGIN_ACTION = "household.policy.desired-state.rollback.begin"
 ROLLBACK_COMPLETE_ACTION = "household.policy.desired-state.rollback.complete"
 ROLLBACK_RECOVER_ACTION = "household.policy.desired-state.rollback.recover"
+ROLLBACK_EVIDENCE_ERROR = "household_policy_rollback_evidence_mismatch"
 
 
 def _audit_row(
@@ -34,7 +32,7 @@ def _audit_row(
     event_id: object,
 ) -> sqlite3.Row:
     if not isinstance(event_id, str) or not event_id:
-        raise HouseholdPolicyHistoryError("household_policy_rollback_audit_invalid")
+        raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR)
     connection = sqlite3.connect(service.store.path, timeout=5)
     connection.row_factory = sqlite3.Row
     try:
@@ -45,7 +43,7 @@ def _audit_row(
     finally:
         connection.close()
     if row is None:
-        raise HouseholdPolicyHistoryError("household_policy_rollback_audit_missing")
+        raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR)
     return row
 
 
@@ -53,9 +51,9 @@ def _audit_details(row: sqlite3.Row) -> dict[str, Any]:
     try:
         details = json.loads(row["details_json"])
     except (TypeError, json.JSONDecodeError) as exc:
-        raise HouseholdPolicyHistoryError("household_policy_rollback_audit_invalid") from exc
+        raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR) from exc
     if not isinstance(details, dict):
-        raise HouseholdPolicyHistoryError("household_policy_rollback_audit_invalid")
+        raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR)
     return details
 
 
@@ -76,17 +74,17 @@ def validate_rollback_audit_binding(
     """Fail closed unless one rollback receipt is bound to its exact Audit evidence."""
 
     if not isinstance(actor, str) or not actor or not isinstance(request, dict) or not isinstance(receipt, dict):
-        raise HouseholdPolicyHistoryError("household_policy_rollback_audit_invalid")
+        raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR)
 
     try:
         service.store.verify_audit_chain()
     except RuntimeError as exc:
-        raise HouseholdPolicyHistoryError("household_policy_rollback_audit_invalid") from exc
+        raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR) from exc
 
     try:
         expected_rollback_id = _rollback_id(actor, request)
     except (KeyError, TypeError, ValueError) as exc:
-        raise HouseholdPolicyHistoryError("household_policy_rollback_audit_invalid") from exc
+        raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR) from exc
     resource_key = request.get("resource_key")
     target_generation = request.get("target_generation")
     expected_generation = request.get("expected_generation")
@@ -115,7 +113,7 @@ def validate_rollback_audit_binding(
         or receipt.get("resource_key") != resource_key
         or receipt.get("target_history_generation") != target_generation
     ):
-        raise HouseholdPolicyHistoryError("household_policy_rollback_audit_mismatch")
+        raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR)
 
     target_history = service.read(resource_key=resource_key, generation=target_generation)
     current_history = service.read(resource_key=resource_key, generation=generation)
@@ -127,14 +125,14 @@ def validate_rollback_audit_binding(
         or not isinstance(history_evidence_sha256, str)
         or len(history_evidence_sha256) != 64
     ):
-        raise HouseholdPolicyHistoryError("household_policy_rollback_audit_mismatch")
+        raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR)
 
     row = _audit_row(service, audit_event_id)
     details = _audit_details(row)
     recovered = receipt.get("recovered")
     changed = receipt.get("changed")
     if not isinstance(recovered, bool) or not isinstance(changed, bool):
-        raise HouseholdPolicyHistoryError("household_policy_rollback_audit_mismatch")
+        raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR)
 
     if recovered:
         if (
@@ -149,7 +147,7 @@ def validate_rollback_audit_binding(
             or details.get("history_evidence_sha256") != history_evidence_sha256
             or not _authority_is_denied(details)
         ):
-            raise HouseholdPolicyHistoryError("household_policy_rollback_audit_mismatch")
+            raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR)
         return
 
     expected_outcome = "succeeded" if changed else "already-current"
@@ -168,7 +166,7 @@ def validate_rollback_audit_binding(
         or not isinstance(begin_event_id, str)
         or not begin_event_id
     ):
-        raise HouseholdPolicyHistoryError("household_policy_rollback_audit_mismatch")
+        raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR)
 
     begin_row = _audit_row(service, begin_event_id)
     begin_details = _audit_details(begin_row)
@@ -184,32 +182,4 @@ def validate_rollback_audit_binding(
         or begin_details.get("target_history_bundle_id") != target_bundle_id
         or not _authority_is_denied(begin_details)
     ):
-        raise HouseholdPolicyHistoryError("household_policy_rollback_audit_mismatch")
-
-
-class AuditBoundHouseholdPolicyHistoryService(ScopedHouseholdPolicyHistoryService):
-    """Production history service that proves exact rollback Audit evidence before success."""
-
-    def rollback(
-        self,
-        *,
-        actor: str,
-        request: dict[str, Any],
-        correlation_id: str,
-    ) -> dict[str, object]:
-        # The base service already uses this RLock. Holding it across post-write
-        # evidence validation prevents a concurrent rollback through this service
-        # from replacing the current rollback envelope before success is returned.
-        with self._lock:
-            receipt = super().rollback(
-                actor=actor,
-                request=request,
-                correlation_id=correlation_id,
-            )
-            validate_rollback_audit_binding(
-                self,
-                actor=actor,
-                request=request,
-                receipt=receipt,
-            )
-            return receipt
+        raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR)
