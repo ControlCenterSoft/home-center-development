@@ -16,6 +16,7 @@ def test_policy_http_integrity_failures_are_unavailable() -> None:
         "household_policy_desired_state_missing_after_apply",
         "household_policy_desired_state_write_failed",
         "household_policy_history_record_invalid",
+        "household_policy_history_gap",
         "household_policy_history_audit_mismatch",
         "household_policy_rollback_evidence_mismatch",
         "household_policy_rollback_write_failed",
