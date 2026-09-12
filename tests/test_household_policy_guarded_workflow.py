@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from home_center.household_policy_desired_state import HouseholdPolicyDesiredStateService
@@ -101,20 +103,20 @@ def test_guarded_workflow_rejects_desired_state_revision_change_before_presentat
 def test_guarded_workflow_rejects_household_change_before_presentation(tmp_path, monkeypatch) -> None:
     store, household, workflow = _workflow(tmp_path)
     member_id = household.actor_member_id(ACTOR)
-    original_plan = workflow.policy_runtime.plan
+    original_snapshot_and_actor = workflow._snapshot_and_actor
+    reads = 0
 
-    def mutate_household_after_plan(*, actor, request, correlation_id):
-        raw = original_plan(actor=actor, request=request, correlation_id=correlation_id)
-        household.rename(
-            actor=ACTOR,
-            request={"display_name": "Обновлённый дом"},
-            correlation_id="mutate-household-after-policy-plan",
-        )
-        return raw
+    def changed_second_snapshot(actor):
+        nonlocal reads
+        snapshot, actor_member_id = original_snapshot_and_actor(actor)
+        reads += 1
+        if reads >= 2:
+            snapshot = replace(snapshot, generation=snapshot.generation + 1)
+        return snapshot, actor_member_id
 
-    monkeypatch.setattr(workflow.policy_runtime, "plan", mutate_household_after_plan)
+    monkeypatch.setattr(workflow, "_snapshot_and_actor", changed_second_snapshot)
 
-    with pytest.raises(HouseholdPolicyRuntimeError, match="household_policy_proposal_evidence_mismatch|household_policy_composition_stale"):
+    with pytest.raises(HouseholdPolicyRuntimeError, match="household_policy_composition_stale"):
         workflow.plan(
             actor=ACTOR,
             request={"schema": POLICY_PLAN_REQUEST_SCHEMA, "member_id": member_id},
