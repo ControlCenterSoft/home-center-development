@@ -93,6 +93,7 @@ class ReleasePromotionDecisionSchemaBlockerTests(unittest.TestCase):
                 source_obligations_resolved=True,
                 sbom_reviewed=True,
                 legal_terms_dispositioned=True,
+                support_terms_dispositioned=True,
                 release_claims_reviewed=True,
             ),
         )
@@ -175,6 +176,7 @@ class ReleasePromotionDecisionSchemaBlockerTests(unittest.TestCase):
                 source_obligations_resolved=True,
                 sbom_reviewed=True,
                 legal_terms_dispositioned=True,
+                support_terms_dispositioned=True,
                 release_claims_reviewed=True,
             ),
         )
