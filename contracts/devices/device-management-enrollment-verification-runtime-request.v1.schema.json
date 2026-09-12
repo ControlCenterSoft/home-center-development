@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/devices/device-management-enrollment-verification-runtime-request.v1.schema.json",
+  "title": "Home Center enrollment verification runtime request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "plan_id", "idempotency_key"],
+  "properties": {
+    "schema": {"const": "home-center.device-management-enrollment-verification-runtime-request.v1"},
+    "plan_id": {"type": "string", "pattern": "^dmpexec-[0-9a-f]{24}$"},
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$"
+    }
+  }
+}
