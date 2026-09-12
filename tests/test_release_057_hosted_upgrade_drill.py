@@ -79,12 +79,9 @@ def test_release_057_hosted_upgrade_and_rollback_from_public_stable(tmp_path: Pa
     candidate_worktree = tmp_path / "candidate-src"
     _run(["git", "worktree", "add", "--detach", str(candidate_worktree), "HEAD"], cwd=ROOT)
     try:
-        init_path = candidate_worktree / "product/control-plane/src/home_center/__init__.py"
-        init_text = init_path.read_text(encoding="utf-8")
-        old_marker = f'__version__ = "{STABLE_VERSION}"'
-        new_marker = f'__version__ = "{CANDIDATE_VERSION}"'
-        assert old_marker in init_text
-        init_path.write_text(init_text.replace(old_marker, new_marker, 1), encoding="utf-8")
+        assert (candidate_worktree / "VERSION").read_text(encoding="ascii").strip() == CANDIDATE_VERSION
+        init_text = (candidate_worktree / "product/control-plane/src/home_center/__init__.py").read_text(encoding="utf-8")
+        assert f'__version__ = "{CANDIDATE_VERSION}"' in init_text
 
         candidate_dist = tmp_path / "candidate-dist"
         build = _run(
