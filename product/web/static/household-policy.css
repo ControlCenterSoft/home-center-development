@@ -1,0 +1,80 @@
+.policy-composer-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.policy-plan-form {
+  display: flex;
+  gap: .75rem;
+  align-items: end;
+  flex-wrap: wrap;
+}
+
+.policy-plan-form label {
+  flex: 1 1 15rem;
+}
+
+.policy-preview {
+  display: grid;
+  gap: .9rem;
+  padding: 1rem;
+  border: 1px solid rgba(35, 43, 54, .12);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, .72);
+}
+
+.policy-preview-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.policy-preview-heading h3,
+.policy-preview-heading p {
+  margin: 0;
+}
+
+.policy-summary {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: .4rem;
+}
+
+.policy-technical {
+  max-width: 100%;
+  max-height: 18rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: .8rem;
+}
+
+.policy-confirm-actions {
+  display: flex;
+  gap: .75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+#policy-message[data-kind="error"] {
+  color: #9b2c2c;
+}
+
+#policy-message[data-kind="success"] {
+  color: #1f6b45;
+}
+
+@media (max-width: 640px) {
+  .policy-plan-form,
+  .policy-confirm-actions {
+    align-items: stretch;
+  }
+
+  .policy-plan-form > *,
+  .policy-confirm-actions > * {
+    width: 100%;
+  }
+}
