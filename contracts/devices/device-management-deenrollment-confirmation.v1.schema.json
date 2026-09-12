@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/devices/device-management-deenrollment-confirmation.v1.schema.json",
+  "title": "Home Center device management de-enrollment confirmation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "plan_id", "actor_member_id", "confirmed_at", "plan_sha256", "provider_mutation_authorized", "managed_state_change_authorized", "automatic_retry_authorized", "credential_value_access_authorized", "policy_mutation_authorized", "device_record_removal_authorized", "infrastructure_mutation_authorized", "external_publication_authorized"],
+  "properties": {
+    "schema": {"const": "home-center.device-management-deenrollment-confirmation.v1"},
+    "plan_id": {"type": "string", "pattern": "^dmdel-[0-9a-f]{24}$"},
+    "actor_member_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "confirmed_at": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"},
+    "plan_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "provider_mutation_authorized": {"const": true},
+    "managed_state_change_authorized": {"const": false},
+    "automatic_retry_authorized": {"const": false},
+    "credential_value_access_authorized": {"const": false},
+    "policy_mutation_authorized": {"const": false},
+    "device_record_removal_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
