@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/household-policy-change-plan.v1.schema.json",
+  "title": "Home Center household policy change plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "plan_id", "household_snapshot_id", "household_resource_version", "household_generation", "actor_member_id", "subject_member_id", "current_policy_sha256", "observed_desired_generation", "expected_desired_generation", "bundle", "proposed_policy", "reason", "desired_state_write_authorized", "enforcement_authorized", "infrastructure_mutation_authorized", "external_publication_authorized"],
+  "properties": {
+    "schema": {"const": "home-center.household-policy-change-plan.v1"},
+    "plan_id": {"type": "string", "pattern": "^hpcp-[0-9a-f]{24}$"},
+    "household_snapshot_id": {"type": "string", "pattern": "^hsnap-[0-9a-f]{24}$"},
+    "household_resource_version": {"type": "string", "pattern": "^hrv-[0-9a-f]{24}$"},
+    "household_generation": {"type": "integer", "minimum": 1},
+    "actor_member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "subject_member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "current_policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "observed_desired_generation": {"type": "integer", "minimum": 0},
+    "expected_desired_generation": {"type": "integer", "minimum": 1},
+    "reason": {"type": "string", "minLength": 1, "maxLength": 512},
+    "desired_state_write_authorized": {"const": false},
+    "enforcement_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false},
+    "bundle": {"type": "object"},
+    "proposed_policy": {"type": "object"}
+  }
+}
