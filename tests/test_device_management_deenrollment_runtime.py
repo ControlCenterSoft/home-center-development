@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from home_center.api_v4 import RuntimeRequestHandlerV4, _reauth_scope_allowed
 from home_center.device_management_deenrollment_runtime import (
     CONFIRM_REQUEST_SCHEMA,
     PLAN_REQUEST_SCHEMA,
@@ -253,3 +254,23 @@ def test_plan_rejects_unapplied_verification_or_unmanaged_device(tmp_path: Path)
         _plan(service)
     assert exc.value.code == "device_management_deenrollment_device_not_managed"
     store.close()
+
+
+def test_v4_exposes_deenrollment_routes_and_allows_only_exact_step_up_scopes() -> None:
+    assert RuntimeRequestHandlerV4.DEENROLLMENT_POSTS == {
+        "/api/v1/household/devices/deenrollment/plan",
+        "/api/v1/household/devices/deenrollment/confirm",
+    }
+    assert _reauth_scope_allowed(
+        "household.device.management.enrollment.verify:dmpverify-" + "a" * 24
+    )
+    assert _reauth_scope_allowed(
+        "household.device.management.deenrollment:dmdel-" + "b" * 24
+    )
+    assert not _reauth_scope_allowed(
+        "household.device.management.deenrollment:dmdel-" + "b" * 24 + "-extra"
+    )
+    assert not _reauth_scope_allowed(
+        "household.device.management.deenrollment:dmdel-" + "g" * 24
+    )
+    assert not _reauth_scope_allowed("household.device.management.deenrollment")
