@@ -164,3 +164,71 @@ def evaluate_policy_backend_qualification(
         qualified=not blockers,
         blockers=tuple(blockers),
     )
+
+
+def registration_metadata_from_policy_backend_qualification(
+    decision: PolicyBackendQualificationDecision,
+    *,
+    expected_version: str,
+    expected_revision: str,
+    expected_candidate_artifact_sha256: str,
+    expected_backend_id: str,
+    expected_adapter_version: str,
+    expected_adapter_artifact_sha256: str,
+) -> dict[str, str]:
+    """Build adapter-registration metadata only from one exact qualified decision.
+
+    The returned values match the policy enforcement runtime's adapter metadata
+    boundary. This function does not register an adapter or authorize a mutation.
+    """
+
+    if not isinstance(decision, PolicyBackendQualificationDecision):
+        raise PolicyBackendQualificationError("policy_backend_qualification_decision_invalid")
+    if (
+        decision.schema != SCHEMA
+        or decision.qualified is not True
+        or decision.blockers
+        or decision.backend_mutation_authorized is not False
+        or decision.release_authorized is not False
+        or decision.external_publication_authorized is not False
+        or _SHA256.fullmatch(decision.evidence_sha256) is None
+    ):
+        raise PolicyBackendQualificationError("policy_backend_qualification_decision_invalid")
+
+    if (
+        _SEMVER.fullmatch(expected_version) is None
+        or _REVISION.fullmatch(expected_revision) is None
+        or _SHA256.fullmatch(expected_candidate_artifact_sha256) is None
+        or _IDENTIFIER.fullmatch(expected_backend_id) is None
+        or _SEMVER.fullmatch(expected_adapter_version) is None
+        or _SHA256.fullmatch(expected_adapter_artifact_sha256) is None
+    ):
+        raise PolicyBackendQualificationError("policy_backend_qualification_expected_identity_invalid")
+
+    expected = (
+        expected_version,
+        expected_revision,
+        expected_candidate_artifact_sha256,
+        expected_backend_id,
+        expected_backend_id,
+        expected_adapter_version,
+        expected_adapter_artifact_sha256,
+    )
+    actual = (
+        decision.version,
+        decision.revision,
+        decision.candidate_artifact_sha256,
+        decision.backend_id,
+        decision.adapter_id,
+        decision.adapter_version,
+        decision.adapter_artifact_sha256,
+    )
+    if actual != expected:
+        raise PolicyBackendQualificationError("policy_backend_qualification_candidate_mismatch")
+
+    return {
+        "adapter_id": decision.adapter_id,
+        "adapter_version": decision.adapter_version,
+        "adapter_artifact_sha256": decision.adapter_artifact_sha256,
+        "qualification_evidence_sha256": decision.evidence_sha256,
+    }
