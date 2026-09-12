@@ -115,15 +115,6 @@ def validate_rollback_audit_binding(
     ):
         raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR)
 
-    try:
-        service.store.verify_audit_chain()
-    except RuntimeError as exc:
-        raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR) from exc
-
-    try:
-        expected_rollback_id = _rollback_id(actor, request)
-    except (KeyError, TypeError, ValueError) as exc:
-        raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR) from exc
     resource_key = request.get("resource_key")
     target_generation = request.get("target_generation")
     expected_generation = request.get("expected_generation")
@@ -144,6 +135,7 @@ def validate_rollback_audit_binding(
         or isinstance(expected_generation, bool)
         or not isinstance(expected_generation, int)
         or expected_generation < 1
+        or target_generation >= expected_generation
         or not isinstance(expected_bundle_id, str)
         or not expected_bundle_id
         or isinstance(generation, bool)
@@ -153,7 +145,18 @@ def validate_rollback_audit_binding(
         or not bundle_id
         or not isinstance(recovered, bool)
         or not isinstance(changed, bool)
-        or receipt.get("rollback_id") != expected_rollback_id
+        or (changed and generation != expected_generation + 1)
+        or (not changed and generation != expected_generation)
+    ):
+        raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR)
+
+    try:
+        expected_rollback_id = _rollback_id(actor, request)
+    except (KeyError, TypeError, ValueError) as exc:
+        raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR) from exc
+
+    if (
+        receipt.get("rollback_id") != expected_rollback_id
         or receipt.get("resource_key") != resource_key
         or receipt.get("target_history_generation") != target_generation
         or receipt.get("desired_state_materialized") is not True
@@ -170,6 +173,11 @@ def validate_rollback_audit_binding(
     )
     if outcome not in allowed_receipt_outcomes or (recovered and changed is not True):
         raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR)
+
+    try:
+        service.store.verify_audit_chain()
+    except RuntimeError as exc:
+        raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR) from exc
 
     try:
         target_history = service.read(resource_key=resource_key, generation=target_generation)
