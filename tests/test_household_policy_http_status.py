@@ -18,6 +18,7 @@ def test_policy_http_integrity_failures_are_unavailable() -> None:
         "household_policy_history_record_invalid",
         "household_policy_history_audit_mismatch",
         "household_policy_rollback_evidence_mismatch",
+        "household_policy_rollback_write_failed",
     }
     for code in codes:
         assert RuntimeRequestHandlerPolicy._policy_status(code) == HTTPStatus.SERVICE_UNAVAILABLE
