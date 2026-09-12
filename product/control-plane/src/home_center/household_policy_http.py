@@ -1,10 +1,11 @@
 """Authenticated HTTP boundary for Home Center 0.59 Policy Composer.
 
-The routes deliberately reuse the existing V2 request classifier, authentication,
-same-origin and external-access controls. They expose only plan/presentation,
-explicit confirm+Desired-State materialization, fail-closed confirmation recovery,
-and explicit rollback to immutable policy history. No route grants provider
-execution or infrastructure mutation authority.
+The routes deliberately reuse the existing V2 request classifier, authentication
+and same-origin controls, and add an explicit fail-closed external boundary for
+all policy operations. They expose only plan/presentation, explicit
+confirm+Desired-State materialization, fail-closed confirmation recovery, and
+explicit rollback to immutable policy history. No route grants provider execution
+or infrastructure mutation authority.
 """
 
 from __future__ import annotations
@@ -42,8 +43,20 @@ class RuntimeRequestHandlerPolicy(RuntimeRequestHandlerV2):
         context = self._classify_request(correlation_id)
         if context is None:
             return
-        if self._blocked_for_external(path, context):
+        if context.external or self._blocked_for_external(path, context):
             self.close_connection = True
+            self.runtime.store.audit(
+                actor=f"network:{context.client_address}",
+                action="household.policy.external-access",
+                target="household-policy",
+                outcome="denied",
+                correlation_id=correlation_id,
+                details={
+                    "path": path,
+                    "external_publication_authorized": False,
+                    "infrastructure_mutation_authorized": False,
+                },
+            )
             self._error(HTTPStatus.NOT_FOUND, "not_found", "Ресурс не найден", correlation_id)
             return
         if not self._same_origin_post_allowed(context):
@@ -127,6 +140,7 @@ class RuntimeRequestHandlerPolicy(RuntimeRequestHandlerV2):
                 "household_state_invalid",
                 "household_policy_proposal_state_invalid",
                 "household_policy_confirmation_invalid",
+                "household_policy_materialization_receipt_invalid",
                 "household_policy_apply_state_invalid",
                 "household_policy_desired_state_invalid",
                 "household_policy_desired_state_missing",
@@ -137,6 +151,9 @@ class RuntimeRequestHandlerPolicy(RuntimeRequestHandlerV2):
                 "household_policy_history_invalid",
                 "household_policy_history_evidence_mismatch",
                 "household_policy_history_conflict",
+                "household_policy_history_audit_invalid",
+                "household_policy_history_audit_missing",
+                "household_policy_history_audit_mismatch",
                 "household_policy_rollback_state_invalid",
                 "household_policy_rollback_evidence_mismatch",
             }
