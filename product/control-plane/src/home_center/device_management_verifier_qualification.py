@@ -21,6 +21,28 @@ PROVIDER_ID = re.compile(r"^[a-z][a-z0-9_.:-]{1,127}$")
 VERIFIER_ID = re.compile(r"^[a-z][a-z0-9_.:-]{1,127}$")
 REVISION = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$")
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
+RECEIPT_FIELDS = frozenset(
+    {
+        "schema",
+        "state",
+        "qualification_level",
+        "provider_id",
+        "verifier_id",
+        "verifier_revision",
+        "result_schema",
+        "signals",
+        "verification_read_only",
+        "source_sha256",
+        "profile_sha256",
+        "provider_read_performed",
+        "production_qualified",
+        "provider_mutation_authorized",
+        "managed_state_change_authorized",
+        "policy_application_authorized",
+        "infrastructure_mutation_authorized",
+        "external_publication_authorized",
+    }
+)
 
 
 class DeviceManagementVerifierQualificationError(ValueError):
@@ -90,6 +112,87 @@ def _profile(value: object) -> dict[str, object]:
     return raw
 
 
+def _declared_signals(adapter: object) -> tuple[str, ...] | None:
+    signals = getattr(adapter, "signals", None)
+    if isinstance(signals, list):
+        signals = tuple(signals)
+    return signals if isinstance(signals, tuple) else None
+
+
+def _adapter_matches_descriptor(
+    *,
+    adapter: object,
+    verifier_id: object,
+    verifier_revision: object,
+) -> bool:
+    return (
+        getattr(adapter, "verification_read_only", None) is True
+        and callable(getattr(adapter, "read_back", None))
+        and getattr(adapter, "verifier_id", None) == verifier_id
+        and getattr(adapter, "verifier_revision", None) == verifier_revision
+        and getattr(adapter, "result_schema", None) == RESULT_SCHEMA
+        and _declared_signals(adapter) == tuple(SIGNAL_NAMES)
+    )
+
+
+def validate_contract_qualification_receipt(
+    *,
+    provider_id: object,
+    adapter: object,
+    receipt: object,
+) -> dict[str, object]:
+    """Revalidate a stored contract receipt against the current adapter descriptor.
+
+    This is a local/static check only. It performs no provider I/O and does not
+    upgrade contract qualification into live or production qualification.
+    """
+    if not isinstance(receipt, dict) or set(receipt) != RECEIPT_FIELDS:
+        raise DeviceManagementVerifierQualificationError(
+            "device_management_enrollment_verifier_qualification_receipt_rejected"
+        )
+    raw = dict(receipt)
+    source_sha256 = raw.get("source_sha256")
+    profile_sha256 = raw.get("profile_sha256")
+    if (
+        raw.get("schema") != RECEIPT_SCHEMA
+        or raw.get("state") != "contract-qualified"
+        or raw.get("qualification_level") != QUALIFICATION_LEVEL
+        or not isinstance(provider_id, str)
+        or PROVIDER_ID.fullmatch(provider_id) is None
+        or raw.get("provider_id") != provider_id
+        or not isinstance(raw.get("verifier_id"), str)
+        or VERIFIER_ID.fullmatch(raw["verifier_id"]) is None
+        or not isinstance(raw.get("verifier_revision"), str)
+        or REVISION.fullmatch(raw["verifier_revision"]) is None
+        or raw.get("result_schema") != RESULT_SCHEMA
+        or raw.get("signals") != list(SIGNAL_NAMES)
+        or raw.get("verification_read_only") is not True
+        or not isinstance(source_sha256, str)
+        or SHA256.fullmatch(source_sha256) is None
+        or not isinstance(profile_sha256, str)
+        or SHA256.fullmatch(profile_sha256) is None
+        or raw.get("provider_read_performed") is not False
+        or raw.get("production_qualified") is not False
+        or raw.get("provider_mutation_authorized") is not False
+        or raw.get("managed_state_change_authorized") is not False
+        or raw.get("policy_application_authorized") is not False
+        or raw.get("infrastructure_mutation_authorized") is not False
+        or raw.get("external_publication_authorized") is not False
+    ):
+        raise DeviceManagementVerifierQualificationError(
+            "device_management_enrollment_verifier_qualification_receipt_rejected"
+        )
+    if not _adapter_matches_descriptor(
+        adapter=adapter,
+        verifier_id=raw["verifier_id"],
+        verifier_revision=raw["verifier_revision"],
+    ):
+        raise DeviceManagementVerifierQualificationError(
+            "device_management_enrollment_verifier_qualification_stale"
+        )
+    return raw
+
+
 def qualify_read_back_adapter(
     *,
     provider_id: object,
@@ -110,20 +213,16 @@ def qualify_read_back_adapter(
             "device_management_enrollment_verifier_not_read_only"
         )
 
-    declared_signals = getattr(adapter, "signals", None)
-    if isinstance(declared_signals, list):
-        declared_signals = tuple(declared_signals)
-    if (
-        getattr(adapter, "verifier_id", None) != raw["verifier_id"]
-        or getattr(adapter, "verifier_revision", None) != raw["verifier_revision"]
-        or getattr(adapter, "result_schema", None) != RESULT_SCHEMA
-        or declared_signals != tuple(SIGNAL_NAMES)
+    if not _adapter_matches_descriptor(
+        adapter=adapter,
+        verifier_id=raw["verifier_id"],
+        verifier_revision=raw["verifier_revision"],
     ):
         raise DeviceManagementVerifierQualificationError(
             "device_management_enrollment_verifier_descriptor_mismatch"
         )
 
-    return {
+    receipt = {
         "schema": RECEIPT_SCHEMA,
         "state": "contract-qualified",
         "qualification_level": QUALIFICATION_LEVEL,
@@ -143,3 +242,8 @@ def qualify_read_back_adapter(
         "infrastructure_mutation_authorized": False,
         "external_publication_authorized": False,
     }
+    return validate_contract_qualification_receipt(
+        provider_id=provider_id,
+        adapter=adapter,
+        receipt=receipt,
+    )
