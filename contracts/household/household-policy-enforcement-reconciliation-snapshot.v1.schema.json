@@ -245,7 +245,10 @@
           "state": {
             "const": "invoking"
           }
-        }
+        },
+        "required": [
+          "state"
+        ]
       },
       "then": {
         "properties": {
@@ -264,7 +267,10 @@
           "state": {
             "const": "in-doubt"
           }
-        }
+        },
+        "required": [
+          "state"
+        ]
       },
       "then": {
         "properties": {
@@ -280,10 +286,82 @@
     {
       "if": {
         "properties": {
+          "state": {
+            "const": "completed"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "backend_outcome": {
+            "enum": [
+              "accepted",
+              "rejected"
+            ]
+          },
+          "backend_command_accepted": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "backend_outcome": {
+            "const": "pending"
+          }
+        },
+        "required": [
+          "backend_outcome"
+        ]
+      },
+      "then": {
+        "properties": {
+          "state": {
+            "const": "invoking"
+          },
+          "backend_command_accepted": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "backend_outcome": {
+            "const": "ambiguous"
+          }
+        },
+        "required": [
+          "backend_outcome"
+        ]
+      },
+      "then": {
+        "properties": {
+          "state": {
+            "const": "in-doubt"
+          },
+          "backend_command_accepted": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
           "backend_outcome": {
             "const": "accepted"
           }
-        }
+        },
+        "required": [
+          "backend_outcome"
+        ]
       },
       "then": {
         "properties": {
@@ -302,7 +380,10 @@
           "backend_outcome": {
             "const": "rejected"
           }
-        }
+        },
+        "required": [
+          "backend_outcome"
+        ]
       },
       "then": {
         "properties": {
