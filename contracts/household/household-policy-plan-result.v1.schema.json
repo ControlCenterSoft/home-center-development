@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://control-center.pro/schemas/home-center/household-policy-plan-result.v1.schema.json",
+  "title": "Home Center Household Policy Plan Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "proposal",
+    "presentation",
+    "confirmation_required",
+    "desired_state_materialized",
+    "provider_execution_authorized",
+    "infrastructure_mutation_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.household-policy-plan-result.v1"},
+    "proposal": {"$ref": "household-policy-composition-proposal.v1.schema.json"},
+    "presentation": {"$ref": "household-policy-presentation.v1.schema.json"},
+    "confirmation_required": {"const": true},
+    "desired_state_materialized": {"const": false},
+    "provider_execution_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
