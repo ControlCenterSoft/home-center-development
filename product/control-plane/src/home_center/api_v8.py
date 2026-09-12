@@ -18,6 +18,11 @@ from .api_v7 import RuntimeRequestHandlerV7
 from .household_policy_enforcement_runtime import HouseholdPolicyEnforcementError
 
 
+PLAN_REQUEST_SCHEMA = "home-center.household-policy-enforcement-plan-request.v1"
+CONFIRM_REQUEST_SCHEMA = "home-center.household-policy-enforcement-confirm-request.v1"
+EXECUTE_REQUEST_SCHEMA = "home-center.household-policy-enforcement-execute-request.v1"
+
+
 class RuntimeRequestHandlerV8(RuntimeRequestHandlerV7):
     """Expose explicit, fail-closed policy enforcement lifecycle operations."""
 
@@ -37,8 +42,18 @@ class RuntimeRequestHandlerV8(RuntimeRequestHandlerV7):
     )
 
     @staticmethod
-    def _exact_body(body: object, required: set[str]) -> dict[str, object]:
-        if not isinstance(body, dict) or set(body) != required:
+    def _schema_body(
+        body: object,
+        *,
+        schema: str,
+        fields: set[str],
+    ) -> dict[str, object]:
+        required = {"schema", *fields}
+        if (
+            not isinstance(body, dict)
+            or set(body) != required
+            or body.get("schema") != schema
+        ):
             raise ValueError("invalid_household_policy_enforcement_http_request")
         return body
 
@@ -97,7 +112,11 @@ class RuntimeRequestHandlerV8(RuntimeRequestHandlerV7):
             body = self._read_json(max_bytes=4096)
             service = self.runtime.household_policy_enforcement
             if path in self.POLICY_ENFORCEMENT_PLAN_POSTS:
-                request = self._exact_body(body, {"member_id", "backend_id"})
+                request = self._schema_body(
+                    body,
+                    schema=PLAN_REQUEST_SCHEMA,
+                    fields={"member_id", "backend_id"},
+                )
                 member_id = self._text_field(request, "member_id")
                 backend_id = self._text_field(request, "backend_id")
                 value = service.plan(
@@ -107,7 +126,11 @@ class RuntimeRequestHandlerV8(RuntimeRequestHandlerV7):
                     correlation_id=correlation_id,
                 )
             elif path in self.POLICY_ENFORCEMENT_CONFIRM_POSTS:
-                request = self._exact_body(body, {"plan_id", "confirmed"})
+                request = self._schema_body(
+                    body,
+                    schema=CONFIRM_REQUEST_SCHEMA,
+                    fields={"plan_id", "confirmed"},
+                )
                 plan_id = self._text_field(request, "plan_id")
                 confirmed = self._bool_field(request, "confirmed")
                 if self.headers.get("Idempotency-Key") != plan_id:
@@ -121,7 +144,11 @@ class RuntimeRequestHandlerV8(RuntimeRequestHandlerV7):
                     correlation_id=correlation_id,
                 )
             else:
-                request = self._exact_body(body, {"plan_id"})
+                request = self._schema_body(
+                    body,
+                    schema=EXECUTE_REQUEST_SCHEMA,
+                    fields={"plan_id"},
+                )
                 plan_id = self._text_field(request, "plan_id")
                 if self.headers.get("Idempotency-Key") != plan_id:
                     raise HouseholdPolicyEnforcementError(
