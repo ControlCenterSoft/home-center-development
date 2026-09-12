@@ -5,6 +5,7 @@ import pytest
 from home_center.household import FamilyMember, Household, HouseholdRole, InternetPolicy
 from home_center.household_store import build_household_snapshot
 from home_center.policy_composer import (
+    PolicyBundle,
     PolicyComposerError,
     build_policy_bundle,
     compose_policy_change_plan,
@@ -25,9 +26,8 @@ def _household() -> Household:
     )
 
 
-def _snapshot(generation: int = 1):
-    previous = None if generation == 1 else "hsnap-previous00000000000000"
-    return build_household_snapshot(_household(), generation=generation, previous_snapshot_id=previous)
+def _snapshot():
+    return build_household_snapshot(_household(), generation=1, previous_snapshot_id=None)
 
 
 def test_child_policy_can_only_tighten_role_ceiling() -> None:
@@ -43,6 +43,7 @@ def test_child_policy_can_only_tighten_role_ceiling() -> None:
     assert bundle.home_files_allowed is False
     assert bundle.administration_allowed is False
     assert bundle.external_publication_allowed is False
+    assert bundle.to_dict()["external_publication_allowed"] is False
 
 
 @pytest.mark.parametrize(
@@ -58,6 +59,21 @@ def test_child_policy_can_only_tighten_role_ceiling() -> None:
 def test_child_policy_cannot_broaden_role_ceiling(override: dict[str, object]) -> None:
     with pytest.raises(PolicyComposerError, match="policy_role_ceiling_exceeded"):
         build_policy_bundle(HouseholdRole.CHILD, **override)
+
+
+def test_direct_policy_bundle_construction_rejects_forged_identity() -> None:
+    valid = build_policy_bundle(HouseholdRole.CHILD, home_files_allowed=False)
+    with pytest.raises(PolicyComposerError, match="policy_bundle_evidence_mismatch"):
+        PolicyBundle(
+            bundle_id="hpb-000000000000000000000000",
+            role=valid.role,
+            internet_policy=valid.internet_policy,
+            vpn_allowed=valid.vpn_allowed,
+            managed_device_required=valid.managed_device_required,
+            home_files_allowed=valid.home_files_allowed,
+            smart_home_control_allowed=valid.smart_home_control_allowed,
+            administration_allowed=valid.administration_allowed,
+        )
 
 
 def test_policy_plan_is_exact_state_explainable_and_non_executing() -> None:
@@ -79,7 +95,7 @@ def test_policy_plan_is_exact_state_explainable_and_non_executing() -> None:
     assert plan.desired_state_write_authorized is False
     assert plan.provider_execution_authorized is False
     assert plan.external_publication_authorized is False
-    assert plan.recovery_bundle_id == plan.current_bundle_id
+    assert plan.current_bundle_id == plan.to_dict()["recovery_bundle_id"]
     assert "Домашние файлы: недоступны." in plan.cozy_summary_ru
     assert "Внешняя публикация: запрещена." in plan.cozy_summary_ru
 
@@ -123,6 +139,20 @@ def test_policy_plan_revalidation_rejects_snapshot_drift() -> None:
         revalidate_policy_change_plan(second, plan, actor_member_id="parent-main")
 
 
+def test_policy_plan_revalidation_rejects_actor_substitution() -> None:
+    snapshot = _snapshot()
+    bundle = build_policy_bundle(HouseholdRole.CHILD, home_files_allowed=False)
+    plan = compose_policy_change_plan(
+        snapshot,
+        actor_member_id="parent-main",
+        target_member_id="child-main",
+        target_bundle=bundle,
+    )
+
+    with pytest.raises(PolicyComposerError, match="policy_actor_not_authorized"):
+        revalidate_policy_change_plan(snapshot, plan, actor_member_id="child-main")
+
+
 def test_confirmation_authorizes_only_protected_desired_state_write() -> None:
     snapshot = _snapshot()
     bundle = build_policy_bundle(HouseholdRole.CHILD, home_files_allowed=False)
@@ -134,9 +164,13 @@ def test_confirmation_authorizes_only_protected_desired_state_write() -> None:
     )
 
     confirmation = confirm_policy_change_plan(snapshot, plan, actor_member_id="parent-main")
+    value = confirmation.to_dict()
 
     assert confirmation.plan_id == plan.plan_id
     assert confirmation.desired_state_write_authorized is True
     assert confirmation.provider_execution_authorized is False
     assert confirmation.external_publication_authorized is False
     assert confirmation.audit_event_id.startswith("audit-hp-")
+    assert value["desired_state_write_authorized"] is True
+    assert value["provider_execution_authorized"] is False
+    assert value["external_publication_authorized"] is False
