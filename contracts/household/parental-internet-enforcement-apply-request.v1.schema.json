@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/parental-internet-enforcement-apply-request.v1.schema.json",
+  "title": "Home Center parental Internet enforcement apply request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "job_id", "adapter_id", "adapter_version", "household_id", "member_id", "desired_generation", "desired_plan_id", "desired_state_sha256", "verified_base_state_sha256", "policy_id", "policy_sha256", "policy", "adapter_execution_authorized", "credential_value_access_authorized", "external_publication_authorized", "enforcement_verified"],
+  "properties": {
+    "schema": {"const": "home-center.parental-internet-enforcement-apply-request.v1"},
+    "job_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "adapter_id": {"type": "string", "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$"},
+    "adapter_version": {"type": "string", "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"},
+    "household_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "desired_generation": {"type": "integer", "minimum": 1},
+    "desired_plan_id": {"type": "string", "pattern": "^hpip-[0-9a-f]{24}$"},
+    "desired_state_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "verified_base_state_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "policy_id": {"type": "string", "pattern": "^hcip-[0-9a-f]{24}$"},
+    "policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "policy": {"type": "object"},
+    "adapter_execution_authorized": {"const": true},
+    "credential_value_access_authorized": {"const": false},
+    "external_publication_authorized": {"const": false},
+    "enforcement_verified": {"const": false}
+  }
+}
