@@ -53,7 +53,7 @@ def test_policy_ui_rejects_response_authority_or_evidence_drift() -> None:
     assert "function safePlanResponse(data)" in client
     assert "function safeHistoryResponse(data, resourceKey)" in client
     assert "function safeApplyResponse(data, proposalId, resourceKey)" in client
-    assert "function safeRollbackResponse(data, requestBody)" in client
+    assert "function safeRollbackResponse(data, requestBody, targetBundleId)" in client
     assert "value?.provider_execution_authorized === false" in client
     assert "value?.infrastructure_mutation_authorized === false" in client
     assert "value?.external_publication_authorized === false" in client
@@ -61,6 +61,8 @@ def test_policy_ui_rejects_response_authority_or_evidence_drift() -> None:
     assert "technical?.production_mutation_enabled === false" in client
     assert "receipt?.bundle_id === confirmation?.bundle_id" in client
     assert "receipt?.resource_key === resourceKey" in client
+    assert "data?.target_history_bundle_id === targetBundleId" in client
+    assert "['rolled-back', 'already-current', 'already-rolled-back'].includes(outcome)" in client
 
 
 def test_full_policy_ui_uses_verified_history_and_separate_explicit_rollback_confirmation() -> None:
