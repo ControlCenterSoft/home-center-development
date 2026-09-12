@@ -71,8 +71,37 @@ def test_058_verification_result_keeps_non_enrollment_authority_closed() -> None
     assert rejected["managed_state_change_authorized"] == {"const": False}
 
 
-def test_058_notes_do_not_claim_release_or_direct_managed_mutation() -> None:
+def test_058_managed_transition_contracts_keep_other_authority_closed() -> None:
+    plan = _contract(
+        "device-management-enrollment-managed-transition-plan.v1.schema.json"
+    )
+    receipt = _contract(
+        "device-management-enrollment-managed-transition-receipt.v1.schema.json"
+    )
+
+    assert plan["additionalProperties"] is False
+    assert receipt["additionalProperties"] is False
+    assert plan["properties"]["managed_before"] == {"const": False}
+    assert plan["properties"]["managed_after"] == {"const": True}
+    assert plan["properties"]["post_condition_verified"] == {"const": True}
+    assert receipt["properties"]["managed"] == {"const": True}
+    assert receipt["properties"]["post_condition_verified"] == {"const": True}
+
+    for schema in (plan, receipt):
+        for field in (
+            "policy_application_authorized",
+            "provider_mutation_authorized",
+            "infrastructure_mutation_authorized",
+            "external_publication_authorized",
+        ):
+            assert schema["properties"][field] == {"const": False}
+
+
+def test_058_notes_keep_release_status_closed_and_describe_exact_cas_boundary() -> None:
     notes = (ROOT / "docs/releases/0.58.0.md").read_text(encoding="utf-8")
     assert "не Release Candidate и не Public Stable" in notes
-    assert "не изменяет `ManagedDevice.managed` непосредственно" in notes
-    assert "CAS-переход `ManagedDevice.managed: false -> true`" in notes
+    assert "ManagedDevice.managed: false -> true" in notes
+    assert "CAS-precondition" in notes
+    assert "не применяет результат к production store" in notes
+    assert "policy application" in notes
+    assert "external publication" in notes
