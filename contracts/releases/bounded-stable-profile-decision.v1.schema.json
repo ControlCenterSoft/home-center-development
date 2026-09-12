@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/releases/bounded-stable-profile-decision.v1.schema.json",
+  "title": "Home Center bounded Stable profile decision v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "revision",
+    "profile",
+    "ready",
+    "blockers",
+    "provider_execution_supported",
+    "multi_node_ha_supported",
+    "commercial_launch_cleared",
+    "release_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.bounded-stable-profile-decision.v1"},
+    "version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+    "revision": {"type": "string", "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"},
+    "profile": {"const": "core-single-node"},
+    "ready": {"type": "boolean"},
+    "blockers": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1, "maxLength": 96},
+      "maxItems": 64,
+      "uniqueItems": true
+    },
+    "provider_execution_supported": {"type": "boolean"},
+    "multi_node_ha_supported": {"type": "boolean"},
+    "commercial_launch_cleared": {"type": "boolean"},
+    "release_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
