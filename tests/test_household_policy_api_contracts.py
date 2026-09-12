@@ -67,6 +67,7 @@ def test_policy_plan_confirm_history_results_match_closed_contracts(tmp_path) ->
         },
         correlation_id="policy-contract-confirm",
     )
+    _validator("household-policy-confirmation.v1.schema.json").validate(result["confirmation"])
     _validator("household-policy-confirm-apply-result.v1.schema.json").validate(result)
     _validator("household-policy-apply-receipt.v1.schema.json").validate(result["receipt"])
 
@@ -83,9 +84,15 @@ def test_policy_plan_confirm_history_results_match_closed_contracts(tmp_path) ->
 
 def test_new_policy_contracts_are_closed_and_forbid_authority_escalation() -> None:
     names = (
+        "household-policy-plan-request.v1.schema.json",
+        "household-policy-confirm-request.v1.schema.json",
+        "household-policy-recovery-request.v1.schema.json",
+        "household-policy-recovery-result.v1.schema.json",
+        "household-policy-confirmation.v1.schema.json",
         "household-policy-presentation.v1.schema.json",
         "household-policy-plan-result.v1.schema.json",
         "household-policy-confirm-apply-result.v1.schema.json",
+        "household-policy-apply-receipt.v1.schema.json",
         "household-policy-history.v1.schema.json",
         "household-policy-history-overview.v1.schema.json",
         "household-policy-rollback-request.v1.schema.json",
@@ -98,6 +105,8 @@ def test_new_policy_contracts_are_closed_and_forbid_authority_escalation() -> No
         text = json.dumps(schema, ensure_ascii=False, sort_keys=True)
         if "provider_execution_authorized" in text:
             assert '"provider_execution_authorized": {"const": false}' in text
+        if "desired_state_write_authorized" in text:
+            assert '"desired_state_write_authorized": {"const": false}' in text
         if "infrastructure_mutation_authorized" in text:
             assert '"infrastructure_mutation_authorized": {"const": false}' in text
         if "external_publication_authorized" in text:
