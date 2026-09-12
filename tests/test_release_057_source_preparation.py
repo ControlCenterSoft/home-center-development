@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import tomllib
 from pathlib import Path
 
 from scripts.qualify_release_artifact import REQUIRED_MEMBERS
@@ -14,14 +13,14 @@ def _contract(name: str) -> dict[str, object]:
     return json.loads((ROOT / "contracts/devices" / name).read_text(encoding="utf-8"))
 
 
-def test_release_057_candidate_identity_is_057() -> None:
-    assert (ROOT / "VERSION").read_text(encoding="ascii").strip() == "0.57.0"
-    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
-    assert project["version"] == "0.57.0"
-    runtime_init = (ROOT / "product/control-plane/src/home_center/__init__.py").read_text(encoding="utf-8")
-    assert '__version__ = "0.57.0"' in runtime_init
-    html = (ROOT / "product/web/static/index.html").read_text(encoding="utf-8")
-    assert '<small id="version">0.57.0</small>' in html
+def test_release_057_release_notes_remain_historical_and_documented() -> None:
+    notes = (ROOT / "docs/releases/0.57.0.md").read_text(encoding="utf-8")
+    assert "# Home Center 0.57.0" in notes
+    assert "Status: official release." in notes
+    assert "`single-node-core`" in notes
+    assert "multi-node HA / automatic failover — не заявлены" in notes
+    assert "concrete provider execution — не заявлен" in notes
+    assert "commercial launch clearance — не заявлен" in notes
 
 
 def test_release_057_execution_runtime_and_safety_guard_are_required_in_artifact() -> None:
@@ -118,13 +117,8 @@ def test_release_057_runtime_never_marks_device_managed_from_provider_acceptance
     assert '"next_required_boundary":"post-condition-verification"' in execution
 
 
-def test_release_057_notes_are_official_bounded_stable_and_preserve_verification_boundary() -> None:
+def test_release_057_notes_preserve_verification_boundary() -> None:
     notes = (ROOT / "docs/releases/0.57.0.md").read_text(encoding="utf-8")
-    assert "Status: official release." in notes
-    assert "`single-node-core`" in notes
-    assert "multi-node HA / automatic failover — не заявлены" in notes
-    assert "concrete provider execution — не заявлен" in notes
-    assert "commercial launch clearance — не заявлен" in notes
     assert "enrollment_completed = false" in notes
     assert "post_condition_verified = false" in notes
     assert "managed_state_change_authorized = false" in notes
