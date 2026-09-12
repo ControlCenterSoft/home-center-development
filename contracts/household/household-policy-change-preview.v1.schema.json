@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://control-center.pro/schemas/home-center/household-policy-change-preview.v1.schema.json",
+  "title": "Home Center Household Policy Change Preview v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "resource_key",
+    "baseline_generation",
+    "baseline_bundle_id",
+    "target_bundle_id",
+    "change_state",
+    "changed_fields",
+    "cozy_summary",
+    "confirmation_required",
+    "mutation_started",
+    "provider_execution_authorized",
+    "infrastructure_mutation_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.household-policy-change-preview.v1"},
+    "resource_key": {"type": "string", "minLength": 1, "maxLength": 320},
+    "baseline_generation": {"type": "integer", "minimum": 0},
+    "baseline_bundle_id": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "string", "pattern": "^hpb-[0-9a-f]{24}$"}
+      ]
+    },
+    "target_bundle_id": {"type": "string", "pattern": "^hpb-[0-9a-f]{24}$"},
+    "change_state": {"enum": ["initial", "unchanged", "changed"]},
+    "changed_fields": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 7,
+      "items": {
+        "enum": [
+          "role",
+          "internet_policy",
+          "vpn_allowed",
+          "managed_device_required",
+          "home_files_allowed",
+          "smart_home_control_allowed",
+          "administration_allowed"
+        ]
+      }
+    },
+    "cozy_summary": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4,
+      "items": {"type": "string", "minLength": 1, "maxLength": 320}
+    },
+    "confirmation_required": {"const": true},
+    "mutation_started": {"const": false},
+    "provider_execution_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
