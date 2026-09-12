@@ -1,8 +1,8 @@
 """Fail-closed qualification evidence for a concrete Home Center policy backend.
 
 This module evaluates evidence produced by a bounded real-backend qualification run.
-It never invokes a backend, never grants mutation authority by itself, and never
-converts backend command acceptance into verified policy enforcement.
+It never invokes a backend during qualification, never grants mutation authority by
+itself, and never converts backend command acceptance into verified enforcement.
 """
 
 from __future__ import annotations
@@ -176,11 +176,7 @@ def registration_metadata_from_policy_backend_qualification(
     expected_adapter_version: str,
     expected_adapter_artifact_sha256: str,
 ) -> dict[str, str]:
-    """Build adapter-registration metadata only from one exact qualified decision.
-
-    The returned values match the policy enforcement runtime's adapter metadata
-    boundary. This function does not register an adapter or authorize a mutation.
-    """
+    """Build registration metadata only from one exact qualified decision."""
 
     if not isinstance(decision, PolicyBackendQualificationDecision):
         raise PolicyBackendQualificationError("policy_backend_qualification_decision_invalid")
@@ -232,3 +228,56 @@ def registration_metadata_from_policy_backend_qualification(
         "adapter_artifact_sha256": decision.adapter_artifact_sha256,
         "qualification_evidence_sha256": decision.evidence_sha256,
     }
+
+
+class QualificationBoundPolicyMutationAdapter:
+    """Adapter wrapper whose qualification flag can only follow exact evidence.
+
+    Production integration can register this wrapper with the existing enforcement
+    runtime instead of trusting a concrete adapter's self-declared qualification
+    flag. The wrapper delegates only ``apply_policy`` and exposes the exact metadata
+    bound by the qualification decision.
+    """
+
+    policy_mutation_capable = True
+    policy_backend_qualified = True
+    qualification_binding_schema = SCHEMA
+
+    def __init__(
+        self,
+        adapter: object,
+        decision: PolicyBackendQualificationDecision,
+        *,
+        expected_version: str,
+        expected_revision: str,
+        expected_candidate_artifact_sha256: str,
+        expected_backend_id: str,
+        expected_adapter_version: str,
+        expected_adapter_artifact_sha256: str,
+    ) -> None:
+        metadata = registration_metadata_from_policy_backend_qualification(
+            decision,
+            expected_version=expected_version,
+            expected_revision=expected_revision,
+            expected_candidate_artifact_sha256=expected_candidate_artifact_sha256,
+            expected_backend_id=expected_backend_id,
+            expected_adapter_version=expected_adapter_version,
+            expected_adapter_artifact_sha256=expected_adapter_artifact_sha256,
+        )
+        if (
+            getattr(adapter, "policy_mutation_capable", None) is not True
+            or getattr(adapter, "adapter_id", None) != metadata["adapter_id"]
+            or getattr(adapter, "adapter_version", None) != metadata["adapter_version"]
+            or getattr(adapter, "adapter_artifact_sha256", None)
+            != metadata["adapter_artifact_sha256"]
+            or not callable(getattr(adapter, "apply_policy", None))
+        ):
+            raise PolicyBackendQualificationError("policy_backend_adapter_binding_invalid")
+        self._adapter = adapter
+        self.adapter_id = metadata["adapter_id"]
+        self.adapter_version = metadata["adapter_version"]
+        self.adapter_artifact_sha256 = metadata["adapter_artifact_sha256"]
+        self.qualification_evidence_sha256 = metadata["qualification_evidence_sha256"]
+
+    def apply_policy(self, request: dict[str, object]) -> object:
+        return self._adapter.apply_policy(request)  # type: ignore[attr-defined]
