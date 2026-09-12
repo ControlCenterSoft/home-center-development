@@ -14,7 +14,7 @@ from typing import Any
 
 from .home_services import HomeServiceCatalogError, _identifier
 from .household import EFFECTIVE_POLICY_SCHEMA, ROLE_PRESETS, HouseholdRole
-from .household_policy_composer import POLICY_BUNDLE_SCHEMA
+from .household_policy_composer import POLICY_BUNDLE_SCHEMA, policy_resource_key
 
 
 BUNDLE_KEYS = {
@@ -99,7 +99,7 @@ def validate_policy_bundle_evidence(value: object, *, expected_resource_key: str
     except (HomeServiceCatalogError, TypeError, ValueError) as exc:
         raise HouseholdPolicyEvidenceError() from exc
 
-    resource_key = f"household-policy:{household_id}:{member_id}"
+    resource_key = policy_resource_key(household_id, member_id)
     if value.get("desired_state_resource_key") != resource_key:
         raise HouseholdPolicyEvidenceError()
     if expected_resource_key is not None and resource_key != expected_resource_key:
