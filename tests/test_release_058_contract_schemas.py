@@ -13,6 +13,8 @@ SCHEMAS = (
     "device-management-enrollment-post-condition-result.v1.schema.json",
     "device-management-enrollment-post-condition-evidence.v1.schema.json",
     "device-management-enrollment-post-condition-verification-receipt.v1.schema.json",
+    "device-management-enrollment-verifier-profile.v1.schema.json",
+    "device-management-enrollment-verifier-contract-qualification-receipt.v1.schema.json",
 )
 
 
