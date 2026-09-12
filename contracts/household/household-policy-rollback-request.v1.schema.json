@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://control-center.pro/schemas/home-center/household-policy-rollback-request.v1.schema.json",
+  "title": "Home Center Household Policy Rollback Request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "resource_key",
+    "expected_generation",
+    "expected_bundle_id",
+    "target_generation",
+    "confirmed"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.household-policy-rollback-request.v1"},
+    "resource_key": {
+      "type": "string",
+      "pattern": "^household-policy:[a-z][a-z0-9_.:-]{1,127}:[a-z][a-z0-9_.:-]{1,127}$"
+    },
+    "expected_generation": {"type": "integer", "minimum": 1},
+    "expected_bundle_id": {"type": "string", "pattern": "^hpb-[0-9a-f]{24}$"},
+    "target_generation": {"type": "integer", "minimum": 1},
+    "confirmed": {"const": true}
+  }
+}
