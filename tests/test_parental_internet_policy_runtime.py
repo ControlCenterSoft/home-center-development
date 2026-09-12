@@ -7,7 +7,10 @@ import pytest
 
 from home_center.household import FamilyMember, Household, HouseholdRole, effective_policy
 from home_center.household_policy_composer import build_policy_bundle, compose_policy
-from home_center.household_policy_runtime import DESIRED_STATE_SCHEMA as BASE_DESIRED_SCHEMA
+from home_center.household_policy_runtime import (
+    DESIRED_KEY_PREFIX as BASE_POLICY_DESIRED_KEY_PREFIX,
+    DESIRED_STATE_SCHEMA as BASE_DESIRED_SCHEMA,
+)
 from home_center.household_policy_verification_state import VERIFIED_KEY_PREFIX, VERIFIED_STATE_SCHEMA
 from home_center.household_runtime import ActorBinding, HOUSEHOLD_STATE_KEY, _persisted
 from home_center.household_store import HouseholdStore
@@ -120,6 +123,7 @@ def _install_verified_base(store: StateStore) -> dict[str, object]:
         "external_publication_performed": False,
         "desired_state": desired,
     }
+    store.set_meta(BASE_POLICY_DESIRED_KEY_PREFIX + "home." + CHILD, desired)
     store.set_meta(VERIFIED_KEY_PREFIX + "home." + CHILD, verified)
     assert snapshot["household_id"] == "home"
     return verified
@@ -248,6 +252,27 @@ def test_verified_base_drift_blocks_confirmation(tmp_path: Path) -> None:
     )
     verified["evidence_sha256"] = "f" * 64
     store.set_meta(VERIFIED_KEY_PREFIX + "home." + CHILD, verified)
+    with pytest.raises(
+        ParentalInternetPolicyRuntimeError,
+        match="parental_internet_verified_base_stale",
+    ):
+        _confirm(service, plan)
+    assert store.get_meta(DESIRED_KEY_PREFIX + "home." + CHILD) is None
+    store.close()
+
+
+def test_newer_unverified_059_desired_state_invalidates_old_verified_base(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    _install_verified_base(store)
+    service = ParentalInternetPolicyRuntimeService(store)
+    plan = service.plan(
+        actor=PARENT_ACTOR,
+        request=_request(),
+        correlation_id="parental-plan",
+    )
+    current = store.get_meta(BASE_POLICY_DESIRED_KEY_PREFIX + "home." + CHILD)
+    current["reason"] = "new unverified base policy write"
+    store.set_meta(BASE_POLICY_DESIRED_KEY_PREFIX + "home." + CHILD, current)
     with pytest.raises(
         ParentalInternetPolicyRuntimeError,
         match="parental_internet_verified_base_stale",
