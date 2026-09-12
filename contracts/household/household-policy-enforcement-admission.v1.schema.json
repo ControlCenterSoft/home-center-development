@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/household-policy-enforcement-admission.v1.schema.json",
+  "title": "Home Center Household policy enforcement admission v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "plan_id",
+    "ready",
+    "blockers",
+    "post_condition_verification_required",
+    "fresh_revalidation_required",
+    "automatic_retry_authorized",
+    "execution_authorized",
+    "infrastructure_mutation_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.household-policy-enforcement-admission.v1"},
+    "plan_id": {"type": "string", "pattern": "^hpenf-[0-9a-f]{24}$"},
+    "ready": {"type": "boolean"},
+    "blockers": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "explicit_confirmation_required",
+          "actor_authority_stale_or_missing",
+          "scoped_reauth_required",
+          "desired_state_stale_or_mismatched",
+          "backend_not_registered",
+          "backend_mutation_capability_missing",
+          "backend_readback_capability_missing",
+          "backend_capability_evidence_stale_or_mismatched"
+        ]
+      }
+    },
+    "post_condition_verification_required": {"const": true},
+    "fresh_revalidation_required": {"const": true},
+    "automatic_retry_authorized": {"const": false},
+    "execution_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"ready": {"const": true}}},
+      "then": {"properties": {"blockers": {"maxItems": 0}}}
+    },
+    {
+      "if": {"properties": {"ready": {"const": false}}},
+      "then": {"properties": {"blockers": {"minItems": 1}}}
+    }
+  ]
+}
