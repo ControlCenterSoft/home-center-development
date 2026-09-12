@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/devices/device-management-enrollment-deenrollment-plan.v1.schema.json",
+  "title": "Home Center enrollment cleanup de-enrollment plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "de_enrollment_id", "cleanup_id", "verification_id", "execution_job_id",
+    "enrollment_plan_id", "provider_id", "provider_operation_id", "household_id",
+    "snapshot_id", "resource_version", "generation", "actor_member_id", "device_id",
+    "member_id", "failure_reasons", "confirmation_required", "durable_job_required",
+    "audit_required", "provider_mutation_authorized", "retry_planning_allowed",
+    "retry_execution_authorized", "managed_state_change_authorized",
+    "credential_value_access_authorized", "policy_application_authorized",
+    "infrastructure_mutation_authorized", "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.device-management-enrollment-deenrollment-plan.v1"},
+    "de_enrollment_id": {"type": "string", "pattern": "^dmpdeenroll-[0-9a-f]{24}$"},
+    "cleanup_id": {"type": "string", "pattern": "^dmpclean-[0-9a-f]{24}$"},
+    "verification_id": {"type": "string", "pattern": "^dmpverify-[0-9a-f]{24}$"},
+    "execution_job_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "enrollment_plan_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "provider_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "provider_operation_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "household_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "snapshot_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "resource_version": {"type": "string", "minLength": 1, "maxLength": 128},
+    "generation": {"type": "integer", "minimum": 1},
+    "actor_member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "device_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "failure_reasons": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"type": "string", "enum": ["certificate-missing", "profile-missing", "agent-missing", "management-inactive"]}
+    },
+    "confirmation_required": {"const": true},
+    "durable_job_required": {"const": true},
+    "audit_required": {"const": true},
+    "provider_mutation_authorized": {"const": false},
+    "retry_planning_allowed": {"const": false},
+    "retry_execution_authorized": {"const": false},
+    "managed_state_change_authorized": {"const": false},
+    "credential_value_access_authorized": {"const": false},
+    "policy_application_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
