@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://home-center.example/contracts/household/household-policy-bundle.v1.schema.json",
+  "$id": "https://control-center.pro/schemas/home-center/household-policy-bundle.v1.schema.json",
   "title": "Home Center Household Policy Bundle v1",
   "type": "object",
   "additionalProperties": false,
