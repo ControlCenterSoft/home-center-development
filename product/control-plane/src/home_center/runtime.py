@@ -22,6 +22,7 @@ from .household_device_enrollment_runtime import HouseholdDeviceEnrollmentRuntim
 from .household_device_management_runtime import HouseholdDeviceManagementRuntimeService
 from .household_device_runtime import HouseholdDeviceRuntimeService
 from .household_policy_desired_state import HouseholdPolicyDesiredStateService
+from .household_policy_history import HouseholdPolicyHistoryService
 from .household_policy_runtime import HouseholdPolicyRuntimeService
 from .household_policy_workflow import HouseholdPolicyWorkflowService
 from .household_runtime import HouseholdRuntimeService
@@ -73,10 +74,14 @@ class Runtime:
         self.household = HouseholdRuntimeService(self.store)
         self.household_policy = HouseholdPolicyRuntimeService(self.store)
         self.household_policy_desired_state = HouseholdPolicyDesiredStateService(self.store)
+        self.household_policy_history = HouseholdPolicyHistoryService(
+            self.store,
+            desired_state=self.household_policy_desired_state,
+        )
         self.household_policy_workflow = HouseholdPolicyWorkflowService(
             self.store,
             policy_runtime=self.household_policy,
-            desired_state=self.household_policy_desired_state,
+            history=self.household_policy_history,
         )
         self.household_devices = HouseholdDeviceRuntimeService(self.store)
         self.household_device_management = HouseholdDeviceManagementRuntimeService(self.store)
