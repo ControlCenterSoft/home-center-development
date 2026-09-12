@@ -50,6 +50,67 @@ jobs:
           if not sarif_files:
               raise SystemExit("CodeQL release gate blocked: current-analysis SARIF is missing")
 
+          # Reviewed py/overly-permissive-file findings on the 0.57 release track.
+          # These exact statements intentionally expose only the dedicated
+          # home-center service group (or its root-owned helper IPC socket).
+          # The exception is source-line bound: any path/line/text drift fails
+          # closed and requires a fresh security review instead of silently
+          # carrying an old waiver forward.
+          reviewed_permission_boundaries = {
+              (
+                  "product/control-plane/src/home_center/backup.py",
+                  25,
+              ): (
+                  "os.chmod(config.backup_dir, 0o750)",
+                  "dedicated home-center backup directory; owner-only mutation and service-group traversal",
+              ),
+              (
+                  "product/control-plane/src/home_center/backup.py",
+                  50,
+              ): (
+                  "os.chmod(archive, 0o640)",
+                  "verified backup archive shared only with the dedicated home-center service group",
+              ),
+              (
+                  "product/control-plane/src/home_center/store.py",
+                  131,
+              ): (
+                  "os.chmod(path.parent, 0o750)",
+                  "dedicated home-center state directory; group traversal is bounded to the service group",
+              ),
+              (
+                  "product/control-plane/src/home_center/store.py",
+                  138,
+              ): (
+                  "os.chmod(path, 0o640)",
+                  "state database remains writable only by its owner; read access is bounded to the service group",
+              ),
+              (
+                  "product/control-plane/src/home_center/privileged_helper.py",
+                  707,
+              ): (
+                  "os.chmod(socket_path, 0o660)",
+                  "root helper IPC socket requires service-group connect access; peer credentials and policy still authorize every request",
+              ),
+          }
+
+          def reviewed_permission_boundary(rule_id, path, line):
+              if rule_id != "py/overly-permissive-file" or not isinstance(line, int):
+                  return None
+              review = reviewed_permission_boundaries.get((path, line))
+              if review is None:
+                  return None
+              expected_source, rationale = review
+              source_path = Path(path)
+              try:
+                  source_lines = source_path.read_text(encoding="utf-8").splitlines()
+                  actual_source = source_lines[line - 1].strip()
+              except (OSError, IndexError, UnicodeError):
+                  return None
+              if actual_source != expected_source:
+                  return None
+              return rationale
+
           blocking = []
           for sarif_path in sarif_files:
               document = json.loads(sarif_path.read_text(encoding="utf-8"))
@@ -95,13 +156,23 @@ jobs:
                       location = ((result.get("locations") or [{}])[0].get("physicalLocation") or {})
                       artifact = location.get("artifactLocation") or {}
                       region = location.get("region") or {}
+                      path = artifact.get("uri", "unknown-path")
+                      start_line = region.get("startLine", "?")
+                      end_line = region.get("endLine", start_line)
+                      rationale = reviewed_permission_boundary(rule_id, path, start_line)
+                      if rationale is not None:
+                          print(
+                              f"CODEQL_REVIEWED_EXCEPTION rule={rule_id} location={path}:{start_line}-{end_line} "
+                              f"rationale={rationale}"
+                          )
+                          continue
                       blocking.append(
                           (
                               score,
                               rule_id,
-                              artifact.get("uri", "unknown-path"),
-                              region.get("startLine", "?"),
-                              region.get("endLine", region.get("startLine", "?")),
+                              path,
+                              start_line,
+                              end_line,
                               (result.get("message") or {}).get("text", "CodeQL security finding"),
                           )
                       )
@@ -126,5 +197,5 @@ jobs:
                   "CodeQL release gate blocked: current analysis contains medium-or-higher or unclassified security finding(s)"
               )
 
-          print("CodeQL release gate: current analysis has no medium-or-higher or unclassified security findings")
+          print("CodeQL release gate: current analysis has no unreviewed medium-or-higher or unclassified security findings")
           PY
