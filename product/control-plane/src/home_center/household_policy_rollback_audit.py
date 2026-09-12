@@ -18,13 +18,44 @@ import sqlite3
 from typing import Any
 
 from .household_policy_authorized_history import ScopedHouseholdPolicyHistoryService
-from .household_policy_history import HouseholdPolicyHistoryError, _rollback_id
+from .household_policy_history import (
+    POLICY_ROLLBACK_RECEIPT_SCHEMA,
+    POLICY_ROLLBACK_REQUEST_SCHEMA,
+    HouseholdPolicyHistoryError,
+    _rollback_id,
+)
 
 
 ROLLBACK_BEGIN_ACTION = "household.policy.desired-state.rollback.begin"
 ROLLBACK_COMPLETE_ACTION = "household.policy.desired-state.rollback.complete"
 ROLLBACK_RECOVER_ACTION = "household.policy.desired-state.rollback.recover"
 ROLLBACK_EVIDENCE_ERROR = "household_policy_rollback_evidence_mismatch"
+
+_ROLLBACK_REQUEST_FIELDS = {
+    "schema",
+    "resource_key",
+    "expected_generation",
+    "expected_bundle_id",
+    "target_generation",
+    "confirmed",
+}
+_ROLLBACK_RECEIPT_FIELDS = {
+    "schema",
+    "rollback_id",
+    "resource_key",
+    "target_history_generation",
+    "target_history_bundle_id",
+    "generation",
+    "bundle_id",
+    "changed",
+    "recovered",
+    "outcome",
+    "audit_event_id",
+    "desired_state_materialized",
+    "provider_execution_authorized",
+    "infrastructure_mutation_authorized",
+    "external_publication_authorized",
+}
 
 
 def _audit_row(
@@ -74,6 +105,14 @@ def validate_rollback_audit_binding(
     """Fail closed unless one rollback receipt is bound to its exact Audit evidence."""
 
     if not isinstance(actor, str) or not actor or not isinstance(request, dict) or not isinstance(receipt, dict):
+        raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR)
+    if (
+        set(request) != _ROLLBACK_REQUEST_FIELDS
+        or request.get("schema") != POLICY_ROLLBACK_REQUEST_SCHEMA
+        or request.get("confirmed") is not True
+        or set(receipt) != _ROLLBACK_RECEIPT_FIELDS
+        or receipt.get("schema") != POLICY_ROLLBACK_RECEIPT_SCHEMA
+    ):
         raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR)
 
     try:
