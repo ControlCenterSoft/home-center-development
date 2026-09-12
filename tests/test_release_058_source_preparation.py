@@ -97,11 +97,58 @@ def test_058_managed_transition_contracts_keep_other_authority_closed() -> None:
             assert schema["properties"][field] == {"const": False}
 
 
+def test_058_trusted_verification_profile_contract_cannot_grant_authority() -> None:
+    profile = _contract(
+        "device-management-enrollment-verification-profile.v1.schema.json"
+    )
+    catalog = _contract(
+        "device-management-enrollment-verification-profile-catalog.v1.schema.json"
+    )
+    assert profile["additionalProperties"] is False
+    assert catalog["additionalProperties"] is False
+    assert profile["properties"]["trusted"] == {"const": True}
+    assert profile["properties"]["read_only"] == {"const": True}
+    assert profile["properties"]["required_checks"]["items"] == {
+        "enum": ["certificate", "profile", "agent"]
+    }
+    for field in (
+        "provider_mutation_authorized",
+        "credential_access_authorized",
+        "managed_state_change_authorized",
+        "policy_application_authorized",
+        "infrastructure_mutation_authorized",
+        "external_publication_authorized",
+    ):
+        assert profile["properties"][field] == {"const": False}
+
+
+def test_058_failed_enrollment_cleanup_is_plan_only_and_retry_closed() -> None:
+    cleanup = _contract("device-management-enrollment-cleanup-plan.v1.schema.json")
+    assert cleanup["additionalProperties"] is False
+    assert cleanup["properties"]["action"]["enum"] == [
+        "observe-provider-state",
+        "no-provider-cleanup",
+        "de-enroll-required",
+    ]
+    for field in (
+        "provider_mutation_authorized",
+        "retry_authorized",
+        "managed_state_change_authorized",
+        "policy_application_authorized",
+        "infrastructure_mutation_authorized",
+        "external_publication_authorized",
+    ):
+        assert cleanup["properties"][field] == {"const": False}
+
+
 def test_058_notes_keep_release_status_closed_and_describe_exact_cas_boundary() -> None:
     notes = (ROOT / "docs/releases/0.58.0.md").read_text(encoding="utf-8")
     assert "не Release Candidate и не Public Stable" in notes
     assert "ManagedDevice.managed: false -> true" in notes
     assert "CAS-precondition" in notes
     assert "не применяет результат к production store" in notes
+    assert "trusted verification profile" in notes
+    assert "retry_authorized=false" in notes
+    assert "не запускает de-enrollment автоматически" in notes
     assert "policy application" in notes
     assert "external publication" in notes
