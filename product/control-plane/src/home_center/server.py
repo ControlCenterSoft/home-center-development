@@ -1,4 +1,8 @@
-"""TLS server bootstrap and process lifecycle."""
+"""TLS server bootstrap and process lifecycle.
+
+RuntimeRequestHandlerV5 extends RuntimeRequestHandlerV4 with the bounded
+post-cleanup read-back endpoint while preserving the earlier 0.58 fences.
+"""
 
 from __future__ import annotations
 
