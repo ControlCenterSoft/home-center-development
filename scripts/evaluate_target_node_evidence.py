@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Bind and evaluate exact Home Center target-node evidence locally.
 
-This is a mutation-free release-evidence tool.  It reads one closed manifest and
+This is a mutation-free release-evidence tool. It reads one closed manifest and
 three exact files (candidate artifact, target environment snapshot and execution
-transcript), recomputes their SHA-256 digests and emits an owner-only decision.
+transcript), recomputes their SHA-256 digests, validates that the environment and
+transcript are closed semantic evidence bound to the same node/release/artifact,
+and emits an owner-only decision.
+
 It never deploys, restarts services, invokes a provider or grants publication.
 """
 
@@ -32,7 +35,15 @@ from home_center.target_node_qualification import (  # noqa: E402
 )
 
 INPUT_SCHEMA = "home-center.target-node-evidence.v1"
+ENVIRONMENT_SCHEMA = "home-center.target-node-environment.v1"
+TRANSCRIPT_SCHEMA = "home-center.target-node-execution-transcript.v1"
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
+_SEMVER = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\Z")
+_REVISION = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})\Z")
+_NODE_ID = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9._-]{0,126}[A-Za-z0-9])?\Z")
+_OS_ID = re.compile(r"[a-z0-9][a-z0-9._-]{0,63}\Z")
+_OS_VERSION = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+:-]{0,63}\Z")
+
 _INPUT_KEYS = {
     "schema",
     "version",
@@ -57,6 +68,46 @@ _DIGEST_BINDINGS = (
     ("target_environment_sha256", "target_environment_digest_mismatch"),
     ("target_execution_transcript_sha256", "target_execution_transcript_digest_mismatch"),
 )
+_ENVIRONMENT_KEYS = {
+    "schema",
+    "target_node_id",
+    "hostname",
+    "architecture",
+    "os_id",
+    "os_version",
+    "service_manager",
+    "current_version",
+    "current_revision",
+}
+_TRANSCRIPT_KEYS = {
+    "schema",
+    "version",
+    "revision",
+    "candidate_artifact_sha256",
+    "target_node_id",
+    "operation",
+    "source_version",
+    "source_revision",
+    "target_version",
+    "target_revision",
+    "deployment_transaction_sha256",
+    "install_or_upgrade_exercised",
+    "service_active",
+    "readyz_status",
+    "user_state_preserved",
+    "rollback_exercised",
+    "rollback_version",
+    "rollback_revision",
+    "rollback_service_active",
+    "rollback_readyz_status",
+}
+_TRANSCRIPT_BOOLEAN_KEYS = {
+    "install_or_upgrade_exercised",
+    "service_active",
+    "user_state_preserved",
+    "rollback_exercised",
+    "rollback_service_active",
+}
 
 
 class TargetNodeEvidenceInputError(ValueError):
@@ -126,7 +177,10 @@ def _validated_manifest(value: dict[str, Any]) -> TargetNodeQualificationEvidenc
         _require(type(value.get(field)) is bool, f"input_{field}")
     for field, _ in _DIGEST_BINDINGS:
         digest = value.get(field)
-        _require(isinstance(digest, str) and _SHA256.fullmatch(digest) is not None, f"input_{field}")
+        _require(
+            isinstance(digest, str) and _SHA256.fullmatch(digest) is not None,
+            f"input_{field}",
+        )
     for field in ("version", "revision", "target_node_id"):
         _require(isinstance(value.get(field), str), f"input_{field}")
 
@@ -142,6 +196,117 @@ def _validated_manifest(value: dict[str, Any]) -> TargetNodeQualificationEvidenc
         user_state_preserved=value["user_state_preserved"],
         rollback_exercised=value["rollback_exercised"],
     )
+
+
+def _validated_environment(
+    value: dict[str, Any],
+    evidence: TargetNodeQualificationEvidence,
+) -> dict[str, Any]:
+    _require(set(value) == _ENVIRONMENT_KEYS, "target_environment_shape")
+    _require(value.get("schema") == ENVIRONMENT_SCHEMA, "target_environment_schema")
+
+    for field in ("target_node_id", "hostname", "architecture", "os_id", "os_version", "service_manager", "current_version", "current_revision"):
+        _require(isinstance(value.get(field), str), f"target_environment_{field}")
+
+    _require(_NODE_ID.fullmatch(value["target_node_id"]) is not None, "target_environment_node_id")
+    _require(_NODE_ID.fullmatch(value["hostname"]) is not None, "target_environment_hostname")
+    _require(value["target_node_id"] == evidence.target_node_id, "target_environment_node_binding")
+    _require(value["hostname"] == evidence.target_node_id, "target_environment_hostname_binding")
+    _require(value["architecture"] in {"x86_64", "amd64"}, "target_environment_architecture")
+    _require(_OS_ID.fullmatch(value["os_id"]) is not None, "target_environment_os_id")
+    _require(_OS_VERSION.fullmatch(value["os_version"]) is not None, "target_environment_os_version")
+    _require(value["service_manager"] == "systemd", "target_environment_service_manager")
+    _require(_SEMVER.fullmatch(value["current_version"]) is not None, "target_environment_current_version")
+    _require(_REVISION.fullmatch(value["current_revision"]) is not None, "target_environment_current_revision")
+    return value
+
+
+def _validated_transcript(
+    value: dict[str, Any],
+    *,
+    evidence: TargetNodeQualificationEvidence,
+    environment: dict[str, Any],
+) -> dict[str, Any]:
+    _require(set(value) == _TRANSCRIPT_KEYS, "target_transcript_shape")
+    _require(value.get("schema") == TRANSCRIPT_SCHEMA, "target_transcript_schema")
+
+    for field in (
+        "version",
+        "revision",
+        "candidate_artifact_sha256",
+        "target_node_id",
+        "operation",
+        "source_version",
+        "source_revision",
+        "target_version",
+        "target_revision",
+        "deployment_transaction_sha256",
+        "rollback_version",
+        "rollback_revision",
+    ):
+        _require(isinstance(value.get(field), str), f"target_transcript_{field}")
+    for field in _TRANSCRIPT_BOOLEAN_KEYS:
+        _require(type(value.get(field)) is bool, f"target_transcript_{field}")
+    for field in ("readyz_status", "rollback_readyz_status"):
+        _require(type(value.get(field)) is int, f"target_transcript_{field}")
+        _require(100 <= value[field] <= 599, f"target_transcript_{field}")
+
+    _require(_SEMVER.fullmatch(value["version"]) is not None, "target_transcript_version")
+    _require(_REVISION.fullmatch(value["revision"]) is not None, "target_transcript_revision")
+    _require(_SHA256.fullmatch(value["candidate_artifact_sha256"]) is not None, "target_transcript_candidate_artifact_sha256")
+    _require(_NODE_ID.fullmatch(value["target_node_id"]) is not None, "target_transcript_target_node_id")
+    _require(value["operation"] == "upgrade", "target_transcript_operation")
+    for field in ("source_version", "target_version", "rollback_version"):
+        _require(_SEMVER.fullmatch(value[field]) is not None, f"target_transcript_{field}")
+    for field in ("source_revision", "target_revision", "rollback_revision"):
+        _require(_REVISION.fullmatch(value[field]) is not None, f"target_transcript_{field}")
+    _require(_SHA256.fullmatch(value["deployment_transaction_sha256"]) is not None, "target_transcript_deployment_transaction_sha256")
+
+    _require(
+        value["version"] == evidence.version and value["revision"] == evidence.revision,
+        "target_transcript_release_binding",
+    )
+    _require(
+        value["candidate_artifact_sha256"] == evidence.candidate_artifact_sha256,
+        "target_transcript_candidate_binding",
+    )
+    _require(value["target_node_id"] == evidence.target_node_id, "target_transcript_node_binding")
+    _require(
+        value["source_version"] == environment["current_version"]
+        and value["source_revision"] == environment["current_revision"],
+        "target_transcript_source_binding",
+    )
+    _require(
+        value["target_version"] == evidence.version and value["target_revision"] == evidence.revision,
+        "target_transcript_target_binding",
+    )
+    _require(
+        value["rollback_version"] == value["source_version"]
+        and value["rollback_revision"] == value["source_revision"],
+        "target_transcript_rollback_identity_binding",
+    )
+
+    _require(
+        value["install_or_upgrade_exercised"] is evidence.install_or_upgrade_exercised,
+        "target_transcript_install_binding",
+    )
+    _require(
+        value["user_state_preserved"] is evidence.user_state_preserved,
+        "target_transcript_user_state_binding",
+    )
+    _require(
+        value["rollback_exercised"] is evidence.rollback_exercised,
+        "target_transcript_rollback_binding",
+    )
+
+    if evidence.health_ready:
+        _require(value["service_active"] is True, "target_transcript_service_active")
+        _require(value["readyz_status"] == 200, "target_transcript_readyz")
+    if evidence.rollback_exercised:
+        _require(value["rollback_service_active"] is True, "target_transcript_rollback_service_active")
+        _require(value["rollback_readyz_status"] == 200, "target_transcript_rollback_readyz")
+
+    return value
 
 
 def qualify_manifest(
@@ -162,6 +327,13 @@ def qualify_manifest(
         _DIGEST_BINDINGS, expected_digests, actual_digests, strict=True
     ):
         _require(expected == actual, mismatch_code)
+
+    environment = _validated_environment(_load_json(target_environment), evidence)
+    _validated_transcript(
+        _load_json(target_transcript),
+        evidence=evidence,
+        environment=environment,
+    )
     return evaluate_target_node_qualification(evidence)
 
 
