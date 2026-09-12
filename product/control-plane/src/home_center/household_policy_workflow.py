@@ -230,7 +230,7 @@ class HouseholdPolicyWorkflowService:
                 value = self.history.read(resource_key=resource_key, generation=generation)
             except HouseholdPolicyHistoryError as exc:
                 if exc.code == "household_policy_history_not_found":
-                    continue
+                    raise HouseholdPolicyHistoryError("household_policy_history_gap") from exc
                 raise
             revisions.append(
                 {
