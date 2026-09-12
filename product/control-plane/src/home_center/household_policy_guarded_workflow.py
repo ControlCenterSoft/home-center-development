@@ -1,11 +1,11 @@
 """Fail-closed presentation guard for Home Center 0.59 household policies.
 
 The base workflow already revalidates exact Household evidence while rebuilding a
-proposal and again before Desired State materialization.  This adapter closes the
+proposal and again before Desired State materialization. This adapter closes the
 remaining presentation-time race: Cozy/Full UI is returned only if the policy
 Desired State revision observed by the original plan is still current.
 
-The guard is deliberately non-executing.  It cannot call providers, mutate
+The guard is deliberately non-executing. It cannot call providers, mutate
 infrastructure, publish externally, or materialize Desired State.
 """
 
@@ -13,6 +13,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from .household_policy_change_preview import (
+    HouseholdPolicyChangePreviewError,
+    build_policy_change_preview,
+)
 from .household_policy_composer import (
     HouseholdPolicyComposerError,
     revalidate_policy_composition_proposal,
@@ -40,7 +44,7 @@ class GuardedHouseholdPolicyWorkflowService(HouseholdPolicyWorkflowService):
         )
         planned_snapshot, proposal = self._rebuild_exact_proposal(actor=actor, raw=raw_proposal)
 
-        # Re-read both independent preconditions after durable planning.  A change
+        # Re-read both independent preconditions after durable planning. A change
         # in Household membership/roles or in protected policy Desired State must
         # invalidate the UI result instead of presenting stale evidence as
         # "ready-for-confirmation".
@@ -57,7 +61,13 @@ class GuardedHouseholdPolicyWorkflowService(HouseholdPolicyWorkflowService):
                 current_desired_state_generation=current_generation,
                 current_desired_state_bundle_id=current_bundle_id,
             )
-        except (HouseholdPolicyComposerError, HouseholdPolicyDesiredStateError, TypeError) as exc:
+            change_preview = build_policy_change_preview(proposal, current_record)
+        except (
+            HouseholdPolicyComposerError,
+            HouseholdPolicyDesiredStateError,
+            HouseholdPolicyChangePreviewError,
+            TypeError,
+        ) as exc:
             raise HouseholdPolicyRuntimeError(
                 getattr(exc, "code", "household_policy_presentation_precondition_failed")
             ) from exc
@@ -73,6 +83,7 @@ class GuardedHouseholdPolicyWorkflowService(HouseholdPolicyWorkflowService):
             "schema": POLICY_PLAN_RESULT_SCHEMA,
             "proposal": raw_proposal,
             "presentation": presentation,
+            "change_preview": change_preview,
             "confirmation_required": True,
             "desired_state_materialized": False,
             "provider_execution_authorized": False,
