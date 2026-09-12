@@ -8,6 +8,7 @@
   <title>Home Center</title>
   <link rel="stylesheet" href="/static/app.css">
   <link rel="stylesheet" href="/static/member-change.css">
+  <link rel="stylesheet" href="/static/household-policy.css">
 </head>
 <body>
   <div class="app-shell">
@@ -101,6 +102,21 @@
 
               <div id="family-members" class="family-grid" aria-live="polite"></div>
 
+              <section id="policy-composer-card" class="setup-card policy-composer-card" hidden>
+                <div><span class="eyebrow">Правила семьи</span><h2>Настроить доступ по роли</h2><p>Home Center подготовит понятные правила из роли человека. До нажатия «Применить правила» ничего не меняется.</p></div>
+                <form id="policy-plan-form" class="policy-plan-form" autocomplete="off">
+                  <label><span>Для кого</span><select id="policy-member" required></select></label>
+                  <button class="secondary-button" type="submit">Показать правила</button>
+                </form>
+                <section id="policy-preview" class="policy-preview" hidden aria-live="polite">
+                  <div class="policy-preview-heading"><div><span class="eyebrow">Проверка перед применением</span><h3 id="policy-preview-title">Правила</h3></div><p id="policy-preview-role"></p></div>
+                  <ul id="policy-summary" class="policy-summary"></ul>
+                  <details><summary>Технические детали</summary><pre id="policy-technical" class="policy-technical"></pre></details>
+                  <div class="policy-confirm-actions"><button id="policy-confirm-button" class="primary-button" type="button" disabled>Применить правила</button><span>Изменение сохранит только локальное Desired State и не запускает управление устройствами автоматически.</span></div>
+                </section>
+                <p id="policy-message" class="form-message" role="status"></p>
+              </section>
+
               <section id="add-person-card" class="setup-card" hidden>
                 <div><span class="eyebrow">Новый человек</span><h2>Добавить в семью</h2><p>Сначала Home Center подготовит точный план. Изменения применятся только после отдельного подтверждения.</p></div>
                 <form id="member-plan-form" class="member-form" autocomplete="off">
@@ -146,5 +162,6 @@
   <script src="/static/device-management-plan.js"></script>
   <script src="/static/device-enrollment.js"></script>
   <script src="/static/device-provider-resolution.js"></script>
+  <script src="/static/household-policy.js"></script>
 </body>
 </html>
