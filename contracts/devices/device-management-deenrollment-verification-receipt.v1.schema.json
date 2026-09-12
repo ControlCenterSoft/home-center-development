@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/devices/device-management-deenrollment-verification-receipt.v1.schema.json",
+  "title": "Home Center device management de-enrollment verification receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "state", "job_id", "plan_id", "readback_sha256", "observed_state", "failure_reason", "deenrollment_completed", "managed_state_change_authorized", "recovery_required", "automatic_provider_retry_authorized", "policy_mutation_authorized", "device_record_removal_authorized", "infrastructure_mutation_authorized", "external_publication_authorized"],
+  "properties": {
+    "schema": {"const": "home-center.device-management-deenrollment-verification-receipt.v1"},
+    "state": {"type": "string", "enum": ["verified", "rejected"]},
+    "job_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "plan_id": {"type": "string", "pattern": "^dmdel-[0-9a-f]{24}$"},
+    "readback_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "observed_state": {"type": "string", "enum": ["managed", "unmanaged", "absent", "unknown", "ambiguous"]},
+    "failure_reason": {"type": ["string", "null"], "enum": [null, "binding-mismatch", "future-observation", "stale-observation", "provider-still-managed", "provider-state-unknown", "provider-state-ambiguous", "provider-state-not-verified"]},
+    "deenrollment_completed": {"type": "boolean"},
+    "managed_state_change_authorized": {"type": "boolean"},
+    "recovery_required": {"type": "boolean"},
+    "automatic_provider_retry_authorized": {"const": false},
+    "policy_mutation_authorized": {"const": false},
+    "device_record_removal_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"state": {"const": "verified"}}, "required": ["state"]},
+      "then": {"properties": {"failure_reason": {"const": null}, "deenrollment_completed": {"const": true}, "managed_state_change_authorized": {"const": true}, "recovery_required": {"const": false}}}
+    },
+    {
+      "if": {"properties": {"state": {"const": "rejected"}}, "required": ["state"]},
+      "then": {"properties": {"deenrollment_completed": {"const": false}, "managed_state_change_authorized": {"const": false}, "recovery_required": {"const": true}}}
+    }
+  ]
+}
