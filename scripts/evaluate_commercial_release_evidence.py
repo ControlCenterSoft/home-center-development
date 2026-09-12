@@ -51,6 +51,7 @@ _INPUT_KEYS = {
     "source_obligations_resolved",
     "sbom_reviewed",
     "legal_terms_dispositioned",
+    "support_terms_dispositioned",
     "release_claims_reviewed",
 }
 _BOOLEAN_KEYS = {
@@ -60,6 +61,7 @@ _BOOLEAN_KEYS = {
     "source_obligations_resolved",
     "sbom_reviewed",
     "legal_terms_dispositioned",
+    "support_terms_dispositioned",
     "release_claims_reviewed",
 }
 _DIGEST_BINDINGS = (
@@ -167,6 +169,7 @@ def _validated_manifest(value: dict[str, Any]) -> CommercialReleaseEvidence:
         source_obligations_resolved=value["source_obligations_resolved"],
         sbom_reviewed=value["sbom_reviewed"],
         legal_terms_dispositioned=value["legal_terms_dispositioned"],
+        support_terms_dispositioned=value["support_terms_dispositioned"],
         release_claims_reviewed=value["release_claims_reviewed"],
     )
 
