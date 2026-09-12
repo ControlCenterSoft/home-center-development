@@ -22,9 +22,13 @@
     const preview = byId('policy-preview');
     const summary = byId('policy-summary');
     const technical = byId('policy-technical');
+    const fullInspector = byId('full-policy-inspector');
     if (preview) preview.hidden = true;
     if (summary) summary.replaceChildren();
     if (technical) technical.textContent = '';
+    if (fullInspector) fullInspector.hidden = true;
+    const fullEvidence = byId('full-policy-evidence');
+    if (fullEvidence) fullEvidence.textContent = '';
     const confirm = byId('policy-confirm-button');
     if (confirm) confirm.disabled = true;
   }
@@ -89,6 +93,30 @@
     byId('policy-technical').textContent = JSON.stringify(full.technical_policy || {}, null, 2);
     byId('policy-preview').hidden = false;
     byId('policy-confirm-button').disabled = false;
+
+    const fullInspector = byId('full-policy-inspector');
+    const fullEvidence = byId('full-policy-evidence');
+    if (fullInspector && fullEvidence) {
+      fullEvidence.textContent = JSON.stringify({
+        proposal_id: full.proposal_id,
+        bundle_id: full.bundle_id,
+        household_id: full.household_id,
+        member_id: full.member_id,
+        role: full.role,
+        snapshot_id: full.snapshot_id,
+        resource_version: full.resource_version,
+        generation: full.generation,
+        desired_state_resource_key: full.desired_state_resource_key,
+        expected_desired_state_generation: full.expected_desired_state_generation,
+        expected_desired_state_bundle_id: full.expected_desired_state_bundle_id,
+        technical_policy: full.technical_policy,
+        confirmation_required: full.confirmation_required,
+        desired_state_write_authorized: full.desired_state_write_authorized,
+        infrastructure_mutation_authorized: full.infrastructure_mutation_authorized,
+        external_publication_authorized: full.external_publication_authorized,
+      }, null, 2);
+      fullInspector.hidden = false;
+    }
     message('Проверьте правила. Изменения ещё не применены.');
   }
 
