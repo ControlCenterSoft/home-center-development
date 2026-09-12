@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://control-center.pro/schemas/home-center/release-promotion-decision.v1.schema.json",
+  "title": "Home Center release promotion decision v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "target_channel",
+    "version",
+    "revision",
+    "ready",
+    "blockers",
+    "release_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {
+      "const": "home-center.release-promotion-decision.v1"
+    },
+    "target_channel": {
+      "enum": ["candidate", "stable"]
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$",
+      "maxLength": 64
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+    },
+    "ready": {
+      "type": "boolean"
+    },
+    "blockers": {
+      "type": "array",
+      "maxItems": 46,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "qualification_binding",
+          "ci",
+          "source_identity",
+          "reproducible_artifact",
+          "security_binding",
+          "codeql",
+          "privacy_boundary",
+          "infrastructure_neutrality",
+          "recovery_binding",
+          "upgrade",
+          "rollback",
+          "user_state_preservation",
+          "real_target_acceptance",
+          "multi_node_ha_restart",
+          "real_environment_binding",
+          "real_environment_evidence",
+          "real_environment_artifact_binding",
+          "real_environment_qualification",
+          "provider_binding",
+          "provider_evidence",
+          "provider_candidate_artifact_binding",
+          "provider_adapter_qualification",
+          "artifact_binding",
+          "candidate_artifact_digest",
+          "qualification_manifest",
+          "provenance_v2",
+          "source_artifact_digest",
+          "deployment_artifact_digest",
+          "checksum_sidecar",
+          "sha256sums",
+          "acceptance_manifest",
+          "release_manifest",
+          "spdx_sbom",
+          "commercial_binding",
+          "commercial_candidate_artifact_digest",
+          "commercial_candidate_artifact_binding",
+          "commercial_disposition",
+          "commercial_evidence",
+          "dependencies_reviewed",
+          "redistribution_reviewed",
+          "notices_prepared",
+          "source_obligations_resolved",
+          "sbom_reviewed",
+          "legal_terms_dispositioned",
+          "support_terms_dispositioned",
+          "release_claims_reviewed"
+        ]
+      }
+    },
+    "release_authorized": {
+      "const": false
+    },
+    "external_publication_authorized": {
+      "const": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"ready": {"const": true}},
+        "required": ["ready"]
+      },
+      "then": {
+        "properties": {"blockers": {"maxItems": 0}}
+      }
+    },
+    {
+      "if": {
+        "properties": {"ready": {"const": false}},
+        "required": ["ready"]
+      },
+      "then": {
+        "properties": {"blockers": {"minItems": 1}}
+      }
+    }
+  ]
+}

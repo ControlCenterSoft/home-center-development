@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://control-center.pro/schemas/home-center/provider-adapter-evidence.v1.schema.json",
+  "title": "Home Center provider adapter qualification evidence v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "revision",
+    "adapter_id",
+    "adapter_version",
+    "candidate_artifact_sha256",
+    "adapter_artifact_sha256",
+    "execution_transcript_sha256",
+    "environment_evidence_sha256",
+    "real_provider_exercised",
+    "real_target_exercised",
+    "start_contract_validated",
+    "cancel_contract_validated",
+    "secret_reference_only",
+    "secret_values_absent_from_evidence",
+    "retry_safe_only_when_proven",
+    "ambiguous_outcome_fail_closed",
+    "post_condition_separate",
+    "managed_state_change_forbidden"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.provider-adapter-evidence.v1"},
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+    },
+    "adapter_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$"
+    },
+    "adapter_version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "candidate_artifact_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "adapter_artifact_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "execution_transcript_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "environment_evidence_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "real_provider_exercised": {"type": "boolean"},
+    "real_target_exercised": {"type": "boolean"},
+    "start_contract_validated": {"type": "boolean"},
+    "cancel_contract_validated": {"type": "boolean"},
+    "secret_reference_only": {"type": "boolean"},
+    "secret_values_absent_from_evidence": {"type": "boolean"},
+    "retry_safe_only_when_proven": {"type": "boolean"},
+    "ambiguous_outcome_fail_closed": {"type": "boolean"},
+    "post_condition_separate": {"type": "boolean"},
+    "managed_state_change_forbidden": {"type": "boolean"}
+  }
+}

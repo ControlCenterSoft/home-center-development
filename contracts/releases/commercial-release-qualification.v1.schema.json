@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://control-center.pro/schemas/home-center/commercial-release-qualification.v1.schema.json",
+  "title": "Home Center commercial release qualification decision v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "revision",
+    "candidate_artifact_sha256",
+    "disposition",
+    "evidence_sha256",
+    "qualified",
+    "blockers",
+    "dependencies_reviewed",
+    "redistribution_reviewed",
+    "notices_prepared",
+    "source_obligations_resolved",
+    "sbom_reviewed",
+    "legal_terms_dispositioned",
+    "support_terms_dispositioned",
+    "release_claims_reviewed",
+    "release_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.commercial-release-qualification.v1"},
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+    },
+    "candidate_artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "disposition": {"enum": ["approved", "review-required", "rejected"]},
+    "evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "qualified": {"type": "boolean"},
+    "blockers": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "dependencies_reviewed": {"type": "boolean"},
+    "redistribution_reviewed": {"type": "boolean"},
+    "notices_prepared": {"type": "boolean"},
+    "source_obligations_resolved": {"type": "boolean"},
+    "sbom_reviewed": {"type": "boolean"},
+    "legal_terms_dispositioned": {"type": "boolean"},
+    "support_terms_dispositioned": {"type": "boolean"},
+    "release_claims_reviewed": {"type": "boolean"},
+    "release_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}

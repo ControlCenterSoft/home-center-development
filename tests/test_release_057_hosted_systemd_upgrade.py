@@ -150,13 +150,9 @@ def test_release_057_real_systemd_upgrade_health_and_rollback(tmp_path: Path) ->
     tls_certificate = Path("/etc/home-center/tls.crt")
 
     try:
-        init_path = candidate_worktree / "product/control-plane/src/home_center/__init__.py"
-        init_text = init_path.read_text(encoding="utf-8")
-        assert f'__version__ = "{STABLE_VERSION}"' in init_text
-        init_path.write_text(
-            init_text.replace(f'__version__ = "{STABLE_VERSION}"', f'__version__ = "{CANDIDATE_VERSION}"', 1),
-            encoding="utf-8",
-        )
+        assert (candidate_worktree / "VERSION").read_text(encoding="ascii").strip() == CANDIDATE_VERSION
+        init_text = (candidate_worktree / "product/control-plane/src/home_center/__init__.py").read_text(encoding="utf-8")
+        assert f'__version__ = "{CANDIDATE_VERSION}"' in init_text
         candidate_dist = tmp_path / "candidate-dist"
         _run(["bash", "deploy/scripts/build-deployment-artifact.sh", str(candidate_dist)], cwd=candidate_worktree)
         candidate_artifact = candidate_dist / f"home-center-{CANDIDATE_VERSION}-linux-amd64.tar.gz"

@@ -58,7 +58,9 @@ class RuntimeRequestHandler(BaseHTTPRequestHandler):
         return self.server.runtime  # type: ignore[attr-defined]
 
     def log_message(self, fmt: str, *args: object) -> None:
-        LOG.info("request remote=%s message=%s", self.client_address[0], fmt % args)
+        # BaseHTTPRequestHandler log text can contain attacker-controlled request data.
+        del fmt, args
+        LOG.info("request received")
 
     def handle_one_request(self) -> None:
         self._current_request_context: ExternalRequestContext | None = None
@@ -789,7 +791,9 @@ class PeerRequestHandler(BaseHTTPRequestHandler):
         return self.server.runtime  # type: ignore[attr-defined]
 
     def log_message(self, fmt: str, *args: object) -> None:
-        LOG.info("peer remote=%s message=%s", self.client_address[0], fmt % args)
+        # BaseHTTPRequestHandler log text can contain attacker-controlled request data.
+        del fmt, args
+        LOG.info("peer request received")
 
     def do_GET(self) -> None:  # noqa: N802
         if not self._peer_identity_matches():
