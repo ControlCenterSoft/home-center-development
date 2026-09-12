@@ -219,7 +219,7 @@ def qualify_manifest(
 def _write_exclusive(path: Path, payload: bytes) -> None:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     except OSError as exc:
         raise RealEnvironmentEvidenceInputError("output_unavailable") from exc
     try:
