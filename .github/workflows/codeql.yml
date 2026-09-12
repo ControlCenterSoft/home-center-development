@@ -79,20 +79,26 @@ jobs:
           for alert in alerts:
               rule = alert.get("rule") or {}
               level = (rule.get("security_severity_level") or "").lower()
-              if level in blocking_levels:
-                  blocking.append(
-                      (
-                          alert.get("number", "unknown"),
-                          level,
-                          rule.get("id", "unknown-rule"),
-                      )
+              if level not in blocking_levels:
+                  continue
+              instance = alert.get("most_recent_instance") or {}
+              location = instance.get("location") or {}
+              blocking.append(
+                  (
+                      alert.get("number", "unknown"),
+                      level,
+                      rule.get("id", "unknown-rule"),
+                      location.get("path", "unknown-path"),
+                      location.get("start_line", "?"),
+                      location.get("end_line", "?"),
                   )
+              )
 
           if blocking:
-              for number, level, rule_id in blocking:
+              for number, level, rule_id, path, start_line, end_line in blocking:
                   print(
-                      f"::error title=CodeQL release gate::"
-                      f"PR introduces open CodeQL alert #{number} "
+                      f"::error file={path},line={start_line},endLine={end_line},"
+                      f"title=CodeQL release gate::Open CodeQL alert #{number} "
                       f"({level}, {rule_id})"
                   )
               raise SystemExit(
