@@ -273,13 +273,55 @@ class HouseholdPolicyRuntimeService:
             if proposed.to_dict() != plan.get("proposed_policy"):
                 raise HouseholdPolicyRuntimeError("household_policy_plan_state_invalid")
 
+            expected_generation = plan.get("expected_desired_generation")
+            if not isinstance(expected_generation, int) or isinstance(expected_generation, bool):
+                raise HouseholdPolicyRuntimeError("household_policy_plan_state_invalid")
             desired_key = _desired_key(snapshot.household_id, subject.member_id)
+            desired = {
+                "schema": DESIRED_STATE_SCHEMA,
+                "household_id": snapshot.household_id,
+                "member_id": subject.member_id,
+                "generation": expected_generation,
+                "plan_id": plan["plan_id"],
+                "policy": proposed.to_dict(),
+                "policy_sha256": _digest(proposed.to_dict()),
+                "reason": plan["reason"],
+                "enforcement_verified": False,
+                "reconciliation_required": True,
+                "infrastructure_mutation_authorized": False,
+                "external_publication_authorized": False,
+            }
             current = self._desired(self.store.get_meta(desired_key))
-            observed_generation = current["generation"] if current is not None else 0
-            if observed_generation != plan.get("observed_desired_generation"):
-                raise HouseholdPolicyRuntimeError("household_policy_desired_generation_stale")
-            if self._current_digest(desired=current, base_policy=base) != plan.get("current_policy_sha256"):
-                raise HouseholdPolicyRuntimeError("household_policy_current_digest_stale")
+            recovery_job = next(
+                (
+                    item
+                    for item in self.store.jobs(limit=500)
+                    if item.get("job_type") == ACTION
+                    and item.get("initiator") == actor
+                    and item.get("idempotency_key") == plan["plan_id"]
+                ),
+                None,
+            )
+            recovery_preflight = recovery_job.get("preflight") if isinstance(recovery_job, dict) else None
+            interrupted_write_recovery = (
+                current == desired
+                and isinstance(recovery_job, dict)
+                and recovery_job.get("state") in {"running", "verifying", "succeeded"}
+                and isinstance(recovery_preflight, dict)
+                and recovery_preflight.get("schema") == "home-center.household-policy-desired-state-preflight.v1"
+                and recovery_preflight.get("plan_id") == plan["plan_id"]
+                and recovery_preflight.get("household_snapshot_id") == snapshot.snapshot_id
+                and recovery_preflight.get("subject_member_id") == subject.member_id
+                and recovery_preflight.get("current_policy_sha256") == plan.get("current_policy_sha256")
+                and recovery_preflight.get("expected_desired_generation") == expected_generation
+                and recovery_preflight.get("enforcement_authorized") is False
+            )
+            if not interrupted_write_recovery:
+                observed_generation = current["generation"] if current is not None else 0
+                if observed_generation != plan.get("observed_desired_generation"):
+                    raise HouseholdPolicyRuntimeError("household_policy_desired_generation_stale")
+                if self._current_digest(desired=current, base_policy=base) != plan.get("current_policy_sha256"):
+                    raise HouseholdPolicyRuntimeError("household_policy_current_digest_stale")
 
             request_hash = _digest(
                 {
@@ -318,26 +360,9 @@ class HouseholdPolicyRuntimeService:
                     job["job_id"], expected_state="preflight", new_state="running"
                 )
 
-            expected_generation = plan.get("expected_desired_generation")
-            if not isinstance(expected_generation, int) or isinstance(expected_generation, bool):
-                raise HouseholdPolicyRuntimeError("household_policy_plan_state_invalid")
-            desired = {
-                "schema": DESIRED_STATE_SCHEMA,
-                "household_id": snapshot.household_id,
-                "member_id": subject.member_id,
-                "generation": expected_generation,
-                "plan_id": plan["plan_id"],
-                "policy": proposed.to_dict(),
-                "policy_sha256": _digest(proposed.to_dict()),
-                "reason": plan["reason"],
-                "enforcement_verified": False,
-                "reconciliation_required": True,
-                "infrastructure_mutation_authorized": False,
-                "external_publication_authorized": False,
-            }
-
             if job.get("state") == "running":
-                self.store.set_meta(desired_key, desired)
+                if current != desired:
+                    self.store.set_meta(desired_key, desired)
                 job = self.store.transition_action_job(
                     job["job_id"],
                     expected_state="running",
