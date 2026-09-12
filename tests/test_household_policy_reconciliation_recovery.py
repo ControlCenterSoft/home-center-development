@@ -8,6 +8,7 @@ from home_center.household import FamilyMember, Household, HouseholdRole
 from home_center.household_policy_reconciliation_recovery import (
     RECOVERY_EVIDENCE_SCHEMA,
     RECOVERY_FAILURE_SCHEMA,
+    RUNTIME_COMPLETION_EVIDENCE_SCHEMA,
     HouseholdPolicyReconciliationRecoveryService,
 )
 from home_center.household_policy_reconciliation_runtime import (
@@ -112,13 +113,18 @@ class ExactReadOnlyAdapter:
         }
 
 
+def _runtime(store: StateStore, adapter: ExactReadOnlyAdapter) -> HouseholdPolicyReconciliationRuntimeService:
+    service = HouseholdPolicyReconciliationRuntimeService(store, now=lambda: NOW)
+    service.register_adapter(BACKEND, adapter)
+    return service
+
+
 def _interrupt_after_evidence(
     store: StateStore,
     monkeypatch: pytest.MonkeyPatch,
 ) -> tuple[HouseholdPolicyReconciliationRuntimeService, ExactReadOnlyAdapter]:
     adapter = ExactReadOnlyAdapter()
-    service = HouseholdPolicyReconciliationRuntimeService(store, now=lambda: NOW)
-    service.register_adapter(BACKEND, adapter)
+    service = _runtime(store, adapter)
     original_transition = store.transition_action_job
 
     def interrupted_transition(job_id: str, **kwargs):
@@ -136,6 +142,37 @@ def _interrupt_after_evidence(
             correlation_id="policy-reconcile-crash",
         )
     monkeypatch.setattr(store, "transition_action_job", original_transition)
+    assert adapter.calls == 1
+    return service, adapter
+
+
+def _interrupt_after_job_success(
+    store: StateStore,
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[HouseholdPolicyReconciliationRuntimeService, ExactReadOnlyAdapter]:
+    adapter = ExactReadOnlyAdapter()
+    service = _runtime(store, adapter)
+    original_set_meta = store.set_meta
+
+    def interrupted_set_meta(key: str, value: object) -> None:
+        if (
+            key.startswith(STATE_KEY_PREFIX)
+            and isinstance(value, dict)
+            and value.get("status") == "completed"
+        ):
+            raise RuntimeError("simulated-process-loss-after-job-success")
+        original_set_meta(key, value)
+
+    monkeypatch.setattr(store, "set_meta", interrupted_set_meta)
+    with pytest.raises(RuntimeError, match="simulated-process-loss-after-job-success"):
+        service.reconcile(
+            actor=PARENT_ACTOR,
+            member_id=CHILD,
+            backend_id=BACKEND,
+            max_observed_age_seconds=300,
+            correlation_id="policy-reconcile-post-job-crash",
+        )
+    monkeypatch.setattr(store, "set_meta", original_set_meta)
     assert adapter.calls == 1
     return service, adapter
 
@@ -193,6 +230,33 @@ def test_recovery_finalizes_persisted_evidence_without_backend_replay(
     )
     assert replay == completed["completion"]
     assert adapter.calls == 1
+    store.close()
+
+
+def test_recovery_finalizes_envelope_if_job_already_succeeded_without_backend_replay(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = _store(tmp_path / "state.db")
+    original_desired = _desired(store)
+    _service, adapter = _interrupt_after_job_success(store, monkeypatch)
+
+    state_key, interrupted = _reconciliation_envelope(store)
+    assert interrupted["status"] == "evidence-persisted"
+    job = store.job(str(interrupted["job_id"]))
+    assert job is not None and job["state"] == "succeeded"
+    assert job["evidence"]["schema"] == RUNTIME_COMPLETION_EVIDENCE_SCHEMA
+
+    recovered = HouseholdPolicyReconciliationRecoveryService(store).recover_incomplete()
+    assert recovered == 1
+    assert adapter.calls == 1
+
+    completed = store.get_meta(state_key)
+    assert isinstance(completed, dict)
+    assert completed["status"] == "completed"
+    assert completed["completion"]["state"] == "verified"
+    assert completed["completion"]["evidence"] == interrupted["evidence"]
+    assert store.get_meta(DESIRED_KEY_PREFIX + "home." + CHILD) == original_desired
     store.close()
 
 
