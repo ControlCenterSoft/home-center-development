@@ -1,7 +1,8 @@
 """Policy Composer v1 for Home Center 0.59.
 
 The composer produces exact-state, confirmation-gated policy proposals. It does
-not execute providers or infrastructure changes.
+not execute providers or infrastructure changes. Confirmation authorizes only a
+later protected Desired State write; provider execution remains a separate gate.
 """
 
 from __future__ import annotations
@@ -31,6 +32,45 @@ def _digest(value: object) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _require_bool(value: object) -> bool:
+    if not isinstance(value, bool):
+        raise PolicyComposerError("invalid_policy_boolean")
+    return value
+
+
+def _require_role(value: object) -> HouseholdRole:
+    if not isinstance(value, HouseholdRole):
+        raise PolicyComposerError("invalid_policy_role")
+    return value
+
+
+def _require_internet_policy(value: object) -> InternetPolicy:
+    if not isinstance(value, InternetPolicy):
+        raise PolicyComposerError("invalid_policy_internet_policy")
+    return value
+
+
+def _bundle_canonical(
+    role: HouseholdRole,
+    internet_policy: InternetPolicy,
+    vpn_allowed: bool,
+    managed_device_required: bool,
+    home_files_allowed: bool,
+    smart_home_control_allowed: bool,
+    administration_allowed: bool,
+) -> dict[str, object]:
+    return {
+        "role": role.value,
+        "internet_policy": internet_policy.value,
+        "vpn_allowed": vpn_allowed,
+        "managed_device_required": managed_device_required,
+        "home_files_allowed": home_files_allowed,
+        "smart_home_control_allowed": smart_home_control_allowed,
+        "administration_allowed": administration_allowed,
+        "external_publication_allowed": False,
+    }
+
+
 _INTERNET_PERMISSIVENESS = {
     InternetPolicy.GUEST: 0,
     InternetPolicy.FILTERED: 1,
@@ -50,6 +90,20 @@ class PolicyBundle:
     administration_allowed: bool
     schema: str = field(default=POLICY_BUNDLE_SCHEMA, init=False)
     external_publication_allowed: bool = field(default=False, init=False)
+
+    def __post_init__(self) -> None:
+        role = _require_role(self.role)
+        internet = _require_internet_policy(self.internet_policy)
+        values = (
+            _require_bool(self.vpn_allowed),
+            _require_bool(self.managed_device_required),
+            _require_bool(self.home_files_allowed),
+            _require_bool(self.smart_home_control_allowed),
+            _require_bool(self.administration_allowed),
+        )
+        canonical = _bundle_canonical(role, internet, *values)
+        if self.bundle_id != "hpb-" + _digest(canonical)[:24]:
+            raise PolicyComposerError("policy_bundle_evidence_mismatch")
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -84,6 +138,25 @@ class PolicyChangePlan:
     desired_state_write_authorized: bool = field(default=False, init=False)
     provider_execution_authorized: bool = field(default=False, init=False)
     external_publication_authorized: bool = field(default=False, init=False)
+
+    def __post_init__(self) -> None:
+        if isinstance(self.generation, bool) or not isinstance(self.generation, int) or self.generation < 1:
+            raise PolicyComposerError("invalid_policy_generation")
+        for value, code in (
+            (self.plan_id, "invalid_policy_plan_id"),
+            (self.household_id, "invalid_household_id"),
+            (self.snapshot_id, "invalid_household_snapshot_id"),
+            (self.resource_version, "invalid_household_resource_version"),
+            (self.actor_member_id, "invalid_household_member_id"),
+            (self.target_member_id, "invalid_household_member_id"),
+            (self.current_policy_id, "invalid_policy_id"),
+            (self.current_bundle_id, "invalid_policy_bundle_id"),
+        ):
+            _identifier(value, code)
+        if not isinstance(self.target_bundle, PolicyBundle):
+            raise PolicyComposerError("invalid_policy_bundle")
+        if not self.cozy_summary_ru or any(not isinstance(item, str) or not item.strip() for item in self.cozy_summary_ru):
+            raise PolicyComposerError("invalid_policy_summary")
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -122,6 +195,36 @@ class PolicyChangeConfirmation:
     provider_execution_authorized: bool = field(default=False, init=False)
     external_publication_authorized: bool = field(default=False, init=False)
 
+    def __post_init__(self) -> None:
+        if isinstance(self.generation, bool) or not isinstance(self.generation, int) or self.generation < 1:
+            raise PolicyComposerError("invalid_policy_generation")
+        for value, code in (
+            (self.confirmation_id, "invalid_policy_confirmation_id"),
+            (self.plan_id, "invalid_policy_plan_id"),
+            (self.actor_member_id, "invalid_household_member_id"),
+            (self.target_member_id, "invalid_household_member_id"),
+            (self.snapshot_id, "invalid_household_snapshot_id"),
+            (self.resource_version, "invalid_household_resource_version"),
+            (self.audit_event_id, "invalid_audit_event_id"),
+        ):
+            _identifier(value, code)
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema": self.schema,
+            "confirmation_id": self.confirmation_id,
+            "plan_id": self.plan_id,
+            "actor_member_id": self.actor_member_id,
+            "target_member_id": self.target_member_id,
+            "snapshot_id": self.snapshot_id,
+            "resource_version": self.resource_version,
+            "generation": self.generation,
+            "audit_event_id": self.audit_event_id,
+            "desired_state_write_authorized": True,
+            "provider_execution_authorized": False,
+            "external_publication_authorized": False,
+        }
+
 
 def build_policy_bundle(
     role: HouseholdRole,
@@ -133,16 +236,14 @@ def build_policy_bundle(
     smart_home_control_allowed: bool | None = None,
     administration_allowed: bool | None = None,
 ) -> PolicyBundle:
+    role = _require_role(role)
     preset = ROLE_PRESETS[role]
-    internet = preset.internet_policy if internet_policy is None else internet_policy
-    vpn = preset.vpn_allowed if vpn_allowed is None else vpn_allowed
-    managed = preset.managed_device_required if managed_device_required is None else managed_device_required
-    files = preset.home_files_allowed if home_files_allowed is None else home_files_allowed
-    smart = preset.smart_home_control_allowed if smart_home_control_allowed is None else smart_home_control_allowed
-    admin = preset.administration_allowed if administration_allowed is None else administration_allowed
-    values = (vpn, managed, files, smart, admin)
-    if any(not isinstance(value, bool) for value in values):
-        raise PolicyComposerError("invalid_policy_boolean")
+    internet = preset.internet_policy if internet_policy is None else _require_internet_policy(internet_policy)
+    vpn = preset.vpn_allowed if vpn_allowed is None else _require_bool(vpn_allowed)
+    managed = preset.managed_device_required if managed_device_required is None else _require_bool(managed_device_required)
+    files = preset.home_files_allowed if home_files_allowed is None else _require_bool(home_files_allowed)
+    smart = preset.smart_home_control_allowed if smart_home_control_allowed is None else _require_bool(smart_home_control_allowed)
+    admin = preset.administration_allowed if administration_allowed is None else _require_bool(administration_allowed)
     if _INTERNET_PERMISSIVENESS[internet] > _INTERNET_PERMISSIVENESS[preset.internet_policy]:
         raise PolicyComposerError("policy_role_ceiling_exceeded")
     if (vpn and not preset.vpn_allowed) or (files and not preset.home_files_allowed):
@@ -151,16 +252,7 @@ def build_policy_bundle(
         raise PolicyComposerError("policy_role_ceiling_exceeded")
     if preset.managed_device_required and not managed:
         raise PolicyComposerError("policy_role_ceiling_exceeded")
-    canonical = {
-        "role": role.value,
-        "internet_policy": internet.value,
-        "vpn_allowed": vpn,
-        "managed_device_required": managed,
-        "home_files_allowed": files,
-        "smart_home_control_allowed": smart,
-        "administration_allowed": admin,
-        "external_publication_allowed": False,
-    }
+    canonical = _bundle_canonical(role, internet, vpn, managed, files, smart, admin)
     return PolicyBundle("hpb-" + _digest(canonical)[:24], role, internet, vpn, managed, files, smart, admin)
 
 
@@ -188,6 +280,10 @@ def compose_policy_change_plan(
     target_member_id: str,
     target_bundle: PolicyBundle,
 ) -> PolicyChangePlan:
+    if not isinstance(snapshot, HouseholdSnapshot):
+        raise TypeError("invalid_household_snapshot")
+    if not isinstance(target_bundle, PolicyBundle):
+        raise TypeError("invalid_policy_bundle")
     actor_id = _identifier(actor_member_id, "invalid_household_member_id")
     target_id = _identifier(target_member_id, "invalid_household_member_id")
     actor = snapshot.household.member(actor_id)
@@ -240,6 +336,12 @@ def compose_policy_change_plan(
 
 
 def revalidate_policy_change_plan(current: HouseholdSnapshot, plan: PolicyChangePlan, *, actor_member_id: str) -> None:
+    if not isinstance(current, HouseholdSnapshot):
+        raise TypeError("invalid_household_snapshot")
+    if not isinstance(plan, PolicyChangePlan):
+        raise TypeError("invalid_policy_change_plan")
+    if current.household_id != plan.household_id:
+        raise PolicyComposerError("policy_change_stale")
     if current.snapshot_id != plan.snapshot_id or current.resource_version != plan.resource_version or current.generation != plan.generation:
         raise PolicyComposerError("policy_change_stale")
     rebuilt = compose_policy_change_plan(
