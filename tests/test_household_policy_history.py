@@ -163,8 +163,8 @@ def test_rollback_fails_closed_on_stale_current_revision(tmp_path) -> None:
             request={
                 "schema": POLICY_ROLLBACK_REQUEST_SCHEMA,
                 "resource_key": resource_key,
-                "expected_generation": 1,
-                "expected_bundle_id": proposal["bundle"]["bundle_id"],
+                "expected_generation": 3,
+                "expected_bundle_id": "hpb-" + "3" * 24,
                 "target_generation": 1,
                 "confirmed": True,
             },
