@@ -46,6 +46,26 @@ def test_policy_client_renders_text_without_html_injection_and_exposes_exact_ful
     assert ".policy-technical" in style
 
 
+def test_full_policy_ui_uses_verified_history_and_separate_explicit_rollback_confirmation() -> None:
+    index = INDEX.read_text(encoding="utf-8")
+    client = CLIENT.read_text(encoding="utf-8")
+    style = STYLE.read_text(encoding="utf-8")
+
+    assert 'id="policy-history-list"' in index
+    assert 'id="policy-rollback-confirm"' in index
+    assert 'id="policy-rollback-confirm-button"' in index
+    assert 'id="policy-rollback-cancel-button"' in index
+    assert "Подтвердить возврат" in index
+    assert "не запускает управление устройствами" in index
+    assert "/api/v1/household/policies/history?resource_key=" in client
+    assert "'/api/v1/household/policies/rollback'" in client
+    assert "home-center.household-policy-rollback-request.v1" in client
+    assert "expected_generation: latestHistory.current_generation" in client
+    assert "expected_bundle_id: latestHistory.current_bundle_id" in client
+    assert "confirmed: true" in client
+    assert ".policy-history-item" in style
+
+
 def test_policy_ui_does_not_call_provider_execution_or_job_routes() -> None:
     client = CLIENT.read_text(encoding="utf-8")
 
