@@ -113,7 +113,15 @@ class RuntimeRequestHandlerPolicy(RuntimeRequestHandlerV2):
         self._error(HTTPStatus.NOT_FOUND, "not_found", "Ресурс не найден", correlation_id)
         return True
 
-    def _policy_failure(self, *, actor: str, path: str, correlation_id: str, exc: Exception) -> None:
+    def _policy_failure(
+        self,
+        *,
+        actor: str,
+        path: str,
+        correlation_id: str,
+        exc: Exception,
+        status_override: HTTPStatus | None = None,
+    ) -> None:
         code = getattr(exc, "code", "invalid_household_policy_request")
         self.runtime.store.audit(
             actor=actor,
@@ -124,7 +132,7 @@ class RuntimeRequestHandlerPolicy(RuntimeRequestHandlerV2):
             details={"reason": code, "path": path},
         )
         self._error(
-            self._policy_status(code),
+            status_override or self._policy_status(code),
             code,
             "Запрос правил семьи не прошёл безопасную проверку",
             correlation_id,
@@ -157,7 +165,20 @@ class RuntimeRequestHandlerPolicy(RuntimeRequestHandlerV2):
             )
             self._json(HTTPStatus.OK, value)
         except (HouseholdPolicyHistoryError, HouseholdPolicyRuntimeError) as exc:
-            self._policy_failure(actor=actor, path=path, correlation_id=correlation_id, exc=exc)
+            # A correctly scoped resource with no policy materialized yet has no history.
+            # Missing retained history after a policy exists remains a 503 integrity fault.
+            status_override = (
+                HTTPStatus.NOT_FOUND
+                if getattr(exc, "code", None) == "household_policy_desired_state_missing"
+                else None
+            )
+            self._policy_failure(
+                actor=actor,
+                path=path,
+                correlation_id=correlation_id,
+                exc=exc,
+                status_override=status_override,
+            )
 
     def do_POST(self) -> None:  # noqa: N802
         path = urlsplit(self.path).path
