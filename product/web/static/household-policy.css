@@ -59,11 +59,46 @@
   flex-wrap: wrap;
 }
 
-#policy-message[data-kind="error"] {
+.policy-history-block {
+  display: grid;
+  gap: .8rem;
+  margin-top: 1rem;
+}
+
+.policy-history-list {
+  display: grid;
+  gap: .7rem;
+}
+
+.policy-history-item {
+  display: grid;
+  gap: .55rem;
+  padding: .85rem;
+  border: 1px solid rgba(35, 43, 54, .12);
+  border-radius: .9rem;
+  background: rgba(255, 255, 255, .66);
+}
+
+.policy-history-item p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.policy-history-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+
+#policy-message[data-kind="error"],
+#policy-history-message[data-kind="error"] {
   color: #9b2c2c;
 }
 
-#policy-message[data-kind="success"] {
+#policy-message[data-kind="success"],
+#policy-history-message[data-kind="success"] {
   color: #1f6b45;
 }
 
@@ -74,7 +109,8 @@
   }
 
   .policy-plan-form > *,
-  .policy-confirm-actions > * {
+  .policy-confirm-actions > *,
+  .policy-history-item button {
     width: 100%;
   }
 }
