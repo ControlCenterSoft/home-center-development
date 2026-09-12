@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://control-center.pro/schemas/home-center/household-policy-apply-receipt.v1.schema.json",
+  "title": "Home Center Household Policy Apply Receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "proposal_id",
+    "confirmation_id",
+    "resource_key",
+    "generation",
+    "bundle_id",
+    "changed",
+    "recovered",
+    "outcome",
+    "pre_audit_event_id",
+    "post_audit_event_id",
+    "desired_state_materialized",
+    "provider_execution_authorized",
+    "infrastructure_mutation_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.household-policy-apply-receipt.v1"},
+    "proposal_id": {"type": "string", "pattern": "^hpc-[0-9a-f]{24}$"},
+    "confirmation_id": {"type": "string", "pattern": "^hpconfirm-[0-9a-f]{24}$"},
+    "resource_key": {
+      "type": "string",
+      "pattern": "^household-policy:[a-z][a-z0-9_.:-]{1,127}:[a-z][a-z0-9_.:-]{1,127}$"
+    },
+    "generation": {"type": "integer", "minimum": 1},
+    "bundle_id": {"type": "string", "pattern": "^hpb-[0-9a-f]{24}$"},
+    "changed": {"type": "boolean"},
+    "recovered": {"type": "boolean"},
+    "outcome": {"enum": ["applied", "already-current", "already-applied"]},
+    "pre_audit_event_id": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "string", "minLength": 1, "maxLength": 128}
+      ]
+    },
+    "post_audit_event_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "desired_state_materialized": {"const": true},
+    "provider_execution_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
