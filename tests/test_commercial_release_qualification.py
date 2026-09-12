@@ -18,7 +18,10 @@ from home_center.commercial_release_qualification import (  # noqa: E402
     evaluate_commercial_release_qualification,
 )
 
-DIGESTS = tuple(chr(ord("a") + index) * 64 for index in range(9))
+# Nine distinct syntactically valid SHA-256 fixtures. Keep every character in
+# the hexadecimal alphabet so positive-path evidence exercises the evaluator
+# instead of failing digest syntax validation first.
+DIGESTS = tuple(f"{index:x}" * 64 for index in range(1, 10))
 
 
 def _evidence(**overrides: object) -> CommercialReleaseEvidence:
