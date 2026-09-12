@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/devices/device-management-failed-enrollment-cleanup-receipt.v1.schema.json",
+  "title": "Home Center failed enrollment cleanup receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "state", "plan_id", "readback_sha256", "provider_state", "transient_cleanup_authorized", "escalation_to_deenrollment_required", "managed_state_change_authorized", "provider_mutation_authorized", "policy_mutation_authorized", "device_record_removal_authorized"],
+  "properties": {
+    "schema": {"const": "home-center.device-management-failed-enrollment-cleanup-receipt.v1"},
+    "state": {"type": "string", "enum": ["authorized", "blocked"]},
+    "plan_id": {"type": "string", "pattern": "^dmclean-[0-9a-f]{24}$"},
+    "readback_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "provider_state": {"type": "string", "enum": ["managed", "unmanaged", "absent", "unknown", "ambiguous"]},
+    "transient_cleanup_authorized": {"type": "boolean"},
+    "escalation_to_deenrollment_required": {"type": "boolean"},
+    "managed_state_change_authorized": {"const": false},
+    "provider_mutation_authorized": {"const": false},
+    "policy_mutation_authorized": {"const": false},
+    "device_record_removal_authorized": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"state": {"const": "authorized"}}, "required": ["state"]},
+      "then": {"properties": {"transient_cleanup_authorized": {"const": true}, "escalation_to_deenrollment_required": {"const": false}}}
+    }
+  ]
+}

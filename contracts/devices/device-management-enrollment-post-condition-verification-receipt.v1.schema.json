@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/devices/device-management-enrollment-post-condition-verification-receipt.v1.schema.json",
+  "title": "Home Center device management enrollment post-condition verification receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "state",
+    "job_id",
+    "plan_id",
+    "provider_id",
+    "provider_operation_id",
+    "device_id",
+    "member_id",
+    "execution_generation",
+    "evidence_sha256",
+    "enrollment_completed",
+    "post_condition_verified",
+    "managed_state_change_authorized",
+    "cleanup_required",
+    "policy_application_authorized",
+    "infrastructure_mutation_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {
+      "const": "home-center.device-management-enrollment-post-condition-verification-receipt.v1"
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "verified",
+        "rejected"
+      ]
+    },
+    "job_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "plan_id": {
+      "type": "string",
+      "pattern": "^dmpexec-[0-9a-f]{24}$"
+    },
+    "provider_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"
+    },
+    "provider_operation_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "device_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "member_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "execution_generation": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "evidence_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "enrollment_completed": {
+      "type": "boolean"
+    },
+    "post_condition_verified": {
+      "type": "boolean"
+    },
+    "managed_state_change_authorized": {
+      "type": "boolean"
+    },
+    "cleanup_required": {
+      "type": "boolean"
+    },
+    "policy_application_authorized": {
+      "const": false
+    },
+    "infrastructure_mutation_authorized": {
+      "const": false
+    },
+    "external_publication_authorized": {
+      "const": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "verified"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "enrollment_completed": {
+            "const": true
+          },
+          "post_condition_verified": {
+            "const": true
+          },
+          "managed_state_change_authorized": {
+            "const": true
+          },
+          "cleanup_required": {
+            "const": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "rejected"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "enrollment_completed": {
+            "const": false
+          },
+          "post_condition_verified": {
+            "const": false
+          },
+          "managed_state_change_authorized": {
+            "const": false
+          },
+          "cleanup_required": {
+            "const": true
+          }
+        }
+      }
+    }
+  ]
+}

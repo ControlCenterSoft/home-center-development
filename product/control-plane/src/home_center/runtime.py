@@ -15,7 +15,11 @@ from .automation_execution import AutomationPlanningService
 from .auth import LoginRateLimiter, SessionManager
 from .certificate_api import CertificateLifecycleApi, runtime_certificate_records
 from .config import Config
+from .device_management_deenrollment_execution_runtime import DeviceManagementDeenrollmentExecutionRuntimeService
+from .device_management_deenrollment_runtime import DeviceManagementDeenrollmentRuntimeService
 from .device_management_enrollment_execution_recovery import RecoverableDeviceManagementEnrollmentExecutionRuntimeService
+from .device_management_enrollment_post_condition_runtime_safe import SafeDeviceManagementEnrollmentPostConditionRuntimeService
+from .device_management_failed_enrollment_cleanup_runtime import DeviceManagementFailedEnrollmentCleanupRuntimeService
 from .device_management_provider_runtime import DeviceManagementProviderRuntimeService
 from .device_management_provider_selection_runtime import DeviceManagementProviderSelectionRuntimeService
 from .external_access import ExternalAccessPolicy, ExternalRequestRateLimiter
@@ -27,6 +31,7 @@ from .local_admin_auth import LocalAdminCredentialStore
 from .local_admin_change import LocalAdminPasswordChangeClient
 from .node_inventory_api import NodeInventoryService
 from .reconcile import Reconciler
+from .step_up import StepUpGrantManager
 from .store import StateStore
 from .util import sha256_file, utc_now
 
@@ -56,6 +61,7 @@ class Runtime:
         self.local_admin_password_changer = local_admin_password_changer or LocalAdminPasswordChangeClient()
         self.sessions = SessionManager(config.session_key_file)
         self.login_limiter = LoginRateLimiter()
+        self.step_up = StepUpGrantManager()
         self.ad_auth = AdAuthenticator(config.ad_auth)
         self.external_access = ExternalAccessPolicy(
             configured_enabled=config.external_access.enabled,
@@ -75,6 +81,21 @@ class Runtime:
         self.device_management_providers = DeviceManagementProviderRuntimeService(self.store)
         self.device_management_provider_selection = DeviceManagementProviderSelectionRuntimeService(self.store)
         self.device_management_enrollment_execution = RecoverableDeviceManagementEnrollmentExecutionRuntimeService(self.store)
+        self.device_management_enrollment_post_condition = SafeDeviceManagementEnrollmentPostConditionRuntimeService(
+            self.store,
+            self.step_up,
+        )
+        self.device_management_deenrollment = DeviceManagementDeenrollmentRuntimeService(
+            self.store,
+            self.step_up,
+        )
+        self.device_management_deenrollment_execution = DeviceManagementDeenrollmentExecutionRuntimeService(
+            self.store,
+            self.device_management_deenrollment,
+        )
+        self.device_management_failed_enrollment_cleanup = DeviceManagementFailedEnrollmentCleanupRuntimeService(
+            self.store,
+        )
         self.reconciler = Reconciler(config, self.store)
 
     def actor_requires_password_change(self, actor: str) -> bool:
@@ -95,13 +116,18 @@ class Runtime:
         )
 
     def start(self) -> None:
+        recovered = self.device_management_enrollment_post_condition.recover_incomplete()
         self.store.audit(
             actor="system:runtime",
             action="runtime.start",
             target=self.config.node_id,
             outcome="accepted",
             correlation_id=f"runtime-{self.config.node_id}",
-            details={"version": __version__, "role": self.config.role},
+            details={
+                "version": __version__,
+                "role": self.config.role,
+                "post_condition_recoveries": recovered,
+            },
         )
         self.reconciler.start()
 
