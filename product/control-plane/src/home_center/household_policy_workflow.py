@@ -17,6 +17,7 @@ from .household_policy_composer import (
     build_policy_composition_proposal,
 )
 from .household_policy_desired_state import (
+    POLICY_APPLY_RECEIPT_SCHEMA,
     POLICY_APPLY_REQUEST_SCHEMA,
     HouseholdPolicyDesiredStateRepository,
 )
@@ -127,6 +128,58 @@ class HouseholdPolicyWorkflowService:
         if not isinstance(audit_event_id, str) or not audit_event_id:
             raise HouseholdPolicyRuntimeError("household_policy_confirmation_evidence_mismatch")
 
+    @staticmethod
+    def _validate_materialized_evidence(
+        proposal: PolicyCompositionProposal,
+        *,
+        confirmation_id: str,
+        receipt: dict[str, object],
+        history: dict[str, object],
+    ) -> tuple[str, int]:
+        """Reject false success unless receipt and immutable history prove the exact planned bundle."""
+
+        resource_key = proposal.bundle.desired_state_resource_key
+        bundle_id = proposal.bundle.bundle_id
+        expected_bundle = proposal.bundle.to_dict()
+        generation = receipt.get("generation")
+        if (
+            receipt.get("schema") != POLICY_APPLY_RECEIPT_SCHEMA
+            or receipt.get("proposal_id") != proposal.proposal_id
+            or receipt.get("confirmation_id") != confirmation_id
+            or receipt.get("resource_key") != resource_key
+            or isinstance(generation, bool)
+            or not isinstance(generation, int)
+            or generation < 1
+            or receipt.get("bundle_id") != bundle_id
+            or not isinstance(receipt.get("changed"), bool)
+            or not isinstance(receipt.get("recovered"), bool)
+            or receipt.get("outcome") not in {"applied", "already-current", "already-applied"}
+            or receipt.get("desired_state_materialized") is not True
+            or receipt.get("provider_execution_authorized") is not False
+            or receipt.get("infrastructure_mutation_authorized") is not False
+            or receipt.get("external_publication_authorized") is not False
+        ):
+            raise HouseholdPolicyRuntimeError("household_policy_materialization_receipt_invalid")
+
+        evidence_sha256 = history.get("evidence_sha256")
+        audit_event_id = history.get("audit_event_id")
+        if (
+            history.get("resource_key") != resource_key
+            or history.get("generation") != generation
+            or history.get("bundle_id") != bundle_id
+            or history.get("value") != expected_bundle
+            or not isinstance(evidence_sha256, str)
+            or len(evidence_sha256) != 64
+            or any(char not in "0123456789abcdef" for char in evidence_sha256)
+            or not isinstance(audit_event_id, str)
+            or not audit_event_id
+            or history.get("provider_execution_authorized") is not False
+            or history.get("infrastructure_mutation_authorized") is not False
+            or history.get("external_publication_authorized") is not False
+        ):
+            raise HouseholdPolicyRuntimeError("household_policy_history_evidence_mismatch")
+        return resource_key, generation
+
     def plan(self, *, actor: str, request: dict[str, Any], correlation_id: str) -> dict[str, object]:
         """Persist an exact proposal and return the same evidence for Cozy and Full UI."""
 
@@ -189,18 +242,26 @@ class HouseholdPolicyWorkflowService:
             },
             correlation_id=correlation_id,
         )
+        if not isinstance(receipt, dict):
+            raise HouseholdPolicyRuntimeError("household_policy_materialization_receipt_invalid")
         resource_key = receipt.get("resource_key")
         generation = receipt.get("generation")
         if not isinstance(resource_key, str) or isinstance(generation, bool) or not isinstance(generation, int):
             raise HouseholdPolicyRuntimeError("household_policy_materialization_receipt_invalid")
         history = self.history.read(resource_key=resource_key, generation=generation)
+        resource_key, generation = self._validate_materialized_evidence(
+            proposal,
+            confirmation_id=confirmation_id,
+            receipt=receipt,
+            history=history,
+        )
         return {
             "schema": POLICY_CONFIRM_APPLY_RESULT_SCHEMA,
             "confirmation": confirmation,
             "receipt": receipt,
-            "desired_state_materialized": receipt.get("desired_state_materialized") is True,
-            "history_evidence_sha256": history.get("evidence_sha256"),
-            "history_audit_event_id": history.get("audit_event_id"),
+            "desired_state_materialized": True,
+            "history_evidence_sha256": history["evidence_sha256"],
+            "history_audit_event_id": history["audit_event_id"],
             "provider_execution_authorized": False,
             "infrastructure_mutation_authorized": False,
             "external_publication_authorized": False,
