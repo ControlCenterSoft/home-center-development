@@ -2,11 +2,15 @@
 
 StateStore exposes keyed metadata reads/writes but not optimistic compare-and-swap.
 The 0.58 managed-state commit boundary needs exact-state replacement, including an
-atomic state+Job success commit so a crash cannot report false success or leave a
-successful state mutation behind a failed durable Job.
+atomic state+Job+Audit commit so a crash cannot report false success or leave a
+successful state mutation without durable operational evidence.
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
+import json
+import uuid
 from typing import Any
 
 from .store import StateStore
@@ -32,7 +36,7 @@ def compare_and_swap_meta(
     _inputs(store, key)
     expected_payload = canonical_json(expected)
     replacement_payload = canonical_json(replacement)
-    with store._lock:  # Internal package helper: share the store's SQLite critical section.
+    with store._lock:
         store._connection.execute("BEGIN IMMEDIATE")
         try:
             row = store._connection.execute(
@@ -58,7 +62,7 @@ def compare_and_swap_meta(
             raise
 
 
-def compare_and_swap_meta_and_succeed_job(
+def compare_and_swap_meta_succeed_job_and_audit(
     store: StateStore,
     *,
     key: str,
@@ -69,12 +73,17 @@ def compare_and_swap_meta_and_succeed_job(
     result: dict[str, Any],
     evidence: dict[str, Any],
     steps: list[dict[str, Any]],
-) -> bool:
-    """Atomically replace metadata and transition one action Job to succeeded.
+    audit_actor: str,
+    audit_action: str,
+    audit_target: str,
+    audit_outcome: str,
+    audit_correlation_id: str,
+    audit_details: dict[str, Any],
+) -> str | None:
+    """Atomically replace metadata, succeed one action Job, and append Audit.
 
-    This is intentionally narrow: callers must put the Job in the verifying state
-    and persist all preflight intent before invoking it. The transaction refuses
-    to mutate either side if the metadata value or Job state changed meanwhile.
+    ``None`` means the metadata or Job precondition changed and nothing was
+    written. Any returned event id proves all three records committed together.
     """
 
     _inputs(store, key)
@@ -86,13 +95,26 @@ def compare_and_swap_meta_and_succeed_job(
         raise TypeError("invalid_job_terminal_payload")
     if not isinstance(steps, list) or any(not isinstance(step, dict) for step in steps):
         raise TypeError("invalid_job_steps")
+    for value, code in (
+        (audit_actor, "invalid_audit_actor"),
+        (audit_action, "invalid_audit_action"),
+        (audit_target, "invalid_audit_target"),
+        (audit_outcome, "invalid_audit_outcome"),
+        (audit_correlation_id, "invalid_audit_correlation_id"),
+    ):
+        if not isinstance(value, str) or not value:
+            raise ValueError(code)
+    if not isinstance(audit_details, dict):
+        raise TypeError("invalid_audit_details")
 
     expected_payload = canonical_json(expected)
     replacement_payload = canonical_json(replacement)
     result_payload = canonical_json(result)
     evidence_payload = canonical_json(evidence)
     steps_payload = canonical_json(steps)
+    details_json = canonical_json(audit_details)
     now = utc_now()
+    event_id = str(uuid.uuid4())
 
     with store._lock:
         store._connection.execute("BEGIN IMMEDIATE")
@@ -117,7 +139,26 @@ def compare_and_swap_meta_and_succeed_job(
                 or metadata_row is None
             ):
                 store._connection.rollback()
-                return False
+                return None
+
+            previous = store._connection.execute(
+                "SELECT entry_hash FROM audit ORDER BY seq DESC LIMIT 1"
+            ).fetchone()
+            previous_hash = previous[0] if previous else "0" * 64
+            material = canonical_json(
+                {
+                    "event_id": event_id,
+                    "occurred_at": now,
+                    "actor": audit_actor,
+                    "action": audit_action,
+                    "target": audit_target,
+                    "outcome": audit_outcome,
+                    "correlation_id": audit_correlation_id,
+                    "details": json.loads(details_json),
+                    "previous_hash": previous_hash,
+                }
+            ).encode("utf-8")
+            entry_hash = hmac.new(store.audit_key, material, hashlib.sha256).hexdigest()
 
             meta_update = store._connection.execute(
                 """UPDATE cluster_meta
@@ -135,16 +176,35 @@ def compare_and_swap_meta_and_succeed_job(
                 "UPDATE action_job_metadata SET steps_json=? WHERE job_id=?",
                 (steps_payload, job_id),
             )
+            audit_insert = store._connection.execute(
+                """INSERT INTO audit(
+                    event_id,occurred_at,actor,action,target,outcome,correlation_id,
+                    details_json,previous_hash,entry_hash
+                ) VALUES(?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    event_id,
+                    now,
+                    audit_actor,
+                    audit_action,
+                    audit_target,
+                    audit_outcome,
+                    audit_correlation_id,
+                    details_json,
+                    previous_hash,
+                    entry_hash,
+                ),
+            )
             if (
                 meta_update.rowcount != 1
                 or job_update.rowcount != 1
                 or steps_update.rowcount != 1
+                or audit_insert.rowcount != 1
             ):
                 store._connection.rollback()
-                return False
+                return None
 
             store._connection.commit()
-            return True
+            return event_id
         except Exception:
             store._connection.rollback()
             raise
