@@ -1,12 +1,13 @@
-"""Fail-closed presentation guard for Home Center 0.59 household policies.
+"""Fail-closed presentation and rollback-evidence guards for Home Center 0.59 policies.
 
 The base workflow already revalidates exact Household evidence while rebuilding a
-proposal and again before Desired State materialization.  This adapter closes the
-remaining presentation-time race: Cozy/Full UI is returned only if the policy
-Desired State revision observed by the original plan is still current.
+proposal and again before Desired State materialization. This adapter closes two
+remaining trust gaps without adding any provider or infrastructure authority:
 
-The guard is deliberately non-executing.  It cannot call providers, mutate
-infrastructure, publish externally, or materialize Desired State.
+* Cozy/Full UI is returned only if the policy Desired State revision observed by
+  the original plan is still current;
+* rollback success/replay is returned only if the receipt is bound to the exact
+  keyed Audit completion/recovery evidence for the same actor and request.
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ from .household_policy_desired_state import (
     HouseholdPolicyDesiredStateRepository,
 )
 from .household_policy_presentation import build_policy_presentation
+from .household_policy_rollback_audit import validate_rollback_audit_binding
 from .household_policy_runtime import HouseholdPolicyRuntimeError
 from .household_policy_workflow import (
     POLICY_PLAN_RESULT_SCHEMA,
@@ -30,7 +32,7 @@ from .household_policy_workflow import (
 
 
 class GuardedHouseholdPolicyWorkflowService(HouseholdPolicyWorkflowService):
-    """Reject a stale plan before it can be shown as ready for confirmation."""
+    """Reject stale presentation and unbound rollback evidence before success."""
 
     def plan(self, *, actor: str, request: dict[str, Any], correlation_id: str) -> dict[str, object]:
         raw_proposal = self.policy_runtime.plan(
@@ -40,7 +42,7 @@ class GuardedHouseholdPolicyWorkflowService(HouseholdPolicyWorkflowService):
         )
         planned_snapshot, proposal = self._rebuild_exact_proposal(actor=actor, raw=raw_proposal)
 
-        # Re-read both independent preconditions after durable planning.  A change
+        # Re-read both independent preconditions after durable planning. A change
         # in Household membership/roles or in protected policy Desired State must
         # invalidate the UI result instead of presenting stale evidence as
         # "ready-for-confirmation".
@@ -79,3 +81,25 @@ class GuardedHouseholdPolicyWorkflowService(HouseholdPolicyWorkflowService):
             "infrastructure_mutation_authorized": False,
             "external_publication_authorized": False,
         }
+
+    def rollback(
+        self,
+        *,
+        actor: str,
+        request: dict[str, Any],
+        correlation_id: str,
+    ) -> dict[str, object]:
+        """Return rollback success only after exact Audit evidence is independently proven."""
+
+        receipt = super().rollback(
+            actor=actor,
+            request=request,
+            correlation_id=correlation_id,
+        )
+        validate_rollback_audit_binding(
+            self.history,
+            actor=actor,
+            request=request,
+            receipt=receipt,
+        )
+        return receipt
