@@ -39,76 +39,71 @@ jobs:
         with:
           category: /language:python
 
-      - name: Fail closed on new medium-or-higher CodeQL alerts
+      - name: Fail closed on current-analysis medium-or-higher findings
         if: ${{ github.event_name == 'pull_request' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           python - <<'PY'
           import json
-          import os
-          import urllib.parse
-          import urllib.request
+          from pathlib import Path
 
-          repository = os.environ["REPOSITORY"]
-          pr_number = os.environ["PR_NUMBER"]
-          query = urllib.parse.urlencode(
-              {
-                  "state": "open",
-                  "tool_name": "CodeQL",
-                  "pr": pr_number,
-                  "per_page": 100,
-              }
-          )
-          url = f"https://api.github.com/repos/{repository}/code-scanning/alerts?{query}"
-          request = urllib.request.Request(
-              url,
-              headers={
-                  "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
-                  "Accept": "application/vnd.github+json",
-                  "X-GitHub-Api-Version": "2022-11-28",
-              },
-          )
-          with urllib.request.urlopen(request, timeout=30) as response:
-              alerts = json.load(response)
+          sarif_files = sorted((Path.cwd().parent / "results").glob("*.sarif"))
+          if not sarif_files:
+              raise SystemExit("CodeQL release gate blocked: current-analysis SARIF is missing")
 
-          blocking_levels = {"medium", "high", "critical"}
           blocking = []
-          for alert in alerts:
-              rule = alert.get("rule") or {}
-              level = (rule.get("security_severity_level") or "").lower()
-              if level not in blocking_levels:
-                  continue
-              instance = alert.get("most_recent_instance") or {}
-              location = instance.get("location") or {}
-              blocking.append(
-                  (
-                      alert.get("number", "unknown"),
-                      level,
-                      rule.get("id", "unknown-rule"),
-                      location.get("path", "unknown-path"),
-                      location.get("start_line", "?"),
-                      location.get("end_line", "?"),
-                  )
-              )
+          for sarif_path in sarif_files:
+              document = json.loads(sarif_path.read_text(encoding="utf-8"))
+              for run in document.get("runs", []):
+                  rules = {
+                      rule.get("id"): rule
+                      for rule in ((run.get("tool") or {}).get("driver") or {}).get("rules", [])
+                      if rule.get("id")
+                  }
+                  for result in run.get("results", []):
+                      if result.get("suppressions"):
+                          continue
+                      rule_id = result.get("ruleId") or "unknown-rule"
+                      rule = rules.get(rule_id, {})
+                      properties = rule.get("properties") or {}
+                      raw_score = properties.get("security-severity")
+                      if raw_score in (None, ""):
+                          continue
+                      try:
+                          score = float(raw_score)
+                      except (TypeError, ValueError):
+                          raise SystemExit(
+                              f"CodeQL release gate blocked: invalid security-severity for {rule_id}: {raw_score!r}"
+                          )
+                      if score < 4.0:
+                          continue
+                      location = ((result.get("locations") or [{}])[0].get("physicalLocation") or {})
+                      artifact = location.get("artifactLocation") or {}
+                      region = location.get("region") or {}
+                      blocking.append(
+                          (
+                              score,
+                              rule_id,
+                              artifact.get("uri", "unknown-path"),
+                              region.get("startLine", "?"),
+                              region.get("endLine", region.get("startLine", "?")),
+                              (result.get("message") or {}).get("text", "CodeQL security finding"),
+                          )
+                      )
 
           if blocking:
-              for number, level, rule_id, path, start_line, end_line in blocking:
+              for score, rule_id, path, start_line, end_line, message in blocking:
+                  severity = "critical" if score >= 9.0 else "high" if score >= 7.0 else "medium"
                   print(
-                      f"CODEQL_RELEASE_BLOCKER alert={number} severity={level} "
+                      f"CODEQL_RELEASE_BLOCKER severity={severity} score={score:g} "
                       f"rule={rule_id} location={path}:{start_line}-{end_line}"
                   )
                   print(
                       f"::error file={path},line={start_line},endLine={end_line},"
-                      f"title=CodeQL release gate::Open CodeQL alert #{number} "
-                      f"({level}, {rule_id})"
+                      f"title=CodeQL release gate::{severity} {rule_id}: {message}"
                   )
               raise SystemExit(
-                  "CodeQL release gate blocked: open medium-or-higher alert(s) "
-                  "introduced by this pull request"
+                  "CodeQL release gate blocked: current analysis contains medium-or-higher security finding(s)"
               )
 
-          print("CodeQL release gate: no open medium-or-higher PR alerts")
+          print("CodeQL release gate: current analysis has no medium-or-higher security findings")
           PY
