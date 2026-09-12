@@ -194,10 +194,15 @@ def validate_rollback_audit_binding(
     except HouseholdPolicyHistoryError as exc:
         raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR) from exc
     target_bundle_id = target_history.get("bundle_id")
+    target_value = target_history.get("value")
+    current_value = current_history.get("value")
     history_evidence_sha256 = current_history.get("evidence_sha256")
     if (
         target_history_bundle_id != target_bundle_id
         or current_history.get("bundle_id") != bundle_id
+        or not isinstance(target_value, dict)
+        or not isinstance(current_value, dict)
+        or current_value != target_value
         or not isinstance(history_evidence_sha256, str)
         or len(history_evidence_sha256) != 64
         or any(char not in "0123456789abcdef" for char in history_evidence_sha256)
