@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/devices/device-management-enrollment-deenrollment-adapter-result.v1.schema.json",
+  "title": "Home Center enrollment cleanup de-enrollment adapter result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "state", "cleanup_operation_id", "post_cleanup_verified",
+    "retry_planning_allowed", "retry_execution_authorized", "managed_state_change_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.device-management-enrollment-deenrollment-adapter-result.v1"},
+    "state": {"const": "accepted"},
+    "cleanup_operation_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "post_cleanup_verified": {"const": false},
+    "retry_planning_allowed": {"const": false},
+    "retry_execution_authorized": {"const": false},
+    "managed_state_change_authorized": {"const": false}
+  }
+}
