@@ -39,6 +39,25 @@ if grep -Eq '(^/|(^|/)\.\.(/|$))' <<<"$archive_list"; then
   echo UNSAFE_ARCHIVE_PATH >&2
   exit 66
 fi
+if ! python3 - "$ARTIFACT" <<'PY'
+import sys
+import tarfile
+
+try:
+    with tarfile.open(sys.argv[1], "r:gz") as archive:
+        members = archive.getmembers()
+        names = [member.name for member in members]
+        if len(names) != len(set(names)):
+            raise SystemExit(1)
+        if any(not (member.isfile() or member.isdir()) for member in members):
+            raise SystemExit(1)
+except (OSError, tarfile.TarError):
+    raise SystemExit(1)
+PY
+then
+  echo UNSAFE_ARCHIVE_ENTRY_TYPE >&2
+  exit 66
+fi
 for required in ./VERSION ./REVISION ./MANIFEST.sha256 ./run.py ./home_center ./web ./deploy/home-center.service; do
   grep -Eq "^${required//./\.}(/|$)" <<<"$archive_list" || { echo "REQUIRED_ENTRY_MISSING:$required" >&2; exit 66; }
 done
