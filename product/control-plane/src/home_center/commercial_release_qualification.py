@@ -44,6 +44,7 @@ class CommercialReleaseEvidence:
     source_obligations_resolved: bool
     sbom_reviewed: bool
     legal_terms_dispositioned: bool
+    support_terms_dispositioned: bool
     release_claims_reviewed: bool
 
 
@@ -62,6 +63,7 @@ class CommercialReleaseQualificationDecision:
     source_obligations_resolved: bool
     sbom_reviewed: bool
     legal_terms_dispositioned: bool
+    support_terms_dispositioned: bool
     release_claims_reviewed: bool
     schema: str = SCHEMA
     release_authorized: bool = False
@@ -83,6 +85,7 @@ class CommercialReleaseQualificationDecision:
             "source_obligations_resolved": self.source_obligations_resolved,
             "sbom_reviewed": self.sbom_reviewed,
             "legal_terms_dispositioned": self.legal_terms_dispositioned,
+            "support_terms_dispositioned": self.support_terms_dispositioned,
             "release_claims_reviewed": self.release_claims_reviewed,
             "release_authorized": False,
             "external_publication_authorized": False,
@@ -133,6 +136,7 @@ def evaluate_commercial_release_qualification(
         ("source_obligations_resolved", evidence.source_obligations_resolved),
         ("sbom_reviewed", evidence.sbom_reviewed),
         ("legal_terms_dispositioned", evidence.legal_terms_dispositioned),
+        ("support_terms_dispositioned", evidence.support_terms_dispositioned),
         ("release_claims_reviewed", evidence.release_claims_reviewed),
     )
     for blocker, passed in checks:
@@ -178,5 +182,6 @@ def evaluate_commercial_release_qualification(
         source_obligations_resolved=evidence.source_obligations_resolved,
         sbom_reviewed=evidence.sbom_reviewed,
         legal_terms_dispositioned=evidence.legal_terms_dispositioned,
+        support_terms_dispositioned=evidence.support_terms_dispositioned,
         release_claims_reviewed=evidence.release_claims_reviewed,
     )
