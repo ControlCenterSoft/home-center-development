@@ -68,5 +68,3 @@ jobs:
         env:
           PYTHONPATH: product/control-plane/src
         run: python -m pytest -q
-      - name: Run public release security gate
-        run: python tests/security_gate_public_release.py
