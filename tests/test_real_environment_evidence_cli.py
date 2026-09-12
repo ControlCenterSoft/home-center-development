@@ -108,6 +108,15 @@ class RealEnvironmentEvidenceCliTests(unittest.TestCase):
         with self.assertRaisesRegex(MODULE.RealEnvironmentEvidenceInputError, "input_shape"):
             self._qualify(value)
 
+    def test_duplicate_json_key_is_rejected_before_manifest_validation(self) -> None:
+        path = self.root / "duplicate.json"
+        path.write_text('{"schema":"first","schema":"second"}', encoding="utf-8")
+        with self.assertRaisesRegex(
+            MODULE.RealEnvironmentEvidenceInputError,
+            "input_duplicate_key",
+        ):
+            MODULE._load_json(path)
+
     def test_false_observation_remains_blocked_after_exact_file_binding(self) -> None:
         decision = self._qualify(self._manifest(peer_continuity_verified=False))
         self.assertFalse(decision.qualified)
