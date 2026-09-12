@@ -89,7 +89,7 @@ class SafeDeviceManagementEnrollmentExecutionRuntimeService(DeviceManagementEnro
         return proposal
 
     def _jobs_for_plan(self, plan_id: object, action_ids: set[str]) -> list[dict[str, Any]]:
-        """Read every relevant durable job, not only StateStore.jobs()' 500-row UI window."""
+        """Read every relevant durable job, newest-first with a deterministic tie-breaker."""
         if not isinstance(plan_id, str) or not action_ids:
             return []
         connection = getattr(self.store, "_connection", None)
@@ -99,7 +99,7 @@ class SafeDeviceManagementEnrollmentExecutionRuntimeService(DeviceManagementEnro
             placeholders = ",".join("?" for _ in action_ids)
             query = f"""SELECT j.*,m.idempotency_key,m.request_hash,m.steps_json
                 FROM jobs AS j LEFT JOIN action_job_metadata AS m ON m.job_id=j.job_id
-                WHERE j.job_type IN ({placeholders}) ORDER BY j.created_at DESC"""
+                WHERE j.job_type IN ({placeholders}) ORDER BY j.created_at DESC, j.rowid DESC"""
             with lock:
                 rows = connection.execute(query, tuple(sorted(action_ids))).fetchall()
             jobs = [decoder(row) for row in rows]
