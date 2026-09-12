@@ -61,7 +61,7 @@ def _seed(store: StateStore, *, verification_status: str = "applied", managed: b
             ),
         ),
     )
-    snapshot = build_household_snapshot(household, generation=2, previous_snapshot_id=None)
+    snapshot = build_household_snapshot(household, generation=1, previous_snapshot_id=None)
     store.set_meta(
         HOUSEHOLD_STATE_KEY,
         _persisted(snapshot, (ActorBinding(actor=ACTOR, member_id=PARENT),)),
