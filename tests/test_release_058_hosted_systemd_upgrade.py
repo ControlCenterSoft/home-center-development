@@ -15,7 +15,6 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE_SHA = "60f4c34f82a8335f9eec36bf2c303bb382efdca6"
-SOURCE_VERSION = "0.57.0"
 BASELINE_VERSION = "0.57.0"
 CANDIDATE_VERSION = "0.58.0"
 
@@ -40,14 +39,12 @@ def _sudo(script: str) -> subprocess.CompletedProcess[str]:
     return _run(["sudo", "bash", "-ceu", script])
 
 
-def _build_versioned_artifact(worktree: Path, version: str, output: Path) -> tuple[Path, str, str]:
-    init_path = worktree / "product/control-plane/src/home_center/__init__.py"
-    init_text = init_path.read_text(encoding="utf-8")
-    source_marker = f'__version__ = "{SOURCE_VERSION}"'
-    assert source_marker in init_text
-    init_path.write_text(init_text.replace(source_marker, f'__version__ = "{version}"', 1), encoding="utf-8")
+def _build_exact_artifact(worktree: Path, expected_version: str, output: Path) -> tuple[Path, str, str]:
+    assert (worktree / "VERSION").read_text(encoding="ascii").strip() == expected_version
+    init_text = (worktree / "product/control-plane/src/home_center/__init__.py").read_text(encoding="utf-8")
+    assert f'__version__ = "{expected_version}"' in init_text
     _run(["bash", "deploy/scripts/build-deployment-artifact.sh", str(output)], cwd=worktree)
-    artifact = output / f"home-center-{version}-linux-amd64.tar.gz"
+    artifact = output / f"home-center-{expected_version}-linux-amd64.tar.gz"
     digest = Path(f"{artifact}.sha256").read_text(encoding="ascii").split()[0]
     assert hashlib.sha256(artifact.read_bytes()).hexdigest() == digest
     revision = _run(["git", "rev-parse", "HEAD"], cwd=worktree).stdout.strip()
@@ -59,7 +56,12 @@ def _build_versioned_artifact(worktree: Path, version: str, output: Path) -> tup
     reason="real systemd 0.57 -> 0.58 qualification runs once on the hosted Python 3.12 leg",
 )
 def test_release_058_real_systemd_upgrade_health_and_rollback(tmp_path: Path) -> None:
-    """Qualify the exact 0.57 -> 0.58 install/health/rollback path under real systemd."""
+    """Qualify exact 0.57 -> 0.58 install/health/rollback under real systemd.
+
+    The candidate source identity is not rewritten by this test.  The official
+    0.57 source baseline and the exact 0.58 candidate each build their own
+    deployment artifact before the live upgrade/rollback rehearsal.
+    """
 
     H057._assert_systemd_manager()
     address = H057._host_address()
@@ -85,10 +87,10 @@ def test_release_058_real_systemd_upgrade_health_and_rollback(tmp_path: Path) ->
     had_user = _run(["id", "-u", "home-center"], check=False).returncode == 0
 
     try:
-        baseline_artifact, _, baseline_revision = _build_versioned_artifact(
+        baseline_artifact, _, baseline_revision = _build_exact_artifact(
             baseline_worktree, BASELINE_VERSION, tmp_path / "baseline-dist"
         )
-        candidate_artifact, candidate_digest, candidate_revision = _build_versioned_artifact(
+        candidate_artifact, candidate_digest, candidate_revision = _build_exact_artifact(
             candidate_worktree, CANDIDATE_VERSION, tmp_path / "candidate-dist"
         )
         assert baseline_revision == BASE_SHA
