@@ -92,6 +92,9 @@ def validate_rollback_audit_binding(
     generation = receipt.get("generation")
     bundle_id = receipt.get("bundle_id")
     audit_event_id = receipt.get("audit_event_id")
+    recovered = receipt.get("recovered")
+    changed = receipt.get("changed")
+    outcome = receipt.get("outcome")
 
     if (
         not isinstance(resource_key, str)
@@ -109,10 +112,24 @@ def validate_rollback_audit_binding(
         or generation < 1
         or not isinstance(bundle_id, str)
         or not bundle_id
+        or not isinstance(recovered, bool)
+        or not isinstance(changed, bool)
         or receipt.get("rollback_id") != expected_rollback_id
         or receipt.get("resource_key") != resource_key
         or receipt.get("target_history_generation") != target_generation
+        or receipt.get("desired_state_materialized") is not True
+        or receipt.get("provider_execution_authorized") is not False
+        or receipt.get("infrastructure_mutation_authorized") is not False
+        or receipt.get("external_publication_authorized") is not False
     ):
+        raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR)
+
+    allowed_receipt_outcomes = (
+        {"rolled-back", "already-rolled-back"}
+        if changed
+        else {"already-current", "already-rolled-back"}
+    )
+    if outcome not in allowed_receipt_outcomes or (recovered and changed is not True):
         raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR)
 
     try:
@@ -133,15 +150,10 @@ def validate_rollback_audit_binding(
 
     row = _audit_row(service, audit_event_id)
     details = _audit_details(row)
-    recovered = receipt.get("recovered")
-    changed = receipt.get("changed")
-    if not isinstance(recovered, bool) or not isinstance(changed, bool):
-        raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR)
 
     if recovered:
         if (
-            changed is not True
-            or row["actor"] != actor
+            row["actor"] != actor
             or row["action"] != ROLLBACK_RECOVER_ACTION
             or row["target"] != resource_key
             or row["outcome"] != "finalized-existing-write"
