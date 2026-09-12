@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from home_center.household_policy_desired_state import HouseholdPolicyDesiredStateService
 from home_center.household_policy_history import HouseholdPolicyHistoryService
 from home_center.household_policy_runtime import (
     POLICY_CONFIRM_REQUEST_SCHEMA,
     POLICY_PLAN_REQUEST_SCHEMA,
+    HouseholdPolicyRuntimeError,
     HouseholdPolicyRuntimeService,
 )
 from home_center.household_policy_workflow import HouseholdPolicyWorkflowService
@@ -119,6 +122,64 @@ def test_workflow_confirmation_replay_does_not_advance_generation(tmp_path) -> N
     assert second["history_evidence_sha256"] == first["history_evidence_sha256"]
     assert second["history_audit_event_id"] == first["history_audit_event_id"]
     assert store.desired_state()[0]["generation"] == 1
+    store.close()
+
+
+def test_workflow_rejects_materialization_receipt_not_bound_to_exact_proposal(tmp_path, monkeypatch) -> None:
+    store, household, workflow = _workflow(tmp_path)
+    plan = workflow.plan(
+        actor=ACTOR,
+        request={"schema": POLICY_PLAN_REQUEST_SCHEMA, "member_id": household.actor_member_id(ACTOR)},
+        correlation_id="workflow-plan-forged-receipt",
+    )
+    original_materialize = workflow.history.materialize
+
+    def forged_materialize(*, actor, request, correlation_id):
+        receipt = dict(original_materialize(actor=actor, request=request, correlation_id=correlation_id))
+        receipt["bundle_id"] = "hpb-" + "f" * 24
+        return receipt
+
+    monkeypatch.setattr(workflow.history, "materialize", forged_materialize)
+    with pytest.raises(HouseholdPolicyRuntimeError, match="household_policy_materialization_receipt_invalid"):
+        workflow.confirm_and_apply(
+            actor=ACTOR,
+            request={
+                "schema": POLICY_CONFIRM_REQUEST_SCHEMA,
+                "proposal_id": plan["proposal"]["proposal_id"],
+                "confirmed": True,
+            },
+            correlation_id="workflow-confirm-forged-receipt",
+        )
+    store.close()
+
+
+def test_workflow_rejects_history_payload_not_equal_to_exact_planned_bundle(tmp_path, monkeypatch) -> None:
+    store, household, workflow = _workflow(tmp_path)
+    plan = workflow.plan(
+        actor=ACTOR,
+        request={"schema": POLICY_PLAN_REQUEST_SCHEMA, "member_id": household.actor_member_id(ACTOR)},
+        correlation_id="workflow-plan-forged-history",
+    )
+    original_read = workflow.history.read
+
+    def forged_read(*, resource_key, generation):
+        history = dict(original_read(resource_key=resource_key, generation=generation))
+        bundle = dict(history["value"])
+        bundle["explanation"] = ["Подменённое объяснение политики."]
+        history["value"] = bundle
+        return history
+
+    monkeypatch.setattr(workflow.history, "read", forged_read)
+    with pytest.raises(HouseholdPolicyRuntimeError, match="household_policy_history_evidence_mismatch"):
+        workflow.confirm_and_apply(
+            actor=ACTOR,
+            request={
+                "schema": POLICY_CONFIRM_REQUEST_SCHEMA,
+                "proposal_id": plan["proposal"]["proposal_id"],
+                "confirmed": True,
+            },
+            correlation_id="workflow-confirm-forged-history",
+        )
     store.close()
 
 
