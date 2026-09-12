@@ -23,7 +23,7 @@ from .household_device_management_runtime import HouseholdDeviceManagementRuntim
 from .household_device_runtime import HouseholdDeviceRuntimeService
 from .household_policy_authorized_history import ScopedHouseholdPolicyHistoryService
 from .household_policy_confirmation_audit import AuditBoundHouseholdPolicyDesiredStateService
-from .household_policy_runtime import HouseholdPolicyRuntimeService
+from .household_policy_semantic_runtime import SemanticHouseholdPolicyRuntimeService
 from .household_policy_workflow import HouseholdPolicyWorkflowService
 from .household_runtime import HouseholdRuntimeService
 from .local_admin_auth import LocalAdminCredentialStore
@@ -72,7 +72,7 @@ class Runtime:
         self.node_inventory = NodeInventoryService(self.store, product_version=__version__)
         self.automation = AutomationPlanningService(self.store.nodes)
         self.household = HouseholdRuntimeService(self.store)
-        self.household_policy = HouseholdPolicyRuntimeService(self.store)
+        self.household_policy = SemanticHouseholdPolicyRuntimeService(self.store)
         self.household_policy_desired_state = AuditBoundHouseholdPolicyDesiredStateService(self.store)
         self.household_policy_history = ScopedHouseholdPolicyHistoryService(
             self.store,
