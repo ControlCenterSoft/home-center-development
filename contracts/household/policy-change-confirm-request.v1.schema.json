@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/policy-change-confirm-request.v1.schema.json",
+  "title": "Home Center policy change confirmation request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "plan_id", "confirmed"],
+  "properties": {
+    "schema": {"const": "home-center.policy-change-confirm-request.v1"},
+    "plan_id": {"type": "string", "pattern": "^hpplan-[0-9a-f]{24}$"},
+    "confirmed": {"const": true}
+  }
+}
