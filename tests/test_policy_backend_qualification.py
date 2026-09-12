@@ -9,6 +9,7 @@ from jsonschema import Draft202012Validator
 from home_center.policy_backend_qualification import (
     PolicyBackendQualificationError,
     PolicyBackendQualificationEvidence,
+    QualificationBoundPolicyMutationAdapter,
     evaluate_policy_backend_qualification,
     registration_metadata_from_policy_backend_qualification,
 )
@@ -55,6 +56,33 @@ def _evidence(**changes: object) -> PolicyBackendQualificationEvidence:
 
 def _registration(decision: object) -> dict[str, str]:
     return registration_metadata_from_policy_backend_qualification(
+        decision,  # type: ignore[arg-type]
+        expected_version=VERSION,
+        expected_revision=REVISION,
+        expected_candidate_artifact_sha256=CANDIDATE_SHA,
+        expected_backend_id=BACKEND,
+        expected_adapter_version=ADAPTER_VERSION,
+        expected_adapter_artifact_sha256=ADAPTER_SHA,
+    )
+
+
+class ConcreteAdapter:
+    policy_mutation_capable = True
+    adapter_id = BACKEND
+    adapter_version = ADAPTER_VERSION
+    adapter_artifact_sha256 = ADAPTER_SHA
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def apply_policy(self, request: dict[str, object]) -> object:
+        self.calls += 1
+        return {"accepted": True, "request": dict(request)}
+
+
+def _wrapped(adapter: object, decision: object) -> QualificationBoundPolicyMutationAdapter:
+    return QualificationBoundPolicyMutationAdapter(
+        adapter,
         decision,  # type: ignore[arg-type]
         expected_version=VERSION,
         expected_revision=REVISION,
@@ -115,6 +143,32 @@ def test_exact_qualified_decision_can_supply_registration_metadata() -> None:
         "adapter_artifact_sha256": ADAPTER_SHA,
         "qualification_evidence_sha256": decision.evidence_sha256,
     }
+
+
+def test_qualified_wrapper_exposes_only_exact_bound_registration_metadata() -> None:
+    adapter = ConcreteAdapter()
+    decision = evaluate_policy_backend_qualification(_evidence())
+    wrapped = _wrapped(adapter, decision)
+    assert wrapped.policy_mutation_capable is True
+    assert wrapped.policy_backend_qualified is True
+    assert wrapped.adapter_id == BACKEND
+    assert wrapped.adapter_version == ADAPTER_VERSION
+    assert wrapped.adapter_artifact_sha256 == ADAPTER_SHA
+    assert wrapped.qualification_evidence_sha256 == decision.evidence_sha256
+    result = wrapped.apply_policy({"schema": "example"})
+    assert adapter.calls == 1
+    assert result == {"accepted": True, "request": {"schema": "example"}}
+
+
+def test_qualified_wrapper_rejects_concrete_adapter_identity_drift() -> None:
+    adapter = ConcreteAdapter()
+    adapter.adapter_artifact_sha256 = "f" * 64
+    decision = evaluate_policy_backend_qualification(_evidence())
+    with pytest.raises(
+        PolicyBackendQualificationError,
+        match="policy_backend_adapter_binding_invalid",
+    ):
+        _wrapped(adapter, decision)
 
 
 def test_registration_handoff_rejects_candidate_or_artifact_drift() -> None:
