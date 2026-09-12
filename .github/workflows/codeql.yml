@@ -83,8 +83,8 @@ jobs:
                   "product/control-plane/src/home_center/api.py",
                   164,
               ): (
-                  "self.client_address[0],",
-                  "TCP peer text is supplied by the kernel AF_INET socket address, not an HTTP header/body; BaseHTTPRequestHandler request text is separately suppressed",
+                  "correlation_id,",
+                  "correlation id is accepted from X-Correlation-ID only after a strict [A-Za-z0-9._:-]{1,96} full-match that excludes CR/LF and other log delimiters",
               ),
           }
 
