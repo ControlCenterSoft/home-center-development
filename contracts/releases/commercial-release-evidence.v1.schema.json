@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://control-center.pro/schemas/home-center/commercial-release-evidence.v1.schema.json",
+  "title": "Home Center commercial release evidence v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "revision",
+    "candidate_artifact_sha256",
+    "dependencies_evidence_sha256",
+    "redistribution_evidence_sha256",
+    "notices_sha256",
+    "source_obligations_evidence_sha256",
+    "sbom_sha256",
+    "legal_terms_sha256",
+    "support_terms_sha256",
+    "release_claims_sha256",
+    "disposition",
+    "dependencies_reviewed",
+    "redistribution_reviewed",
+    "notices_prepared",
+    "source_obligations_resolved",
+    "sbom_reviewed",
+    "legal_terms_dispositioned",
+    "release_claims_reviewed"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.commercial-release-evidence.v1"},
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+    },
+    "candidate_artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "dependencies_evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "redistribution_evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "notices_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "source_obligations_evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "sbom_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "legal_terms_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "support_terms_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "release_claims_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "disposition": {"enum": ["approved", "review-required", "rejected"]},
+    "dependencies_reviewed": {"type": "boolean"},
+    "redistribution_reviewed": {"type": "boolean"},
+    "notices_prepared": {"type": "boolean"},
+    "source_obligations_resolved": {"type": "boolean"},
+    "sbom_reviewed": {"type": "boolean"},
+    "legal_terms_dispositioned": {"type": "boolean"},
+    "release_claims_reviewed": {"type": "boolean"}
+  }
+}
