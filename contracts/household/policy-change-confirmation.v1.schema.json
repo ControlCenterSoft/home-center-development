@@ -13,10 +13,13 @@
     "snapshot_id",
     "resource_version",
     "generation",
+    "desired_state_id",
     "audit_event_id",
     "desired_state_write_authorized",
     "provider_execution_authorized",
-    "external_publication_authorized"
+    "infrastructure_mutation_authorized",
+    "external_publication_authorized",
+    "automatic_recovery_authorized"
   ],
   "properties": {
     "schema": {"const": "home-center.policy-change-confirmation.v1"},
@@ -27,9 +30,12 @@
     "snapshot_id": {"type": "string", "minLength": 1, "maxLength": 256},
     "resource_version": {"type": "string", "minLength": 1, "maxLength": 256},
     "generation": {"type": "integer", "minimum": 1},
+    "desired_state_id": {"type": "string", "pattern": "^hpds-[0-9a-f]{24}$"},
     "audit_event_id": {"type": "string", "pattern": "^audit-hp-[0-9a-f]{24}$"},
     "desired_state_write_authorized": {"const": true},
     "provider_execution_authorized": {"const": false},
-    "external_publication_authorized": {"const": false}
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false},
+    "automatic_recovery_authorized": {"const": false}
   }
 }
