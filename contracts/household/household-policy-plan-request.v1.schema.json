@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://control-center.pro/schemas/home-center/household-policy-plan-request.v1.schema.json",
+  "title": "Home Center Household Policy Plan Request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "member_id"],
+  "properties": {
+    "schema": {"const": "home-center.household-policy-plan-request.v1"},
+    "member_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"
+    }
+  }
+}
