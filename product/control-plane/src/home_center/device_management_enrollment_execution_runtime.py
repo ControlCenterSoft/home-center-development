@@ -43,9 +43,11 @@ RETRY_REQUEST_SCHEMA = "home-center.device-management-enrollment-execution-retry
 STATE_SCHEMA = "home-center.device-management-enrollment-execution-state.v1"
 RECEIPT_SCHEMA = "home-center.device-management-enrollment-execution-receipt.v1"
 CANCEL_RECEIPT_SCHEMA = "home-center.device-management-enrollment-cancel-receipt.v1"
+ADAPTER_CANCEL_RESULT_SCHEMA = "home-center.device-management-enrollment-adapter-cancel-result.v1"
 KEY_PREFIX = "cozy.household.device-enrollment-execution."
 PLAN_ID = re.compile(r"^dmpexec-[0-9a-f]{24}$")
 IDEMPOTENCY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+PROVIDER_OPERATION_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 START_ACTION = "household.device.management.enrollment.start"
 RETRY_ACTION = "household.device.management.enrollment.retry"
 CANCEL_ACTION = "household.device.management.enrollment.cancel"
@@ -72,6 +74,28 @@ def _key(plan_id: object) -> str:
 
 def _hash(value: dict[str, object]) -> str:
     return hashlib.sha256(canonical_json(value).encode()).hexdigest()
+
+
+def _validate_cancel_result(value: object, *, expected_operation_id: object) -> dict[str, object]:
+    """Reject any cancel response that is not the exact typed 0.57 adapter contract."""
+    expected = {
+        "schema", "state", "provider_operation_id", "post_condition_verified", "managed_state_change_authorized"
+    }
+    if (
+        not isinstance(value, dict)
+        or set(value) != expected
+        or value.get("schema") != ADAPTER_CANCEL_RESULT_SCHEMA
+        or value.get("state") != "cancel-accepted"
+        or not isinstance(expected_operation_id, str)
+        or PROVIDER_OPERATION_ID.fullmatch(expected_operation_id) is None
+        or value.get("provider_operation_id") != expected_operation_id
+        or value.get("post_condition_verified") is not False
+        or value.get("managed_state_change_authorized") is not False
+    ):
+        raise DeviceManagementEnrollmentExecutionRuntimeError(
+            "device_management_enrollment_adapter_cancel_result_rejected"
+        )
+    return dict(value)
 
 
 class DeviceManagementEnrollmentExecutionRuntimeService:
@@ -300,12 +324,31 @@ class DeviceManagementEnrollmentExecutionRuntimeService:
             if not created and job["state"]=="succeeded" and isinstance(envelope.get("cancel_receipt"),dict): return envelope["cancel_receipt"]
             if not created: raise DeviceManagementEnrollmentExecutionRuntimeError("device_management_enrollment_execution_cancel_in_progress")
             running=self.store.transition_action_job(job["job_id"],expected_state="preflight",new_state="running")
-            try: adapter.cancel(provider_operation_id=op,job_id=request["start_job_id"])
+            try:
+                cancel_result = _validate_cancel_result(
+                    adapter.cancel(provider_operation_id=op,job_id=request["start_job_id"]),
+                    expected_operation_id=op,
+                )
+            except DeviceManagementEnrollmentExecutionRuntimeError as exc:
+                self.store.transition_action_job(running["job_id"],expected_state="running",new_state="failed",result={
+                    "schema":"home-center.device-management-enrollment-provider-cancel-failure.v1",
+                    "state":"failed","code":exc.code,"provider_acceptance_unknown":True,
+                    "post_condition_verified":False,"managed_state_change_authorized":False})
+                raise
             except Exception as exc:
-                self.store.transition_action_job(running["job_id"],expected_state="running",new_state="failed",result={"state":"failed","provider_acceptance_unknown":True})
+                self.store.transition_action_job(running["job_id"],expected_state="running",new_state="failed",result={
+                    "schema":"home-center.device-management-enrollment-provider-cancel-failure.v1",
+                    "state":"failed","code":"device_management_enrollment_cancel_provider_error",
+                    "provider_acceptance_unknown":True,"post_condition_verified":False,
+                    "managed_state_change_authorized":False})
                 raise DeviceManagementEnrollmentExecutionRuntimeError("device_management_enrollment_cancel_provider_error") from exc
-            verifying=self.store.transition_action_job(running["job_id"],expected_state="running",new_state="verifying",result={"state":"cancel-requested","post_condition_verified":False})
-            done=self.store.transition_action_job(verifying["job_id"],expected_state="verifying",new_state="succeeded",evidence={"scope":"provider-cancel-command-accepted-only","post_condition_verified":False})
+            verifying=self.store.transition_action_job(running["job_id"],expected_state="running",new_state="verifying",result={
+                "schema":ADAPTER_CANCEL_RESULT_SCHEMA,"state":"cancel-requested",
+                "provider_operation_id":cancel_result["provider_operation_id"],"post_condition_verified":False,
+                "managed_state_change_authorized":False})
+            done=self.store.transition_action_job(verifying["job_id"],expected_state="verifying",new_state="succeeded",evidence={
+                "scope":"provider-cancel-command-accepted-only","provider_operation_id":cancel_result["provider_operation_id"],
+                "post_condition_verified":False,"managed_state_change_authorized":False})
             cancel={"schema":CANCEL_RECEIPT_SCHEMA,"state":"cancel-requested","job_id":done["job_id"],"start_job_id":request["start_job_id"],
                 "plan_id":plan.plan_id,"provider_id":plan.provider_id,"provider_operation_id":op,"post_condition_verified":False,"managed_state_change_authorized":False}
             new=dict(envelope); new.update(status="cancel-requested",cancel_receipt=cancel); self.store.set_meta(key,new)
