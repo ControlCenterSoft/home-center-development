@@ -1,10 +1,10 @@
 """Production-safe orchestration boundary for Home Center 0.59 household policies.
 
-This service connects the already durable Policy Composer plan/confirm protocol to
-one shared Cozy/Full presentation model and to the protected local Desired State
-writer. A single explicit confirmation can materialize the exact policy revision,
-but this boundary never executes a device/provider action, mutates infrastructure,
-or enables external publication.
+This service connects the durable Policy Composer plan/confirm protocol to one
+shared Cozy/Full presentation model, immutable revision evidence and the protected
+local Desired State writer. A single explicit confirmation can materialize the
+exact policy revision, but this boundary never executes a device/provider action,
+mutates infrastructure, or enables external publication.
 """
 
 from __future__ import annotations
@@ -16,10 +16,8 @@ from .household_policy_composer import (
     PolicyCompositionProposal,
     build_policy_composition_proposal,
 )
-from .household_policy_desired_state import (
-    POLICY_APPLY_REQUEST_SCHEMA,
-    HouseholdPolicyDesiredStateService,
-)
+from .household_policy_desired_state import POLICY_APPLY_REQUEST_SCHEMA
+from .household_policy_history import HouseholdPolicyHistoryService
 from .household_policy_presentation import build_policy_presentation
 from .household_policy_runtime import HouseholdPolicyRuntimeError, HouseholdPolicyRuntimeService
 from .household_runtime import ActorBinding, HOUSEHOLD_STATE_KEY, _state_from_dict
@@ -31,18 +29,18 @@ POLICY_CONFIRM_APPLY_RESULT_SCHEMA = "home-center.household-policy-confirm-apply
 
 
 class HouseholdPolicyWorkflowService:
-    """Bind policy planning, presentation, confirmation and Desired State materialization."""
+    """Bind policy planning, presentation, confirmation, history and Desired State materialization."""
 
     def __init__(
         self,
         store: StateStore,
         *,
         policy_runtime: HouseholdPolicyRuntimeService,
-        desired_state: HouseholdPolicyDesiredStateService,
+        history: HouseholdPolicyHistoryService,
     ) -> None:
         self.store = store
         self.policy_runtime = policy_runtime
-        self.desired_state = desired_state
+        self.history = history
 
     def _snapshot_and_actor(self, actor: str) -> tuple[object, str]:
         raw = self.store.get_meta(HOUSEHOLD_STATE_KEY)
@@ -117,7 +115,7 @@ class HouseholdPolicyWorkflowService:
         proposal_id = confirmation.get("proposal_id")
         if not isinstance(confirmation_id, str) or not isinstance(proposal_id, str):
             raise HouseholdPolicyRuntimeError("household_policy_confirmation_invalid")
-        receipt = self.desired_state.apply(
+        receipt = self.history.materialize(
             actor=actor,
             request={
                 "schema": POLICY_APPLY_REQUEST_SCHEMA,
@@ -131,6 +129,7 @@ class HouseholdPolicyWorkflowService:
             "confirmation": confirmation,
             "receipt": receipt,
             "desired_state_materialized": receipt.get("desired_state_materialized") is True,
+            "history_evidence_sha256": receipt.get("history_evidence_sha256"),
             "provider_execution_authorized": False,
             "infrastructure_mutation_authorized": False,
             "external_publication_authorized": False,
@@ -140,6 +139,15 @@ class HouseholdPolicyWorkflowService:
         """Expose the durable confirmation recovery protocol without applying anything implicitly."""
 
         return self.policy_runtime.recover(
+            actor=actor,
+            request=request,
+            correlation_id=correlation_id,
+        )
+
+    def rollback(self, *, actor: str, request: dict[str, Any], correlation_id: str) -> dict[str, object]:
+        """Restore one exact historical policy bundle as a new monotonic revision."""
+
+        return self.history.rollback(
             actor=actor,
             request=request,
             correlation_id=correlation_id,
