@@ -20,6 +20,7 @@ from home_center.release_promotion_gate import (  # noqa: E402
     CommercialEvidence,
     ProviderAdapterEvidence,
     QualificationEvidence,
+    RealEnvironmentEvidence,
     RecoveryEvidence,
     ReleaseBinding,
     ReleasePromotionError,
@@ -30,6 +31,7 @@ from home_center.release_promotion_gate import (  # noqa: E402
 VERSION = "0.57.0"
 REVISION = "c" * 40
 DIGEST = "a" * 64
+OTHER_DIGEST = "b" * 64
 
 
 def _binding(revision: str = REVISION) -> ReleaseBinding:
@@ -62,6 +64,21 @@ def _recovery(revision: str = REVISION) -> RecoveryEvidence:
         user_state_preserved=True,
         real_target_accepted=True,
         multi_node_ha_restart_qualified=True,
+    )
+
+
+def _real_environment(
+    revision: str = REVISION,
+    *,
+    artifact_sha256: str = DIGEST,
+    evidence_sha256: str = DIGEST,
+    qualified: bool = True,
+) -> RealEnvironmentEvidence:
+    return RealEnvironmentEvidence(
+        binding=_binding(revision),
+        candidate_artifact_sha256=artifact_sha256,
+        evidence_sha256=evidence_sha256,
+        qualified=qualified,
     )
 
 
@@ -114,6 +131,7 @@ def _decision(channel: str = CANDIDATE, *, stable_artifacts: bool = False):
         qualification=_qualification(),
         security=_security(),
         recovery=_recovery(),
+        real_environment=_real_environment(),
         provider=_provider(),
         artifacts=_artifacts(stable=stable_artifacts),
         commercial=_commercial(),
@@ -154,6 +172,7 @@ class ReleasePromotionGateTests(unittest.TestCase):
             real_target_accepted=False,
             multi_node_ha_restart_qualified=False,
         )
+        real_environment = _real_environment(evidence_sha256="", qualified=False)
         provider = ProviderAdapterEvidence(
             binding=_binding(),
             adapter_id="provider.example",
@@ -180,6 +199,7 @@ class ReleasePromotionGateTests(unittest.TestCase):
             qualification=_qualification(),
             security=_security(),
             recovery=recovery,
+            real_environment=real_environment,
             provider=provider,
             artifacts=_artifacts(),
             commercial=commercial,
@@ -189,6 +209,8 @@ class ReleasePromotionGateTests(unittest.TestCase):
             (
                 "real_target_acceptance",
                 "multi_node_ha_restart",
+                "real_environment_evidence",
+                "real_environment_qualification",
                 "provider_adapter_qualification",
                 "commercial_disposition",
                 "notices_prepared",
@@ -196,6 +218,36 @@ class ReleasePromotionGateTests(unittest.TestCase):
                 "release_claims_reviewed",
             ),
         )
+
+    def test_real_environment_evidence_must_bind_exact_candidate_artifact(self) -> None:
+        decision = evaluate_release_promotion(
+            target_channel=CANDIDATE,
+            version=VERSION,
+            revision=REVISION,
+            qualification=_qualification(),
+            security=_security(),
+            recovery=_recovery(),
+            real_environment=_real_environment(artifact_sha256=OTHER_DIGEST),
+            provider=_provider(),
+            artifacts=_artifacts(),
+            commercial=_commercial(),
+        )
+        self.assertEqual(decision.blockers, ("real_environment_artifact_binding",))
+
+    def test_real_environment_digest_is_required_even_when_booleans_are_true(self) -> None:
+        decision = evaluate_release_promotion(
+            target_channel=CANDIDATE,
+            version=VERSION,
+            revision=REVISION,
+            qualification=_qualification(),
+            security=_security(),
+            recovery=_recovery(),
+            real_environment=_real_environment(evidence_sha256=""),
+            provider=_provider(),
+            artifacts=_artifacts(),
+            commercial=_commercial(),
+        )
+        self.assertEqual(decision.blockers, ("real_environment_evidence",))
 
     def test_cross_revision_evidence_is_rejected(self) -> None:
         other = "d" * 40
@@ -206,6 +258,7 @@ class ReleasePromotionGateTests(unittest.TestCase):
             qualification=_qualification(other),
             security=_security(other),
             recovery=_recovery(other),
+            real_environment=_real_environment(other),
             provider=_provider(other),
             artifacts=_artifacts(other),
             commercial=_commercial(other),
@@ -216,6 +269,7 @@ class ReleasePromotionGateTests(unittest.TestCase):
                 "qualification_binding",
                 "security_binding",
                 "recovery_binding",
+                "real_environment_binding",
                 "provider_binding",
                 "artifact_binding",
                 "commercial_binding",
@@ -242,6 +296,7 @@ class ReleasePromotionGateTests(unittest.TestCase):
             qualification=_qualification(),
             security=_security(),
             recovery=_recovery(),
+            real_environment=_real_environment(),
             provider=_provider(),
             artifacts=_artifacts(),
             commercial=commercial,
@@ -269,6 +324,7 @@ class ReleasePromotionGateTests(unittest.TestCase):
                 qualification=_qualification(),
                 security=_security(),
                 recovery=_recovery(),
+                real_environment=_real_environment(),
                 provider=_provider(),
                 artifacts=_artifacts(),
                 commercial=_commercial(),

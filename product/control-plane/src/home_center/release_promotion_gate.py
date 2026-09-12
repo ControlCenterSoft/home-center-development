@@ -62,6 +62,14 @@ class RecoveryEvidence:
 
 
 @dataclass(frozen=True, slots=True)
+class RealEnvironmentEvidence:
+    binding: ReleaseBinding
+    candidate_artifact_sha256: str
+    evidence_sha256: str
+    qualified: bool
+
+
+@dataclass(frozen=True, slots=True)
 class ProviderAdapterEvidence:
     binding: ReleaseBinding
     adapter_id: str
@@ -142,6 +150,13 @@ def _provider_identity_valid(evidence: ProviderAdapterEvidence) -> bool:
     )
 
 
+def _real_environment_identity_valid(evidence: RealEnvironmentEvidence) -> bool:
+    return bool(
+        _valid_sha256(evidence.candidate_artifact_sha256)
+        and _valid_sha256(evidence.evidence_sha256)
+    )
+
+
 def evaluate_release_promotion(
     *,
     target_channel: str,
@@ -150,6 +165,7 @@ def evaluate_release_promotion(
     qualification: QualificationEvidence,
     security: SecurityEvidence,
     recovery: RecoveryEvidence,
+    real_environment: RealEnvironmentEvidence,
     provider: ProviderAdapterEvidence,
     artifacts: ArtifactEvidence,
     commercial: CommercialEvidence,
@@ -192,6 +208,19 @@ def evaluate_release_promotion(
         blockers.append("real_target_acceptance")
     if not recovery.multi_node_ha_restart_qualified:
         blockers.append("multi_node_ha_restart")
+
+    if not real_environment.binding.matches(version, revision):
+        blockers.append("real_environment_binding")
+    if not _real_environment_identity_valid(real_environment):
+        blockers.append("real_environment_evidence")
+    if (
+        _valid_sha256(real_environment.candidate_artifact_sha256)
+        and _valid_sha256(artifacts.candidate_artifact_sha256)
+        and real_environment.candidate_artifact_sha256 != artifacts.candidate_artifact_sha256
+    ):
+        blockers.append("real_environment_artifact_binding")
+    if not real_environment.qualified:
+        blockers.append("real_environment_qualification")
 
     if not provider.binding.matches(version, revision):
         blockers.append("provider_binding")
