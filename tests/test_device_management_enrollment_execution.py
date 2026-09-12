@@ -117,6 +117,31 @@ class AcceptingAdapter:
 
     def cancel(self, *, provider_operation_id: str, job_id: str):
         self.cancels.append((provider_operation_id, job_id))
+        return {
+            "schema": "home-center.device-management-enrollment-adapter-cancel-result.v1",
+            "state": "cancel-accepted",
+            "provider_operation_id": provider_operation_id,
+            "post_condition_verified": False,
+            "managed_state_change_authorized": False,
+        }
+
+
+class InvalidCancelResultAdapter(AcceptingAdapter):
+    def __init__(self, result_kind: str) -> None:
+        super().__init__()
+        self.result_kind = result_kind
+
+    def cancel(self, *, provider_operation_id: str, job_id: str):
+        self.cancels.append((provider_operation_id, job_id))
+        if self.result_kind == "none":
+            return None
+        return {
+            "schema": "home-center.device-management-enrollment-adapter-cancel-result.v1",
+            "state": "cancel-accepted",
+            "provider_operation_id": "different-provider-operation",
+            "post_condition_verified": False,
+            "managed_state_change_authorized": False,
+        }
 
 
 class RetryOnceAdapter(AcceptingAdapter):
@@ -208,6 +233,42 @@ def test_provider_acceptance_is_durable_but_does_not_mark_device_managed(tmp_pat
     assert cancel["state"] == "cancel-requested"
     assert cancel["post_condition_verified"] is False
     assert adapter.cancels == [(receipt["provider_operation_id"], receipt["job_id"])]
+    cancel_job = store.job(cancel["job_id"])
+    assert cancel_job["evidence"]["scope"] == "provider-cancel-command-accepted-only"
+    assert cancel_job["evidence"]["managed_state_change_authorized"] is False
+    store.close()
+
+
+@pytest.mark.parametrize("result_kind", ["none", "mismatched-operation"])
+def test_cancel_rejects_untyped_or_mismatched_adapter_result_without_false_success(
+    tmp_path: Path, result_kind: str
+) -> None:
+    store = _store(tmp_path)
+    selection = _confirmed_selection(store)
+    service = DeviceManagementEnrollmentExecutionRuntimeService(store, now=lambda: "2026-09-12T00:00:00Z")
+    adapter = InvalidCancelResultAdapter(result_kind)
+    service.register_adapter("android-mdm-primary", adapter)
+    plan = _execution_plan(service, selection)
+    receipt = service.start(
+        actor=ACTOR,
+        request={"schema": "home-center.device-management-enrollment-execution-start-request.v1", "plan_id": plan["plan_id"], "confirmed": True, "idempotency_key": f"start-{result_kind}"},
+        correlation_id=f"start-{result_kind}",
+    )
+    with pytest.raises(DeviceManagementEnrollmentExecutionRuntimeError, match="adapter_cancel_result_rejected"):
+        service.cancel(
+            actor=ACTOR,
+            request={"schema": "home-center.device-management-enrollment-execution-cancel-request.v1", "plan_id": plan["plan_id"], "start_job_id": receipt["job_id"], "confirmed": True, "idempotency_key": f"cancel-{result_kind}"},
+            correlation_id=f"cancel-{result_kind}",
+        )
+    failed = next(job for job in store.jobs() if job["job_type"] == "household.device.management.enrollment.cancel")
+    assert failed["state"] == "failed"
+    assert failed["result"]["code"] == "device_management_enrollment_adapter_cancel_result_rejected"
+    assert failed["result"]["provider_acceptance_unknown"] is True
+    assert failed["result"]["post_condition_verified"] is False
+    assert failed["result"]["managed_state_change_authorized"] is False
+    envelope = store.get_meta(f"cozy.household.device-enrollment-execution.{plan['plan_id']}")
+    assert envelope["status"] == "provider-accepted"
+    assert envelope["cancel_receipt"] is None
     store.close()
 
 
