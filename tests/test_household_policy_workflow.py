@@ -40,7 +40,7 @@ def _workflow(tmp_path):
     return store, household, workflow
 
 
-def test_workflow_presents_same_exact_policy_and_materializes_only_after_confirmation(tmp_path) -> None:
+def test_workflow_presents_same_exact_policy_materializes_and_exposes_verified_history(tmp_path) -> None:
     store, household, workflow = _workflow(tmp_path)
     member_id = household.actor_member_id(ACTOR)
 
@@ -76,6 +76,25 @@ def test_workflow_presents_same_exact_policy_and_materializes_only_after_confirm
     assert result["infrastructure_mutation_authorized"] is False
     assert result["external_publication_authorized"] is False
     assert store.desired_state()[0]["value"] == proposal["bundle"]
+
+    overview = workflow.history_overview(
+        actor=ACTOR,
+        resource_key=result["receipt"]["resource_key"],
+    )
+    assert overview["schema"] == "home-center.household-policy-history-overview.v1"
+    assert overview["current_generation"] == 1
+    assert overview["current_bundle_id"] == proposal["bundle"]["bundle_id"]
+    assert overview["truncated"] is False
+    assert overview["revisions"] == [
+        {
+            "generation": 1,
+            "bundle_id": proposal["bundle"]["bundle_id"],
+            "recorded_at": overview["revisions"][0]["recorded_at"],
+            "evidence_sha256": result["history_evidence_sha256"],
+            "audit_event_id": result["history_audit_event_id"],
+            "rollback_target": False,
+        }
+    ]
     store.close()
 
 
@@ -109,16 +128,18 @@ def test_production_http_boundary_keeps_auth_origin_external_and_no_provider_exe
     server = SERVER.read_text(encoding="utf-8")
 
     for path in (
+        "/api/v1/household/policies/history",
         "/api/v1/household/policies/plan",
         "/api/v1/household/policies/confirm",
         "/api/v1/household/policies/recover",
         "/api/v1/household/policies/rollback",
     ):
         assert f'"{path}"' in http
-    assert "context.external or self._blocked_for_external(path, context)" in http
+    assert "getattr(context, \"external\", False) or self._blocked_for_external(path, context)" in http
     assert 'action="household.policy.external-access"' in http
     assert "self._same_origin_post_allowed(context)" in http
     assert "self._require_actor(correlation_id)" in http
+    assert "household_policy_workflow.history_overview" in http
     assert "household_policy_workflow.plan" in http
     assert "household_policy_workflow.confirm_and_apply" in http
     assert "household_policy_workflow.rollback" in http
