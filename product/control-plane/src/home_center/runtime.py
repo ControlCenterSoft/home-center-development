@@ -16,7 +16,7 @@ from .auth import LoginRateLimiter, SessionManager
 from .certificate_api import CertificateLifecycleApi, runtime_certificate_records
 from .config import Config
 from .device_management_enrollment_execution_recovery import RecoverableDeviceManagementEnrollmentExecutionRuntimeService
-from .device_management_enrollment_post_condition_runtime import DeviceManagementEnrollmentPostConditionRuntimeService
+from .device_management_enrollment_post_condition_runtime_safe import SafeDeviceManagementEnrollmentPostConditionRuntimeService
 from .device_management_provider_runtime import DeviceManagementProviderRuntimeService
 from .device_management_provider_selection_runtime import DeviceManagementProviderSelectionRuntimeService
 from .external_access import ExternalAccessPolicy, ExternalRequestRateLimiter
@@ -78,7 +78,7 @@ class Runtime:
         self.device_management_providers = DeviceManagementProviderRuntimeService(self.store)
         self.device_management_provider_selection = DeviceManagementProviderSelectionRuntimeService(self.store)
         self.device_management_enrollment_execution = RecoverableDeviceManagementEnrollmentExecutionRuntimeService(self.store)
-        self.device_management_enrollment_post_condition = DeviceManagementEnrollmentPostConditionRuntimeService(
+        self.device_management_enrollment_post_condition = SafeDeviceManagementEnrollmentPostConditionRuntimeService(
             self.store,
             self.step_up,
         )
