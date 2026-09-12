@@ -195,15 +195,19 @@
       && authorityDenied(receipt);
   }
 
-  function safeRollbackResponse(data, requestBody) {
+  function safeRollbackResponse(data, requestBody, targetBundleId) {
+    const outcome = data?.outcome;
+    const generationMatches = outcome === 'already-current'
+      ? data?.generation === requestBody.expected_generation
+      : Number.isInteger(data?.generation) && data.generation > requestBody.expected_generation;
     return data?.schema === 'home-center.household-policy-rollback-receipt.v1'
       && data?.resource_key === requestBody.resource_key
       && data?.target_history_generation === requestBody.target_generation
-      && Number.isInteger(data?.generation)
-      && data.generation > requestBody.expected_generation
+      && data?.target_history_bundle_id === targetBundleId
+      && generationMatches
       && data?.desired_state_materialized === true
       && authorityDenied(data)
-      && ['rolled-back', 'already-rolled-back'].includes(data?.outcome);
+      && ['rolled-back', 'already-current', 'already-rolled-back'].includes(outcome);
   }
 
   function historyRevisionNode(revision, history) {
@@ -306,8 +310,15 @@
 
   async function confirmRollback(event) {
     const button = event.currentTarget;
-    if (!pendingRollback) return;
+    if (!pendingRollback || !latestHistory) return;
     const requestBody = {...pendingRollback};
+    const target = latestHistory.revisions.find((item) => item?.generation === requestBody.target_generation);
+    const targetBundleId = target?.bundle_id;
+    if (typeof targetBundleId !== 'string' || !targetBundleId) {
+      clearRollbackConfirmation();
+      historyMessage('Не удалось доказать целевую ревизию. Обновите историю правил.', 'error');
+      return;
+    }
     button.disabled = true;
     historyMessage('Возвращаем подтверждённую ревизию…');
     try {
@@ -319,7 +330,7 @@
           confirmed: true,
         }),
       });
-      if (!response.ok || !safeRollbackResponse(data, requestBody)) {
+      if (!response.ok || !safeRollbackResponse(data, requestBody, targetBundleId)) {
         historyMessage(errorMessage(data, 'Не удалось вернуть ревизию. Обновите историю и повторите проверку.'), 'error');
         return;
       }
