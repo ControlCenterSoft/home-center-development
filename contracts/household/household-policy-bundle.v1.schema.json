@@ -69,7 +69,7 @@
     },
     "desired_state_resource_key": {
       "type": "string",
-      "pattern": "^household-policy:[a-z][a-z0-9_.:-]{1,127}:[a-z][a-z0-9_.:-]{1,127}$"
+      "pattern": "^household-policy:(?:[a-z][a-z0-9_.-]{1,127}:[a-z][a-z0-9_.-]{1,127}|[a-z][a-z0-9_.:-]{1,127}:hpk-[0-9a-f]{64})$"
     },
     "desired_state_write_authorized": {"const": false},
     "infrastructure_mutation_authorized": {"const": false},
