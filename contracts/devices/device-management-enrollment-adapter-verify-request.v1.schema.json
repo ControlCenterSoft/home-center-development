@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/devices/device-management-enrollment-adapter-verify-request.v1.schema.json",
+  "title": "Home Center device management enrollment adapter verify request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "verification_id",
+    "execution_plan_id",
+    "execution_job_id",
+    "provider_id",
+    "provider_operation_id",
+    "device_id",
+    "member_id",
+    "managed_state_change_authorized",
+    "policy_application_authorized",
+    "infrastructure_mutation_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.device-management-enrollment-adapter-verify-request.v1"},
+    "verification_id": {"type": "string", "pattern": "^dmpverify-[0-9a-f]{24}$"},
+    "execution_plan_id": {"type": "string", "pattern": "^dmpexec-[0-9a-f]{24}$"},
+    "execution_job_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "provider_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "provider_operation_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "device_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "managed_state_change_authorized": {"const": false},
+    "policy_application_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
