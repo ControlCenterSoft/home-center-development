@@ -6,18 +6,23 @@ fences before calling the protected runtime.
 """
 from __future__ import annotations
 
+import hashlib
 import re
 from typing import Any
 
+from .parental_internet_policy import POLICY_SCHEMA
 from .parental_internet_policy_runtime import (
     CONFIRM_REQUEST_SCHEMA,
     DESIRED_STATE_SCHEMA,
     PLAN_REQUEST_SCHEMA,
 )
+from .util import canonical_json
 
 COZY_DESIRED_SCHEMA = "home-center.cozy-parental-internet-policy-desired.v1"
 FULL_DESIRED_SCHEMA = "home-center.full-parental-internet-policy-desired.v1"
 _PLAN_ID = re.compile(r"hpip-[0-9a-f]{24}\Z")
+_POLICY_ID = re.compile(r"hcip-[0-9a-f]{24}\Z")
+_BASE_POLICY_ID = re.compile(r"hcpol-[0-9a-f]{24}\Z")
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _VERSION = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,63}\Z")
 
@@ -43,6 +48,10 @@ class ParentalInternetPolicyChangeAPIError(ValueError):
     def __init__(self, code: str) -> None:
         super().__init__(code)
         self.code = code
+
+
+def _digest(value: object) -> str:
+    return hashlib.sha256(canonical_json(value).encode()).hexdigest()
 
 
 def _identifier(value: object, *, maximum: int = 128) -> str:
@@ -165,19 +174,47 @@ def _validated_desired(value: object) -> dict[str, object]:
     if not isinstance(value, dict) or set(value) != required or value.get("schema") != DESIRED_STATE_SCHEMA:
         raise ParentalInternetPolicyChangeAPIError("invalid_parental_internet_desired_state")
     policy = value.get("policy")
+    household_id = value.get("household_id")
+    member_id = value.get("member_id")
+    base_policy_id = value.get("base_policy_id")
+    base_policy_sha256 = value.get("base_policy_sha256")
+    policy_sha256 = value.get("policy_sha256")
+    reason = value.get("reason")
     if (
-        type(value.get("generation")) is not int
+        not isinstance(household_id, str)
+        or not household_id
+        or len(household_id) > 128
+        or not isinstance(member_id, str)
+        or not member_id
+        or len(member_id) > 128
+        or type(value.get("generation")) is not int
         or value["generation"] < 1
         or not isinstance(value.get("plan_id"), str)
         or _PLAN_ID.fullmatch(value["plan_id"]) is None
         or not isinstance(value.get("verified_base_state_sha256"), str)
         or _SHA256.fullmatch(value["verified_base_state_sha256"]) is None
-        or not isinstance(value.get("base_policy_sha256"), str)
-        or _SHA256.fullmatch(value["base_policy_sha256"]) is None
-        or not isinstance(value.get("policy_sha256"), str)
-        or _SHA256.fullmatch(value["policy_sha256"]) is None
+        or not isinstance(base_policy_id, str)
+        or _BASE_POLICY_ID.fullmatch(base_policy_id) is None
+        or not isinstance(base_policy_sha256, str)
+        or _SHA256.fullmatch(base_policy_sha256) is None
+        or not isinstance(policy_sha256, str)
+        or _SHA256.fullmatch(policy_sha256) is None
+        or not isinstance(reason, str)
+        or not reason.strip()
+        or len(reason.strip()) > 512
         or not isinstance(policy, dict)
+        or policy.get("schema") != POLICY_SCHEMA
+        or not isinstance(policy.get("policy_id"), str)
+        or _POLICY_ID.fullmatch(policy["policy_id"]) is None
+        or policy.get("household_id") != household_id
+        or policy.get("member_id") != member_id
+        or policy.get("subject_role") != "child"
+        or policy.get("base_policy_id") != base_policy_id
+        or policy.get("base_policy_sha256") != base_policy_sha256
+        or _digest(policy) != policy_sha256
         or policy.get("default_decision") != "deny"
+        or policy.get("dns_policy_required") is not True
+        or policy.get("proxy_policy_required") is not True
         or policy.get("enforcement_authorized") is not False
         or policy.get("infrastructure_mutation_authorized") is not False
         or policy.get("external_publication_authorized") is not False
