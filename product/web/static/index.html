@@ -151,7 +151,22 @@
           </div>
           <section class="section-block"><div class="section-heading"><h2>Узлы</h2><p>Техническое представление подключённых серверов.</p></div><div id="nodes" class="node-grid" aria-live="polite"></div></section>
           <section class="section-block"><div class="section-heading"><h2>Возможности</h2><p>Функции, доступные в текущей инфраструктуре.</p></div><div id="capabilities" class="capability-list" aria-live="polite"></div></section>
-          <section id="full-policy-inspector" class="section-block" hidden aria-live="polite"><div class="section-heading"><h2>Policy Composer</h2><p>Exact-state evidence последнего плана, подготовленного в разделе «Семья». Это тот же `bundle_id`, который показан в «Уютном» интерфейсе.</p></div><pre id="full-policy-evidence" class="policy-technical"></pre></section>
+          <section id="full-policy-inspector" class="section-block" hidden aria-live="polite">
+            <div class="section-heading"><h2>Policy Composer</h2><p>Exact-state evidence последнего плана, подготовленного в разделе «Семья». Это тот же `bundle_id`, который показан в «Уютном» интерфейсе.</p></div>
+            <pre id="full-policy-evidence" class="policy-technical"></pre>
+            <div class="policy-history-block">
+              <div class="section-heading"><h3>История правил</h3><p>Показываются только ревизии, подтверждённые локальным evidence и Audit. Возврат старой версии создаёт новую ревизию и не запускает управление устройствами.</p></div>
+              <div id="policy-history-list" class="policy-history-list" aria-live="polite"></div>
+              <p id="policy-history-message" class="form-message" role="status"></p>
+              <section id="policy-rollback-confirm" class="confirm-card" hidden aria-live="polite">
+                <div><span class="eyebrow">Подтверждение rollback</span><h3>Вернуть предыдущие правила?</h3><p id="policy-rollback-copy">—</p></div>
+                <div class="confirm-actions">
+                  <button id="policy-rollback-confirm-button" class="primary-button" type="button">Подтвердить возврат</button>
+                  <button id="policy-rollback-cancel-button" class="secondary-button" type="button">Отмена</button>
+                </div>
+              </section>
+            </div>
+          </section>
           <p id="dashboard-message" class="form-message" role="status"></p>
         </section>
       </div>
