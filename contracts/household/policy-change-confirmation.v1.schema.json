@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/policy-change-confirmation.v1.schema.json",
+  "title": "Home Center policy change confirmation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "confirmation_id",
+    "plan_id",
+    "actor_member_id",
+    "target_member_id",
+    "snapshot_id",
+    "resource_version",
+    "generation",
+    "audit_event_id",
+    "desired_state_write_authorized",
+    "provider_execution_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.policy-change-confirmation.v1"},
+    "confirmation_id": {"type": "string", "pattern": "^hpconfirm-[0-9a-f]{24}$"},
+    "plan_id": {"type": "string", "pattern": "^hpplan-[0-9a-f]{24}$"},
+    "actor_member_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "target_member_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "snapshot_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "resource_version": {"type": "string", "minLength": 1, "maxLength": 256},
+    "generation": {"type": "integer", "minimum": 1},
+    "audit_event_id": {"type": "string", "pattern": "^audit-hp-[0-9a-f]{24}$"},
+    "desired_state_write_authorized": {"const": true},
+    "provider_execution_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
