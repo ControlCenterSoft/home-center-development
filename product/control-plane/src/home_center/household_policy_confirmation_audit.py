@@ -1,9 +1,9 @@
 """Audit-bound Policy Composer Desired State materialization for Home Center 0.59.
 
 The 0.59 confirmation envelope is stored in cluster metadata while the authoritative
-confirmation event lives in the keyed append-only Audit chain.  This production
-wrapper refuses every Desired State apply/replay unless the persisted confirmation
-points to the exact matching Audit event.  It never grants provider execution or
+confirmation event lives in the keyed append-only Audit chain. This production
+writer refuses every Desired State apply/replay unless the persisted confirmation
+points to the exact matching Audit event. It never grants provider execution or
 infrastructure mutation authority.
 """
 
@@ -14,6 +14,7 @@ import sqlite3
 from typing import Any
 
 from .household_policy_desired_state import (
+    POLICY_APPLY_REQUEST_SCHEMA,
     HouseholdPolicyDesiredStateError,
     HouseholdPolicyDesiredStateService,
     _proposal_key,
@@ -26,6 +27,7 @@ CONFIRM_ACTION = "household.policy.confirm"
 def validate_confirmation_audit_binding(
     service: HouseholdPolicyDesiredStateService,
     *,
+    actor: str,
     proposal: dict[str, Any],
     confirmation: dict[str, Any],
 ) -> None:
@@ -33,7 +35,13 @@ def validate_confirmation_audit_binding(
 
     audit_event_id = confirmation.get("audit_event_id")
     bundle = proposal.get("bundle")
-    if not isinstance(audit_event_id, str) or not audit_event_id or not isinstance(bundle, dict):
+    if (
+        not isinstance(actor, str)
+        or not actor
+        or not isinstance(audit_event_id, str)
+        or not audit_event_id
+        or not isinstance(bundle, dict)
+    ):
         raise HouseholdPolicyDesiredStateError("household_policy_confirmation_audit_invalid")
 
     try:
@@ -45,7 +53,7 @@ def validate_confirmation_audit_binding(
     connection.row_factory = sqlite3.Row
     try:
         row = connection.execute(
-            "SELECT action,target,outcome,details_json FROM audit WHERE event_id=?",
+            "SELECT actor,action,target,outcome,details_json FROM audit WHERE event_id=?",
             (audit_event_id,),
         ).fetchone()
     finally:
@@ -73,7 +81,8 @@ def validate_confirmation_audit_binding(
         "infrastructure_mutation_authorized": False,
     }
     if (
-        row["action"] != CONFIRM_ACTION
+        row["actor"] != actor
+        or row["action"] != CONFIRM_ACTION
         or row["target"] != bundle.get("desired_state_resource_key")
         or row["outcome"] != "accepted"
         or any(details.get(key) != value for key, value in expected.items())
@@ -85,14 +94,26 @@ class AuditBoundHouseholdPolicyDesiredStateService(HouseholdPolicyDesiredStateSe
     """Production 0.59 writer that verifies confirmation Audit evidence before use."""
 
     def apply(self, *, actor: str, request: dict[str, Any], correlation_id: str) -> dict[str, object]:
-        proposal_id = request.get("proposal_id") if isinstance(request, dict) else None
-        proposal_key = _proposal_key(proposal_id)
-        raw_proposal, confirmation = self._confirmed_envelope(self.store.get_meta(proposal_key))
-        if confirmation.get("confirmation_id") != request.get("confirmation_id"):
-            raise HouseholdPolicyDesiredStateError("household_policy_confirmation_evidence_mismatch")
-        validate_confirmation_audit_binding(
-            self,
-            proposal=raw_proposal,
-            confirmation=confirmation,
-        )
-        return super().apply(actor=actor, request=request, correlation_id=correlation_id)
+        # Preserve the base writer's closed request contract before touching persisted state.
+        if (
+            not isinstance(request, dict)
+            or set(request) != {"schema", "proposal_id", "confirmation_id"}
+            or request.get("schema") != POLICY_APPLY_REQUEST_SCHEMA
+        ):
+            raise HouseholdPolicyDesiredStateError("invalid_household_policy_apply_request")
+
+        # Hold the same re-entrant lock across evidence validation and the base apply path.
+        # This prevents a concurrent metadata write from swapping the confirmation envelope
+        # after its Audit binding was checked but before the Desired State CAS begins.
+        with self._lock:
+            proposal_key = _proposal_key(request.get("proposal_id"))
+            raw_proposal, confirmation = self._confirmed_envelope(self.store.get_meta(proposal_key))
+            if confirmation.get("confirmation_id") != request.get("confirmation_id"):
+                raise HouseholdPolicyDesiredStateError("household_policy_confirmation_evidence_mismatch")
+            validate_confirmation_audit_binding(
+                self,
+                actor=actor,
+                proposal=raw_proposal,
+                confirmation=confirmation,
+            )
+            return super().apply(actor=actor, request=request, correlation_id=correlation_id)
