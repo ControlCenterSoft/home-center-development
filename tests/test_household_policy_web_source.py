@@ -27,18 +27,26 @@ def test_cozy_policy_ui_requires_preview_then_explicit_confirmation() -> None:
     assert "desired_state_materialized !== true" in client
 
 
-def test_policy_client_renders_text_without_html_injection_and_exposes_exact_technical_view() -> None:
+def test_policy_client_renders_text_without_html_injection_and_exposes_exact_full_evidence() -> None:
+    index = INDEX.read_text(encoding="utf-8")
     client = CLIENT.read_text(encoding="utf-8")
     style = STYLE.read_text(encoding="utf-8")
 
+    assert 'id="full-policy-inspector"' in index
+    assert 'id="full-policy-evidence"' in index
+    assert "тот же `bundle_id`" in index
     assert "textContent = String(value)" in client
     assert "textContent = JSON.stringify(full.technical_policy" in client
+    assert "fullEvidence.textContent = JSON.stringify" in client
+    assert "bundle_id: full.bundle_id" in client
+    assert "proposal_id: full.proposal_id" in client
+    assert "expected_desired_state_generation: full.expected_desired_state_generation" in client
     assert "innerHTML" not in client
     assert "presentation?.same_policy_evidence !== true" in client
     assert ".policy-technical" in style
 
 
-def test_policy_ui_does_not_call_provider_or_execution_routes() -> None:
+def test_policy_ui_does_not_call_provider_execution_or_job_routes() -> None:
     client = CLIENT.read_text(encoding="utf-8")
 
     assert "/provider" not in client
