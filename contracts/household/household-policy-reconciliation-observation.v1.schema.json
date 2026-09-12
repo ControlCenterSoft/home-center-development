@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/household-policy-reconciliation-observation.v1.schema.json",
+  "title": "Home Center household policy reconciliation observation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "request_sha256", "adapter_id", "adapter_revision", "target_id", "household_id", "member_id", "desired_generation", "plan_id", "policy_sha256", "outcome", "actual_state_revision", "observed_policy_sha256", "evidence_sha256", "provider_receipt_id"],
+  "properties": {
+    "schema": {"const": "home-center.household-policy-reconciliation-observation.v1"},
+    "request_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "adapter_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "adapter_revision": {"type": "string", "minLength": 1, "maxLength": 128},
+    "target_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "household_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "desired_generation": {"type": "integer", "minimum": 1},
+    "plan_id": {"type": "string", "pattern": "^hpcp-[0-9a-f]{24}$"},
+    "policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "outcome": {"enum": ["verified", "mismatch", "unavailable"]},
+    "actual_state_revision": {"type": "string", "minLength": 1, "maxLength": 128},
+    "observed_policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "provider_receipt_id": {"type": ["string", "null"], "minLength": 1, "maxLength": 128}
+  }
+}

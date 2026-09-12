@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/household-policy-reconciliation-decision.v1.schema.json",
+  "title": "Home Center household policy reconciliation decision v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "decision_id", "status", "household_id", "member_id", "desired_generation", "plan_id", "policy_sha256", "request_sha256", "adapter_id", "adapter_revision", "target_id", "actual_state_revision", "observed_policy_sha256", "evidence_sha256", "provider_receipt_id", "eligible_for_enforcement_verification", "enforcement_verified", "reconciliation_required", "infrastructure_mutation_authorized", "external_publication_authorized"],
+  "properties": {
+    "schema": {"const": "home-center.household-policy-reconciliation-decision.v1"},
+    "decision_id": {"type": "string", "pattern": "^hcpr-[0-9a-f]{24}$"},
+    "status": {"enum": ["verified_candidate", "mismatch", "unavailable"]},
+    "household_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "desired_generation": {"type": "integer", "minimum": 1},
+    "plan_id": {"type": "string", "pattern": "^hpcp-[0-9a-f]{24}$"},
+    "policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "request_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "adapter_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "adapter_revision": {"type": "string", "minLength": 1, "maxLength": 128},
+    "target_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "actual_state_revision": {"type": "string", "minLength": 1, "maxLength": 128},
+    "observed_policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "provider_receipt_id": {"type": ["string", "null"], "minLength": 1, "maxLength": 128},
+    "eligible_for_enforcement_verification": {"type": "boolean"},
+    "enforcement_verified": {"const": false},
+    "reconciliation_required": {"const": true},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
