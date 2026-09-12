@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import shutil
+import sqlite3
 from pathlib import Path
 
 from home_center.device_management_enrollment_execution_runtime import START_ACTION
@@ -105,6 +107,83 @@ def test_release_057_intermediate_execution_jobs_survive_restart_without_state_l
     assert recovered["result"]["post_condition_verified"] is False
     assert recovered["result"]["managed_state_change_authorized"] is False
     after.close()
+
+
+def test_release_057_durable_execution_state_survives_sqlite_backup_and_restore(tmp_path: Path) -> None:
+    path = tmp_path / "state.db"
+    backup_path = tmp_path / "state.backup.sqlite3"
+    store = _store(path)
+    envelope = {
+        "schema": "home-center.device-management-enrollment-execution-state.v1",
+        "status": "planned",
+        "plan": {"plan_id": PLAN_ID},
+        "receipt": None,
+        "cancel_receipt": None,
+    }
+    store.set_meta(STATE_KEY, envelope)
+    job, created = store.create_action_job(
+        action_id=START_ACTION,
+        actor="local-admin:admin",
+        reason="release 0.57 backup recovery qualification",
+        idempotency_key="backup-recovery-qualification-key",
+        request_hash="d" * 64,
+        preflight={
+            "schema": "home-center.device-management-enrollment-execution-preflight.v1",
+            "plan_id": PLAN_ID,
+            "provider_id": "android-mdm-primary",
+            "provider_execution_authorized": False,
+            "post_condition_verified": False,
+            "managed_state_change_authorized": False,
+        },
+        steps=[{"step": "provider-start", "state": "pending"}],
+    )
+    assert created is True
+    running = store.transition_action_job(job["job_id"], expected_state="preflight", new_state="running")
+    verifying = store.transition_action_job(
+        running["job_id"],
+        expected_state="running",
+        new_state="verifying",
+        result={
+            "schema": "home-center.device-management-enrollment-provider-acceptance.v1",
+            "state": "provider-accepted",
+            "provider_operation_id": "provider-op-backup-1",
+            "one_time_artifact": None,
+            "enrollment_completed": False,
+            "post_condition_verified": False,
+            "managed_state_change_authorized": False,
+        },
+    )
+
+    # Exercise the same SQLite online-backup primitive used by install-node.sh.
+    source = sqlite3.connect(path)
+    destination = sqlite3.connect(backup_path)
+    try:
+        source.backup(destination)
+    finally:
+        destination.close()
+        source.close()
+
+    # Prove restore is not accidentally reading the live database: mutate state
+    # after the recovery point, then replace it with the qualified backup.
+    store.set_meta(STATE_KEY, {"schema": "qualification-drift", "status": "mutated-after-backup"})
+    store.close()
+    for suffix in ("-wal", "-shm"):
+        sidecar = Path(f"{path}{suffix}")
+        if sidecar.exists():
+            sidecar.unlink()
+    shutil.copy2(backup_path, path)
+
+    recovered_store = _store(path)
+    assert recovered_store.get_meta(STATE_KEY) == envelope
+    recovered_job = recovered_store.job(verifying["job_id"])
+    assert recovered_job is not None
+    assert recovered_job["state"] == "verifying"
+    assert recovered_job["idempotency_key"] == "backup-recovery-qualification-key"
+    assert recovered_job["result"]["state"] == "provider-accepted"
+    assert recovered_job["result"]["enrollment_completed"] is False
+    assert recovered_job["result"]["post_condition_verified"] is False
+    assert recovered_job["result"]["managed_state_change_authorized"] is False
+    recovered_store.close()
 
 
 def test_release_057_recovery_never_auto_reinvokes_ambiguous_running_provider_command() -> None:
