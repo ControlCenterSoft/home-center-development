@@ -56,6 +56,17 @@ _INPUT_KEYS = {
     "post_condition_separate",
     "managed_state_change_forbidden",
 }
+_ENVIRONMENT_DECISION_KEYS = {
+    "schema",
+    "version",
+    "revision",
+    "candidate_artifact_sha256",
+    "evidence_sha256",
+    "qualified",
+    "blockers",
+    "release_authorized",
+    "external_publication_authorized",
+}
 _BOOLEAN_KEYS = {
     "real_provider_exercised",
     "real_target_exercised",
@@ -90,9 +101,21 @@ def canonical_json(value: object) -> bytes:
     ).encode("utf-8")
 
 
+def _reject_duplicate_object_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, item in pairs:
+        if key in value:
+            raise ProviderAdapterEvidenceInputError("json_duplicate_key")
+        value[key] = item
+    return value
+
+
 def _load_json(path: Path, *, code: str) -> dict[str, Any]:
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
+        value = json.loads(
+            path.read_text(encoding="utf-8"),
+            object_pairs_hook=_reject_duplicate_object_pairs,
+        )
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ProviderAdapterEvidenceInputError(code) from exc
     _require(isinstance(value, dict), f"{code}_not_object")
@@ -170,6 +193,7 @@ def _validated_manifest(value: dict[str, Any]) -> ProviderAdapterQualificationEv
 def _bind_real_environment_decision(
     value: dict[str, Any], evidence: ProviderAdapterQualificationEvidence
 ) -> None:
+    _require(set(value) == _ENVIRONMENT_DECISION_KEYS, "environment_decision_shape")
     _require(
         value.get("schema") == REAL_ENVIRONMENT_DECISION_SCHEMA,
         "environment_decision_schema",
