@@ -45,7 +45,7 @@ def _workflow(tmp_path):
     return store, household, history, workflow
 
 
-def test_policy_plan_and_confirm_results_match_closed_contracts(tmp_path) -> None:
+def test_policy_plan_confirm_history_results_match_closed_contracts(tmp_path) -> None:
     store, household, history, workflow = _workflow(tmp_path)
     plan = workflow.plan(
         actor=ACTOR,
@@ -75,6 +75,9 @@ def test_policy_plan_and_confirm_results_match_closed_contracts(tmp_path) -> Non
         generation=result["receipt"]["generation"],
     )
     _validator("household-policy-history.v1.schema.json").validate(archived)
+
+    overview = workflow.history_overview(actor=ACTOR, resource_key=result["receipt"]["resource_key"])
+    _validator("household-policy-history-overview.v1.schema.json").validate(overview)
     store.close()
 
 
@@ -84,6 +87,7 @@ def test_new_policy_contracts_are_closed_and_forbid_authority_escalation() -> No
         "household-policy-plan-result.v1.schema.json",
         "household-policy-confirm-apply-result.v1.schema.json",
         "household-policy-history.v1.schema.json",
+        "household-policy-history-overview.v1.schema.json",
         "household-policy-rollback-request.v1.schema.json",
         "household-policy-rollback-receipt.v1.schema.json",
     )
