@@ -1,7 +1,7 @@
 """Crash recovery for durable Home Center 0.59 policy reconciliation evidence.
 
 This module finalizes only reconciliation attempts that already persisted exact,
-read-only Actual State evidence before an interruption.  Recovery never calls a
+read-only Actual State evidence before an interruption. Recovery never calls a
 backend adapter, never mutates protected policy Desired State, and never grants
 infrastructure or external-publication authority.
 """
@@ -14,12 +14,12 @@ from typing import Any
 from .household_policy_reconciliation import (
     EVIDENCE_SCHEMA,
     HouseholdPolicyReconciliationError,
+    PolicyReconciliationRequest,
     request_from_dict,
 )
 from .household_policy_reconciliation_runtime import (
     ACTION,
     COMPLETION_SCHEMA,
-    FAILURE_SCHEMA,
     STATE_KEY_PREFIX,
     STATE_SCHEMA,
 )
@@ -48,7 +48,7 @@ def _digest(value: object) -> str:
 def _validate_evidence(
     *,
     evidence: object,
-    request: object,
+    request: PolicyReconciliationRequest,
 ) -> dict[str, object]:
     if not isinstance(evidence, dict) or evidence.get("schema") != EVIDENCE_SCHEMA:
         raise HouseholdPolicyReconciliationRecoveryError(
@@ -225,7 +225,7 @@ class HouseholdPolicyReconciliationRecoveryService:
             ],
         )
         completed = dict(envelope)
-        completed.update(status="completed", completion=completion)
+        completed.update(status="completed", completion=completion, recovery_failure=None)
         self.store.set_meta(state_key, completed)
         if self.store.get_meta(state_key) != completed:
             raise HouseholdPolicyReconciliationRecoveryError(
@@ -271,8 +271,17 @@ class HouseholdPolicyReconciliationRecoveryService:
                     job_id,
                     expected_state="verifying",
                     new_state="failed",
-                    evidence=failure,
+                    evidence={
+                        "schema": RECOVERY_FAILURE_SCHEMA,
+                        "code": code,
+                        "reconciliation_evidence": envelope.get("evidence"),
+                        "backend_reinvoked": False,
+                        "desired_state_transition_performed": False,
+                        "backend_mutation_performed": False,
+                        "infrastructure_mutation_performed": False,
+                        "external_publication_performed": False,
+                    },
                 )
         failed = dict(envelope)
-        failed.update(status="failed", evidence=failure)
+        failed.update(status="recovery-blocked", recovery_failure=failure)
         self.store.set_meta(state_key, failed)
