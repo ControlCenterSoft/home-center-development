@@ -18,6 +18,12 @@ from home_center.store import StateStore
 ACTOR = "parent@example.test"
 RESOURCE_KEY = "household-policy:household-test:member-test"
 BUNDLE_ID = "hpb-" + "4" * 24
+POLICY_VALUE = {
+    "schema": "home-center.household-policy-bundle.v1",
+    "bundle_id": BUNDLE_ID,
+    "desired_state_resource_key": RESOURCE_KEY,
+    "policy": {"internet": {"mode": "family-safe"}},
+}
 
 
 class _Probe:
@@ -28,6 +34,7 @@ class _Probe:
                 "resource_key": RESOURCE_KEY,
                 "generation": 1,
                 "bundle_id": BUNDLE_ID,
+                "value": POLICY_VALUE,
                 "evidence_sha256": "1" * 64,
             }
         }
@@ -36,6 +43,7 @@ class _Probe:
                 "resource_key": RESOURCE_KEY,
                 "generation": 2,
                 "bundle_id": BUNDLE_ID,
+                "value": POLICY_VALUE,
                 "evidence_sha256": "2" * 64,
             }
 
