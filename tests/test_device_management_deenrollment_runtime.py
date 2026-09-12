@@ -186,10 +186,19 @@ def test_stale_household_blocks_confirmation_before_step_up_is_consumed(tmp_path
     plan = _plan(service)
 
     base, bindings = _state_from_dict(store.get_meta(HOUSEHOLD_STATE_KEY))
+    renamed_devices = tuple(
+        ManagedDevice(
+            device_id=device.device_id,
+            member_id=device.member_id,
+            display_name="Phone renamed" if device.device_id == DEVICE else device.display_name,
+            managed=device.managed,
+        )
+        for device in base.household.devices
+    )
     household = Household(
         household_id=base.household.household_id,
         members=base.household.members,
-        devices=base.household.devices,
+        devices=renamed_devices,
     )
     changed, _commit = build_household_replacement(
         base,
@@ -231,7 +240,9 @@ def test_plan_rejects_unapplied_verification_or_unmanaged_device(tmp_path: Path)
     assert exc.value.code == "device_management_deenrollment_verification_not_applied"
     store.close()
 
-    store = _store(tmp_path / "second")
+    second = tmp_path / "second"
+    second.mkdir()
+    store = _store(second)
     _seed(store, managed=False)
     service = DeviceManagementDeenrollmentRuntimeService(
         store,
