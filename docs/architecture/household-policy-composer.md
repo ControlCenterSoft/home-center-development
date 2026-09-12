@@ -16,6 +16,7 @@ Policy Composer переводит бытовую роль участника с
 8. **Повторы идемпотентны.** Повтор подтверждения, apply и rollback не создаёт повторную мутацию и не увеличивает generation без изменения policy.
 9. **Успех доказывается post-condition, а не receipt.** Перед успешным ответом apply/rollback orchestration связывает receipt с точным proposal/confirmation, immutable history и фактическим текущим Desired State. Несовпадение означает fail-closed integrity error.
 10. **Persisted PolicyBundle проверяется семантически.** Помимо SHA-256/Audit evidence проверяются закрытая форма bundle, точное соответствие `RolePreset`, `EffectivePolicy`, `policy_id`, `bundle_id`, resource scope, бытового explanation и всех authority-флагов. Архивированный, но семантически подменённый bundle не считается доверенным.
+11. **Resource identity не зависит от разделителя внутри ID.** Для обычных delimiter-safe Household/member ID сохраняется читаемый ключ `household-policy:<household>:<member>`. Если хотя бы один ID содержит `:`, точная пара Household/member связывается с SHA-256 suffix `hpk-*`; две разные пары идентификаторов не могут получить один Desired State key из-за неоднозначной конкатенации. Semantic evidence обязан заново вычислить тот же ключ, а не доверять persisted строке.
 
 ## Поток данных
 
@@ -62,7 +63,7 @@ Rollback использует аналогичный durable `applying/applied/i
 
 ## Контракты
 
-Публичная API-форма 0.59 использует закрытые JSON Schema (`additionalProperties=false`) для plan/confirm/recovery requests и результатов, presentation, confirmation/apply, history и rollback. Поля authority в результатах должны оставаться константно `false`; расширение capability требует отдельного архитектурного решения и нового qualification gate.
+Публичная API-форма 0.59 использует закрытые JSON Schema (`additionalProperties=false`) для plan/confirm/recovery requests и результатов, presentation, confirmation/apply, history и rollback. Поля authority в результатах должны оставаться константно `false`; расширение capability требует отдельного архитектурного решения и нового qualification gate. `desired_state_resource_key` принимает только безопасную читаемую форму для ID без `:` либо collision-safe `hpk-*` форму для идентификаторов с разделителем; произвольная неоднозначная строка не является допустимым policy evidence.
 
 ## Single-node и HA
 
