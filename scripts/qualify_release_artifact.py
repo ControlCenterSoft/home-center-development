@@ -211,7 +211,7 @@ def main() -> int:
     try:
         wheel = _single_wheel(args.wheel_dir)
         report = qualify(wheel, repository_root=args.repository_root.resolve())
-        comparison = _single_wheel(args.compare-wheel-dir)
+        comparison = _single_wheel(args.compare_wheel_dir)
         if wheel.name != comparison.name or _sha256(wheel) != _sha256(comparison):
             raise QualificationError("artifact_reproducibility_mismatch")
         report["checks"]["reproducible_build"] = True
