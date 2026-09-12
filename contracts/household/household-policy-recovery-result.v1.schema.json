@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://control-center.pro/schemas/home-center/household-policy-recovery-result.v1.schema.json",
+  "title": "Home Center Household Policy Recovery Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "proposal_id",
+    "status",
+    "recovered",
+    "confirmation",
+    "desired_state_write_authorized",
+    "infrastructure_mutation_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.household-policy-recovery-result.v1"},
+    "proposal_id": {"type": "string", "pattern": "^hpc-[0-9a-f]{24}$"},
+    "status": {"enum": ["pending", "confirmed", "invalidated"]},
+    "recovered": {"type": "boolean"},
+    "confirmation": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "household-policy-confirmation.v1.schema.json"}
+      ]
+    },
+    "desired_state_write_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "confirmed"}}},
+      "then": {"properties": {"confirmation": {"$ref": "household-policy-confirmation.v1.schema.json"}}},
+      "else": {"properties": {"confirmation": {"type": "null"}}}
+    }
+  ]
+}
