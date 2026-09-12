@@ -32,3 +32,23 @@ def test_policy_enforcement_http_bodies_are_exact_contracts() -> None:
 
     with pytest.raises(ValueError):
         RuntimeRequestHandlerV8._exact_body(["member-a", "provider-a"], {"member_id", "backend_id"})
+
+
+def test_policy_enforcement_http_fields_reject_implicit_coercion() -> None:
+    request = {
+        "member_id": "member-a",
+        "backend_id": "provider-a",
+        "confirmed": True,
+    }
+    assert RuntimeRequestHandlerV8._text_field(request, "member_id") == "member-a"
+    assert RuntimeRequestHandlerV8._text_field(request, "backend_id") == "provider-a"
+    assert RuntimeRequestHandlerV8._bool_field(request, "confirmed") is True
+
+    with pytest.raises(ValueError):
+        RuntimeRequestHandlerV8._text_field({"plan_id": 123}, "plan_id")
+
+    with pytest.raises(ValueError):
+        RuntimeRequestHandlerV8._bool_field({"confirmed": 1}, "confirmed")
+
+    with pytest.raises(ValueError):
+        RuntimeRequestHandlerV8._bool_field({"confirmed": "true"}, "confirmed")
