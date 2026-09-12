@@ -92,19 +92,22 @@ def _replace_with_second_valid_revision(store, history, first_record):
     return second_record
 
 
-def test_materialization_archives_exact_generation_with_hash_evidence(tmp_path) -> None:
+def test_materialization_preserves_closed_apply_receipt_and_archives_audit_bound_history(tmp_path) -> None:
     store, household, policy, _desired, history = _services(tmp_path)
     proposal, receipt = _materialize_initial(store, household, policy, history)
 
+    assert receipt["schema"] == "home-center.household-policy-apply-receipt.v1"
     assert receipt["generation"] == 1
-    assert receipt["history_generation"] == 1
-    assert len(receipt["history_evidence_sha256"]) == 64
+    assert "history_generation" not in receipt
+    assert "history_evidence_sha256" not in receipt
     archived = history.read(
         resource_key=proposal["bundle"]["desired_state_resource_key"],
         generation=1,
     )
     assert archived["bundle_id"] == proposal["bundle"]["bundle_id"]
     assert archived["value"] == proposal["bundle"]
+    assert len(archived["evidence_sha256"]) == 64
+    assert isinstance(archived["audit_event_id"], str) and archived["audit_event_id"]
     assert archived["provider_execution_authorized"] is False
     assert archived["infrastructure_mutation_authorized"] is False
     assert archived["external_publication_authorized"] is False
@@ -175,6 +178,31 @@ def test_rollback_fails_closed_on_stale_current_revision(tmp_path) -> None:
     store.close()
 
 
+def test_rollback_requires_bound_administrative_actor(tmp_path) -> None:
+    store, household, policy, _desired, history = _services(tmp_path)
+    proposal, _receipt = _materialize_initial(store, household, policy, history)
+    resource_key = proposal["bundle"]["desired_state_resource_key"]
+    first_record = history.repository.read(resource_key)
+    assert first_record is not None
+    second_record = _replace_with_second_valid_revision(store, history, first_record)
+
+    with pytest.raises(HouseholdPolicyHistoryError, match="household_actor_not_bound"):
+        history.rollback(
+            actor="intruder@example.test",
+            request={
+                "schema": POLICY_ROLLBACK_REQUEST_SCHEMA,
+                "resource_key": resource_key,
+                "expected_generation": 2,
+                "expected_bundle_id": second_record["value"]["bundle_id"],
+                "target_generation": 1,
+                "confirmed": True,
+            },
+            correlation_id="rollback-intruder",
+        )
+    assert history.repository.read(resource_key)["generation"] == 2
+    store.close()
+
+
 def test_history_evidence_tampering_is_rejected(tmp_path) -> None:
     store, household, policy, _desired, history = _services(tmp_path)
     proposal, _receipt = _materialize_initial(store, household, policy, history)
@@ -185,5 +213,19 @@ def test_history_evidence_tampering_is_rejected(tmp_path) -> None:
     store.set_meta(key, archived)
 
     with pytest.raises(HouseholdPolicyHistoryError, match="household_policy_history_evidence_mismatch"):
+        history.read(resource_key=resource_key, generation=1)
+    store.close()
+
+
+def test_history_requires_matching_keyed_audit_event(tmp_path) -> None:
+    store, household, policy, _desired, history = _services(tmp_path)
+    proposal, _receipt = _materialize_initial(store, household, policy, history)
+    resource_key = proposal["bundle"]["desired_state_resource_key"]
+    key = _history_key(resource_key, 1)
+    archived = store.get_meta(key)
+    archived["audit_event_id"] = "missing-audit-event"
+    store.set_meta(key, archived)
+
+    with pytest.raises(HouseholdPolicyHistoryError, match="household_policy_history_audit_missing"):
         history.read(resource_key=resource_key, generation=1)
     store.close()
