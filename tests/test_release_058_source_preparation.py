@@ -146,6 +146,32 @@ def test_058_verification_contracts_are_closed_and_fail_closed() -> None:
         assert runtime_receipt["properties"][field] == {"const": False}
 
 
+def test_058_managed_state_commit_contract_is_narrow_and_local_only() -> None:
+    request = _contract(
+        "device-management-enrollment-managed-state-commit-request.v1.schema.json"
+    )
+    receipt = _contract(
+        "device-management-enrollment-managed-state-commit-receipt.v1.schema.json"
+    )
+
+    assert request["additionalProperties"] is False
+    assert request["required"] == ["schema", "verification_id", "idempotency_key"]
+    assert receipt["additionalProperties"] is False
+    assert receipt["properties"]["state"] == {"const": "managed-state-committed"}
+    assert receipt["properties"]["post_condition_verified"] == {"const": True}
+    assert receipt["properties"]["managed_state_change_authorized"] == {"const": True}
+    assert receipt["properties"]["managed_state_change_committed"] == {"const": True}
+    assert receipt["properties"]["audit_required"] == {"const": True}
+    assert "audit_event_id" in receipt["required"]
+    for field in (
+        "provider_mutation_authorized",
+        "policy_application_authorized",
+        "infrastructure_mutation_authorized",
+        "external_publication_authorized",
+    ):
+        assert receipt["properties"][field] == {"const": False}
+
+
 def test_058_source_contains_verification_cleanup_and_deenrollment_boundaries() -> None:
     verification = (
         ROOT
@@ -154,6 +180,18 @@ def test_058_source_contains_verification_cleanup_and_deenrollment_boundaries() 
     verification_runtime = (
         ROOT
         / "product/control-plane/src/home_center/device_management_enrollment_verification_runtime.py"
+    ).read_text(encoding="utf-8")
+    evidence_persistence = (
+        ROOT
+        / "product/control-plane/src/home_center/device_management_enrollment_verification_persistence.py"
+    ).read_text(encoding="utf-8")
+    managed_state_runtime = (
+        ROOT
+        / "product/control-plane/src/home_center/device_management_enrollment_managed_state_runtime.py"
+    ).read_text(encoding="utf-8")
+    state_meta_cas = (
+        ROOT
+        / "product/control-plane/src/home_center/state_meta_cas.py"
     ).read_text(encoding="utf-8")
     api = (
         ROOT
@@ -186,9 +224,19 @@ def test_058_source_contains_verification_cleanup_and_deenrollment_boundaries() 
     assert 'policy_application_authorized": False' in verification_runtime
     assert 'external_publication_authorized": False' in verification_runtime
     assert "build_managed_state_replacement" not in verification_runtime
+    assert "verification_evidence_from_dict" in evidence_persistence
+    assert "DeviceManagementEnrollmentManagedStateRuntimeService" in managed_state_runtime
+    assert "compare_and_swap_meta_succeed_job_and_audit" in managed_state_runtime
+    assert "local-household-managed-state-only" in managed_state_runtime
+    assert "provider_mutation_authorized\": False" in managed_state_runtime
+    assert "policy_application_authorized\": False" in managed_state_runtime
+    assert "BEGIN IMMEDIATE" in state_meta_cas
+    assert "INSERT INTO audit" in state_meta_cas
     assert "device_management_enrollment_verification" in runtime
+    assert "device_management_enrollment_managed_state" in runtime
     assert "RuntimeRequestHandlerV4" in api
     assert "/api/v1/household/devices/enrollment/verification/verify" in api
+    assert "/api/v1/household/devices/enrollment/verification/commit-managed-state" in api
     assert "_same_origin_post_allowed" in api
     assert "_blocked_for_external" in api
     assert "RuntimeRequestHandlerV4" in server
@@ -204,6 +252,7 @@ def test_058_source_contains_verification_cleanup_and_deenrollment_boundaries() 
     assert "secret://" not in cleanup
     assert "secret://" not in de_enrollment
     assert "secret://" not in verification_runtime
+    assert "secret://" not in managed_state_runtime
     assert "secret://" not in api
 
 
@@ -218,6 +267,7 @@ def test_058_notes_keep_release_status_closed_and_describe_cleanup_boundary() ->
     assert "retry_planning_allowed=true" in notes
     assert "retry_execution_authorized=false" in notes
     assert "/api/v1/household/devices/enrollment/verification/verify" in notes
-    assert "не применяет" in notes
+    assert "/api/v1/household/devices/enrollment/verification/commit-managed-state" in notes
+    assert "exact-state" in notes
     assert "managed=true" in notes
     assert "не запускает CI или release workflow" in notes
