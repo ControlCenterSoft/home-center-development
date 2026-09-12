@@ -13,6 +13,7 @@ from typing import Any
 
 from .home_services import HomeServiceCatalogError
 from .household import HouseholdRole, effective_policy
+from .household_policy_runtime import DESIRED_KEY_PREFIX as BASE_POLICY_DESIRED_KEY_PREFIX
 from .household_runtime import HOUSEHOLD_STATE_KEY, _snapshot_from_dict, _state_from_dict
 from .household_policy_verification_state import VERIFIED_KEY_PREFIX
 from .parental_internet_policy import (
@@ -82,6 +83,10 @@ def _verified_key(household_id: str, member_id: str) -> str:
     return VERIFIED_KEY_PREFIX + household_id + "." + member_id
 
 
+def _base_desired_key(household_id: str, member_id: str) -> str:
+    return BASE_POLICY_DESIRED_KEY_PREFIX + household_id + "." + member_id
+
+
 def _reason(value: object) -> str:
     if not isinstance(value, str):
         raise ParentalInternetPolicyRuntimeError("invalid_parental_internet_reason")
@@ -135,7 +140,30 @@ class ParentalInternetPolicyRuntimeService:
             raise ParentalInternetPolicyRuntimeError(exc.code) from exc
         if verified.household_id != household_id or verified.member_id != member_id:
             raise ParentalInternetPolicyRuntimeError("parental_internet_verified_base_binding_mismatch")
+        current_base_desired = self.store.get_meta(_base_desired_key(household_id, member_id))
+        if (
+            not isinstance(current_base_desired, dict)
+            or _digest(current_base_desired) != verified.source_desired_state_sha256
+        ):
+            raise ParentalInternetPolicyRuntimeError("parental_internet_verified_base_stale")
         return verified
+
+    @staticmethod
+    def _require_current_role_base(snapshot: object, verified: VerifiedParentalPolicyBase) -> None:
+        try:
+            current = effective_policy(snapshot.household, verified.member_id)  # type: ignore[attr-defined]
+        except HomeServiceCatalogError as exc:
+            raise ParentalInternetPolicyRuntimeError(exc.code) from exc
+        if (
+            current.role is not HouseholdRole.CHILD
+            or current.policy_id != verified.policy.base_policy_id
+            or verified.policy.vpn_allowed
+            or not verified.policy.managed_device_required
+            or verified.policy.smart_home_control_allowed
+            or verified.policy.administration_allowed
+            or verified.policy.external_publication_allowed
+        ):
+            raise ParentalInternetPolicyRuntimeError("parental_internet_verified_base_stale")
 
     @staticmethod
     def _desired(value: object) -> dict[str, Any] | None:
@@ -200,6 +228,7 @@ class ParentalInternetPolicyRuntimeService:
                 household_id=snapshot.household_id,
                 member_id=subject.member_id,
             )
+            self._require_current_role_base(snapshot, verified)
             try:
                 proposed = build_parental_internet_policy(
                     base=verified.policy,
@@ -336,6 +365,7 @@ class ParentalInternetPolicyRuntimeService:
                 household_id=snapshot.household_id,
                 member_id=subject.member_id,
             )
+            self._require_current_role_base(snapshot, verified)
             if (
                 verified.verified_state_sha256 != plan.get("verified_base_state_sha256")
                 or verified.policy.policy_id != plan.get("base_policy_id")
