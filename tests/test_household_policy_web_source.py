@@ -24,7 +24,7 @@ def test_cozy_policy_ui_requires_preview_then_explicit_confirmation() -> None:
     assert "home-center.household-policy-plan-request.v1" in client
     assert "home-center.household-policy-confirm-request.v1" in client
     assert "confirmed: true" in client
-    assert "desired_state_materialized !== true" in client
+    assert "data?.desired_state_materialized === false" in client
 
 
 def test_policy_client_renders_text_without_html_injection_and_exposes_exact_full_evidence() -> None:
@@ -42,8 +42,25 @@ def test_policy_client_renders_text_without_html_injection_and_exposes_exact_ful
     assert "proposal_id: full.proposal_id" in client
     assert "expected_desired_state_generation: full.expected_desired_state_generation" in client
     assert "innerHTML" not in client
-    assert "presentation?.same_policy_evidence !== true" in client
+    assert "presentation?.same_policy_evidence === true" in client
     assert ".policy-technical" in style
+
+
+def test_policy_ui_rejects_response_authority_or_evidence_drift() -> None:
+    client = CLIENT.read_text(encoding="utf-8")
+
+    assert "function authorityDenied(value)" in client
+    assert "function safePlanResponse(data)" in client
+    assert "function safeHistoryResponse(data, resourceKey)" in client
+    assert "function safeApplyResponse(data, proposalId, resourceKey)" in client
+    assert "function safeRollbackResponse(data, requestBody)" in client
+    assert "value?.provider_execution_authorized === false" in client
+    assert "value?.infrastructure_mutation_authorized === false" in client
+    assert "value?.external_publication_authorized === false" in client
+    assert "technical?.external_publication_allowed === false" in client
+    assert "technical?.production_mutation_enabled === false" in client
+    assert "receipt?.bundle_id === confirmation?.bundle_id" in client
+    assert "receipt?.resource_key === resourceKey" in client
 
 
 def test_full_policy_ui_uses_verified_history_and_separate_explicit_rollback_confirmation() -> None:
@@ -63,6 +80,8 @@ def test_full_policy_ui_uses_verified_history_and_separate_explicit_rollback_con
     assert "expected_generation: latestHistory.current_generation" in client
     assert "expected_bundle_id: latestHistory.current_bundle_id" in client
     assert "confirmed: true" in client
+    assert "data.revisions.length !== expectedCount" in client
+    assert "current?.bundle_id === data.current_bundle_id" in client
     assert ".policy-history-item" in style
 
 
