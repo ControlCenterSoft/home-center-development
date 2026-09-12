@@ -82,6 +82,8 @@ def test_policy_composition_proposal_is_confirmation_gated_and_exact_state_bound
     assert value["snapshot_id"] == snapshot.snapshot_id
     assert value["resource_version"] == snapshot.resource_version
     assert value["generation"] == 1
+    assert value["expected_desired_state_generation"] == 0
+    assert value["expected_desired_state_bundle_id"] is None
     assert value["confirmation_required"] is True
     assert value["desired_state_write_authorized"] is False
     assert value["infrastructure_mutation_authorized"] is False
@@ -93,7 +95,7 @@ def test_policy_composition_proposal_is_confirmation_gated_and_exact_state_bound
     ) == proposal.bundle
 
 
-def test_policy_composition_rejects_actor_and_snapshot_changes() -> None:
+def test_policy_composition_rejects_actor_household_and_desired_state_changes() -> None:
     snapshot = _snapshot()
     proposal = build_policy_composition_proposal(
         snapshot,
@@ -118,6 +120,56 @@ def test_policy_composition_rejects_actor_and_snapshot_changes() -> None:
             newer,
             proposal,
             actor_member_id="parent",
+        )
+
+    with pytest.raises(HouseholdPolicyComposerError, match="household_policy_composition_stale"):
+        revalidate_policy_composition_proposal(
+            snapshot,
+            proposal,
+            actor_member_id="parent",
+            current_desired_state_generation=1,
+            current_desired_state_bundle_id="hpb-0123456789abcdef01234567",
+        )
+
+
+def test_policy_composition_can_bind_an_existing_desired_state_revision() -> None:
+    snapshot = _snapshot()
+    previous_bundle_id = "hpb-0123456789abcdef01234567"
+    proposal = build_policy_composition_proposal(
+        snapshot,
+        actor_member_id="parent",
+        member_id="child",
+        expected_desired_state_generation=7,
+        expected_desired_state_bundle_id=previous_bundle_id,
+    )
+    assert proposal.expected_desired_state_generation == 7
+    assert proposal.expected_desired_state_bundle_id == previous_bundle_id
+    assert revalidate_policy_composition_proposal(
+        snapshot,
+        proposal,
+        actor_member_id="parent",
+        current_desired_state_generation=7,
+        current_desired_state_bundle_id=previous_bundle_id,
+    ) == proposal.bundle
+
+
+def test_policy_composition_rejects_invalid_desired_state_preconditions() -> None:
+    snapshot = _snapshot()
+    with pytest.raises(HouseholdPolicyComposerError, match="invalid_household_policy_desired_state_precondition"):
+        build_policy_composition_proposal(
+            snapshot,
+            actor_member_id="parent",
+            member_id="child",
+            expected_desired_state_generation=0,
+            expected_desired_state_bundle_id="hpb-0123456789abcdef01234567",
+        )
+    with pytest.raises(HouseholdPolicyComposerError, match="invalid_household_policy_desired_state_precondition"):
+        build_policy_composition_proposal(
+            snapshot,
+            actor_member_id="parent",
+            member_id="child",
+            expected_desired_state_generation=1,
+            expected_desired_state_bundle_id=None,
         )
 
 
