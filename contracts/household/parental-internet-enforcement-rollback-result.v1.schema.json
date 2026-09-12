@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/parental-internet-enforcement-rollback-result.v1.schema.json",
+  "title": "Home Center parental Internet enforcement rollback result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "state", "adapter_id", "adapter_version", "provider_operation_id", "post_condition_verified", "rollback_verified", "actual_state_readback_required"],
+  "properties": {
+    "schema": {"const": "home-center.parental-internet-enforcement-rollback-result.v1"},
+    "state": {"const": "rollback-accepted"},
+    "adapter_id": {"type": "string", "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$"},
+    "adapter_version": {"type": "string", "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"},
+    "provider_operation_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "post_condition_verified": {"const": false},
+    "rollback_verified": {"const": false},
+    "actual_state_readback_required": {"const": true}
+  }
+}

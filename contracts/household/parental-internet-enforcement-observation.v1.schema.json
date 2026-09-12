@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/parental-internet-enforcement-observation.v1.schema.json",
+  "title": "Home Center parental Internet enforcement observation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "adapter_id", "adapter_version", "provider_operation_id", "desired_state_sha256", "policy_sha256", "observed_at", "dns_state", "proxy_state", "dns_policy_sha256", "proxy_policy_sha256", "blocker", "backend_mutation_performed", "infrastructure_mutation_performed", "external_publication_performed", "enforcement_verified"],
+  "properties": {
+    "schema": {"const": "home-center.parental-internet-enforcement-observation.v1"},
+    "adapter_id": {"type": "string", "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$"},
+    "adapter_version": {"type": "string", "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"},
+    "provider_operation_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "desired_state_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "observed_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"},
+    "dns_state": {"enum": ["enforced", "not-enforced", "unknown"]},
+    "proxy_state": {"enum": ["enforced", "not-enforced", "unknown"]},
+    "dns_policy_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "proxy_policy_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "blocker": {"type": ["string", "null"], "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$"},
+    "backend_mutation_performed": {"const": false},
+    "infrastructure_mutation_performed": {"const": false},
+    "external_publication_performed": {"const": false},
+    "enforcement_verified": {"const": false}
+  },
+  "allOf": [
+    {"if": {"properties": {"dns_state": {"const": "enforced"}}}, "then": {"properties": {"dns_policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}}, "else": {"properties": {"dns_policy_sha256": {"type": "null"}}}},
+    {"if": {"properties": {"proxy_state": {"const": "enforced"}}}, "then": {"properties": {"proxy_policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}}, "else": {"properties": {"proxy_policy_sha256": {"type": "null"}}}},
+    {"if": {"properties": {"dns_state": {"const": "enforced"}, "proxy_state": {"const": "enforced"}}, "required": ["dns_state", "proxy_state"]}, "then": {"properties": {"blocker": {"type": "null"}}}, "else": {"properties": {"blocker": {"type": "string", "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$"}}}}
+  ]
+}
