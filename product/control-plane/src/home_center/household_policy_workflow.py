@@ -124,12 +124,18 @@ class HouseholdPolicyWorkflowService:
             },
             correlation_id=correlation_id,
         )
+        resource_key = receipt.get("resource_key")
+        generation = receipt.get("generation")
+        if not isinstance(resource_key, str) or isinstance(generation, bool) or not isinstance(generation, int):
+            raise HouseholdPolicyRuntimeError("household_policy_materialization_receipt_invalid")
+        history = self.history.read(resource_key=resource_key, generation=generation)
         return {
             "schema": POLICY_CONFIRM_APPLY_RESULT_SCHEMA,
             "confirmation": confirmation,
             "receipt": receipt,
             "desired_state_materialized": receipt.get("desired_state_materialized") is True,
-            "history_evidence_sha256": receipt.get("history_evidence_sha256"),
+            "history_evidence_sha256": history.get("evidence_sha256"),
+            "history_audit_event_id": history.get("audit_event_id"),
             "provider_execution_authorized": False,
             "infrastructure_mutation_authorized": False,
             "external_publication_authorized": False,
