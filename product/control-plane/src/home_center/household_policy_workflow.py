@@ -21,6 +21,10 @@ from .household_policy_desired_state import (
     POLICY_APPLY_REQUEST_SCHEMA,
     HouseholdPolicyDesiredStateRepository,
 )
+from .household_policy_evidence import (
+    HouseholdPolicyEvidenceError,
+    validate_policy_bundle_evidence,
+)
 from .household_policy_history import (
     POLICY_ROLLBACK_RECEIPT_SCHEMA,
     HouseholdPolicyHistoryError,
@@ -182,6 +186,10 @@ class HouseholdPolicyWorkflowService:
             or history.get("external_publication_authorized") is not False
         ):
             raise HouseholdPolicyRuntimeError("household_policy_history_evidence_mismatch")
+        try:
+            validate_policy_bundle_evidence(history.get("value"), expected_resource_key=resource_key)
+        except HouseholdPolicyEvidenceError as exc:
+            raise HouseholdPolicyRuntimeError(exc.code) from exc
         return resource_key, generation
 
     def _validate_rollback_evidence(
@@ -243,6 +251,11 @@ class HouseholdPolicyWorkflowService:
             or current_history.get("value") != current.get("value")
         ):
             raise HouseholdPolicyRuntimeError("household_policy_rollback_evidence_mismatch")
+        try:
+            validate_policy_bundle_evidence(target_history.get("value"), expected_resource_key=resource_key)
+            validate_policy_bundle_evidence(current.get("value"), expected_resource_key=resource_key)
+        except HouseholdPolicyEvidenceError as exc:
+            raise HouseholdPolicyRuntimeError(exc.code) from exc
 
     def plan(self, *, actor: str, request: dict[str, Any], correlation_id: str) -> dict[str, object]:
         """Persist an exact proposal and return the same evidence for Cozy and Full UI."""
@@ -353,6 +366,9 @@ class HouseholdPolicyWorkflowService:
         for generation in range(start_generation, current_generation + 1):
             try:
                 value = self.history.read(resource_key=resource_key, generation=generation)
+                validate_policy_bundle_evidence(value.get("value"), expected_resource_key=resource_key)
+            except HouseholdPolicyEvidenceError as exc:
+                raise HouseholdPolicyHistoryError(exc.code) from exc
             except HouseholdPolicyHistoryError as exc:
                 if exc.code == "household_policy_history_not_found":
                     raise HouseholdPolicyHistoryError("household_policy_history_gap") from exc
