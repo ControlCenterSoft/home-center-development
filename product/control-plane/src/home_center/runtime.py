@@ -15,6 +15,7 @@ from .automation_execution import AutomationPlanningService
 from .auth import LoginRateLimiter, SessionManager
 from .certificate_api import CertificateLifecycleApi, runtime_certificate_records
 from .config import Config
+from .device_management_deenrollment_execution_runtime import DeviceManagementDeenrollmentExecutionRuntimeService
 from .device_management_deenrollment_runtime import DeviceManagementDeenrollmentRuntimeService
 from .device_management_enrollment_execution_recovery import RecoverableDeviceManagementEnrollmentExecutionRuntimeService
 from .device_management_enrollment_post_condition_runtime_safe import SafeDeviceManagementEnrollmentPostConditionRuntimeService
@@ -87,6 +88,10 @@ class Runtime:
         self.device_management_deenrollment = DeviceManagementDeenrollmentRuntimeService(
             self.store,
             self.step_up,
+        )
+        self.device_management_deenrollment_execution = DeviceManagementDeenrollmentExecutionRuntimeService(
+            self.store,
+            self.device_management_deenrollment,
         )
         self.device_management_failed_enrollment_cleanup = DeviceManagementFailedEnrollmentCleanupRuntimeService(
             self.store,
