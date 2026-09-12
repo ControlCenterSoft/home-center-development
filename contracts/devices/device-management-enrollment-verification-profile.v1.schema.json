@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/device-management-enrollment-verification-profile.v1.schema.json",
+  "title": "Home Center device management enrollment verification profile v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "profile_id",
+    "provider_id",
+    "required_checks",
+    "trusted",
+    "read_only",
+    "provider_mutation_authorized",
+    "credential_access_authorized",
+    "managed_state_change_authorized",
+    "policy_application_authorized",
+    "infrastructure_mutation_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.device-management-enrollment-verification-profile.v1"},
+    "profile_id": {"type": "string", "pattern": "^dmpvprof-[0-9a-f]{24}$"},
+    "provider_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "required_checks": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {"enum": ["certificate", "profile", "agent"]}
+    },
+    "trusted": {"const": true},
+    "read_only": {"const": true},
+    "provider_mutation_authorized": {"const": false},
+    "credential_access_authorized": {"const": false},
+    "managed_state_change_authorized": {"const": false},
+    "policy_application_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
