@@ -7,6 +7,7 @@ import pytest
 from home_center.household import FamilyMember, Household, HouseholdRole
 from home_center.household_policy_reconciliation_recovery import (
     RECOVERY_EVIDENCE_SCHEMA,
+    RECOVERY_FAILURE_SCHEMA,
     HouseholdPolicyReconciliationRecoveryService,
 )
 from home_center.household_policy_reconciliation_runtime import (
@@ -114,7 +115,7 @@ class ExactReadOnlyAdapter:
 def _interrupt_after_evidence(
     store: StateStore,
     monkeypatch: pytest.MonkeyPatch,
-) -> tuple[HouseholdPolicyReconciliationRuntimeService, ExactReadOnlyAdapter, object]:
+) -> tuple[HouseholdPolicyReconciliationRuntimeService, ExactReadOnlyAdapter]:
     adapter = ExactReadOnlyAdapter()
     service = HouseholdPolicyReconciliationRuntimeService(store, now=lambda: NOW)
     service.register_adapter(BACKEND, adapter)
@@ -136,7 +137,7 @@ def _interrupt_after_evidence(
         )
     monkeypatch.setattr(store, "transition_action_job", original_transition)
     assert adapter.calls == 1
-    return service, adapter, original_transition
+    return service, adapter
 
 
 def _reconciliation_envelope(store: StateStore) -> tuple[str, dict[str, object]]:
@@ -158,10 +159,11 @@ def test_recovery_finalizes_persisted_evidence_without_backend_replay(
 ) -> None:
     store = _store(tmp_path / "state.db")
     original_desired = _desired(store)
-    service, adapter, _ = _interrupt_after_evidence(store, monkeypatch)
+    service, adapter = _interrupt_after_evidence(store, monkeypatch)
 
     state_key, interrupted = _reconciliation_envelope(store)
     assert interrupted["status"] == "evidence-persisted"
+    persisted_evidence = interrupted["evidence"]
     job = store.job(str(interrupted["job_id"]))
     assert job is not None and job["state"] == "verifying"
 
@@ -172,6 +174,8 @@ def test_recovery_finalizes_persisted_evidence_without_backend_replay(
     completed = store.get_meta(state_key)
     assert isinstance(completed, dict)
     assert completed["status"] == "completed"
+    assert completed["evidence"] == persisted_evidence
+    assert completed["recovery_failure"] is None
     assert completed["completion"]["state"] == "verified"
     assert completed["completion"]["desired_state_transition_performed"] is False
     recovered_job = store.job(str(interrupted["job_id"]))
@@ -192,14 +196,15 @@ def test_recovery_finalizes_persisted_evidence_without_backend_replay(
     store.close()
 
 
-def test_recovery_fails_closed_if_desired_state_drifted_after_evidence(
+def test_recovery_blocks_on_desired_state_drift_but_preserves_verified_evidence(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     store = _store(tmp_path / "state.db")
     _desired(store)
-    _service, adapter, _ = _interrupt_after_evidence(store, monkeypatch)
+    _service, adapter = _interrupt_after_evidence(store, monkeypatch)
     state_key, interrupted = _reconciliation_envelope(store)
+    persisted_evidence = interrupted["evidence"]
 
     desired_key = DESIRED_KEY_PREFIX + "home." + CHILD
     changed = store.get_meta(desired_key)
@@ -212,14 +217,17 @@ def test_recovery_fails_closed_if_desired_state_drifted_after_evidence(
     assert recovered == 0
     assert adapter.calls == 1
 
-    failed = store.get_meta(state_key)
-    assert isinstance(failed, dict)
-    assert failed["status"] == "failed"
-    assert failed["evidence"]["code"] == (
+    blocked = store.get_meta(state_key)
+    assert isinstance(blocked, dict)
+    assert blocked["status"] == "recovery-blocked"
+    assert blocked["evidence"] == persisted_evidence
+    assert blocked["recovery_failure"]["schema"] == RECOVERY_FAILURE_SCHEMA
+    assert blocked["recovery_failure"]["code"] == (
         "household_policy_reconciliation_recovery_desired_state_stale"
     )
     job = store.job(str(interrupted["job_id"]))
     assert job is not None and job["state"] == "failed"
+    assert job["evidence"]["reconciliation_evidence"] == persisted_evidence
     assert job["evidence"]["backend_reinvoked"] is False
     store.close()
 
@@ -229,15 +237,22 @@ def test_backup_restore_preserves_interrupted_reconciliation_for_safe_recovery(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     source = _store(tmp_path / "source.db")
-    _desired(source)
-    _service, adapter, _ = _interrupt_after_evidence(source, monkeypatch)
-    _state_key, interrupted = _reconciliation_envelope(source)
+    original_desired = _desired(source)
+    _service, adapter = _interrupt_after_evidence(source, monkeypatch)
+    state_key, interrupted = _reconciliation_envelope(source)
+    persisted_evidence = interrupted["evidence"]
 
     backup = tmp_path / "backup.db"
     source.backup_to(backup)
     source.close()
 
     restored = StateStore(backup, KEY, "cluster-test")
+    restored_envelope = restored.get_meta(state_key)
+    assert isinstance(restored_envelope, dict)
+    assert restored_envelope["status"] == "evidence-persisted"
+    assert restored_envelope["evidence"] == persisted_evidence
+    assert restored.get_meta(DESIRED_KEY_PREFIX + "home." + CHILD) == original_desired
+
     recovered = HouseholdPolicyReconciliationRecoveryService(restored).recover_incomplete()
     assert recovered == 1
     assert adapter.calls == 1
