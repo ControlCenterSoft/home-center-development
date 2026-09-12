@@ -36,8 +36,31 @@ def _canonical(value: object) -> bytes:
     return json.dumps(value, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode("ascii")
 
 
+def policy_resource_key(household_id: str, member_id: str) -> str:
+    """Return an unambiguous durable key for one Household policy resource.
+
+    Existing human-readable keys remain stable when both identifiers use the
+    delimiter-safe subset. If either identifier contains ``:``, the exact pair is
+    bound into a SHA-256 suffix so different ``(household_id, member_id)`` pairs
+    can never alias merely because the delimiter also appears inside an ID.
+    """
+
+    try:
+        household = _identifier(household_id, "invalid_household_id")
+        member = _identifier(member_id, "invalid_household_member_id")
+    except HomeServiceCatalogError as exc:
+        raise HouseholdPolicyComposerError(exc.code) from exc
+    if ":" not in household and ":" not in member:
+        return f"household-policy:{household}:{member}"
+    material = {"household_id": household, "member_id": member}
+    digest = hashlib.sha256(_canonical(material)).hexdigest()
+    return f"household-policy:{household}:hpk-{digest}"
+
+
 def _resource_key(household_id: str, member_id: str) -> str:
-    return f"household-policy:{household_id}:{member_id}"
+    """Compatibility alias for the internal 0.59 composer implementation."""
+
+    return policy_resource_key(household_id, member_id)
 
 
 def _desired_state_precondition(generation: object, bundle_id: object) -> tuple[int, str | None]:
@@ -172,7 +195,7 @@ def compose_policy_bundle(snapshot: HouseholdSnapshot, *, member_id: str) -> Pol
     except HomeServiceCatalogError as exc:
         raise HouseholdPolicyComposerError(exc.code) from exc
 
-    resource_key = _resource_key(snapshot.household_id, member)
+    resource_key = policy_resource_key(snapshot.household_id, member)
     canonical = {
         "policy": policy.to_dict(),
         "desired_state_resource_key": resource_key,
