@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/devices/device-management-enrollment-verifier-contract-qualification-receipt.v1.schema.json",
+  "title": "Home Center enrollment verifier contract qualification receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "state",
+    "qualification_level",
+    "provider_id",
+    "verifier_id",
+    "verifier_revision",
+    "result_schema",
+    "signals",
+    "verification_read_only",
+    "source_sha256",
+    "profile_sha256",
+    "provider_read_performed",
+    "production_qualified",
+    "provider_mutation_authorized",
+    "managed_state_change_authorized",
+    "policy_application_authorized",
+    "infrastructure_mutation_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.device-management-enrollment-verifier-contract-qualification-receipt.v1"},
+    "state": {"const": "contract-qualified"},
+    "qualification_level": {"const": "contract-only"},
+    "provider_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "verifier_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "verifier_revision": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$"},
+    "result_schema": {"const": "home-center.device-management-enrollment-post-condition-result.v1"},
+    "signals": {
+      "type": "array",
+      "prefixItems": [
+        {"const": "certificate"},
+        {"const": "profile"},
+        {"const": "agent"}
+      ],
+      "items": false,
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "verification_read_only": {"const": true},
+    "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "profile_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "provider_read_performed": {"const": false},
+    "production_qualified": {"const": false},
+    "provider_mutation_authorized": {"const": false},
+    "managed_state_change_authorized": {"const": false},
+    "policy_application_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
