@@ -39,6 +39,13 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _root_sha256(path: Path) -> str:
+    completed = _run(["sudo", "sha256sum", "--", str(path)])
+    digest = completed.stdout.split()[0]
+    assert len(digest) == 64
+    return digest
+
+
 def _host_address() -> str:
     probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
@@ -258,7 +265,8 @@ PY
 chown home-center:home-center {state_db}
 chmod 0640 {state_db}
 """)
-        preserved = {path.name: _sha256(path) for path in (config, credentials, session_key, audit_key)}
+        protected_paths = (config, credentials, session_key, audit_key)
+        preserved = {path.name: _root_sha256(path) for path in protected_paths}
 
         installed = _run([
             "sudo", "bash", str(candidate_extract / "deploy/install-node.sh"),
@@ -273,15 +281,17 @@ chmod 0640 {state_db}
         assert _run(["sudo", "systemctl", "is-active", "home-center.service"]).stdout.strip() == "active"
         assert _wait_ready(address, web_port, tls_certificate)["status"] == "ready"
         assert _state_value(state_db) == "stable-user-state"
-        assert preserved == {path.name: _sha256(path) for path in (config, credentials, session_key, audit_key)}
+        assert preserved == {path.name: _root_sha256(path) for path in protected_paths}
 
-        rolled_back = _run(["sudo", "bash", str(candidate_extract / "deploy/rollback-node.sh"), "--rollback-point", rollback_point])
+        rolled_back = _run([
+            "sudo", "bash", str(candidate_extract / "deploy/rollback-node.sh"), "--rollback-point", rollback_point,
+        ])
         assert "NODE_ROLLBACK=PASS" in rolled_back.stdout
         assert _run(["sudo", "cat", "/opt/home-center/current/VERSION"]).stdout.strip() == STABLE_VERSION
         assert _run(["sudo", "systemctl", "is-active", "home-center.service"]).stdout.strip() == "active"
         assert _wait_ready(address, web_port, tls_certificate)["status"] == "ready"
         assert _state_value(state_db) == "stable-user-state"
-        assert preserved == {path.name: _sha256(path) for path in (config, credentials, session_key, audit_key)}
+        assert preserved == {path.name: _root_sha256(path) for path in protected_paths}
     finally:
         _run(["git", "worktree", "remove", "--force", str(candidate_worktree)], cwd=ROOT, check=False)
         _run(["sudo", "systemctl", "disable", "--now", "home-center-backup.timer"], check=False)
