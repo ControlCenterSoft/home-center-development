@@ -117,16 +117,23 @@ def _plan_canonical(
 
 
 def _confirmation_digest(
+    *,
     plan_id: str,
     actor_member_id: str,
+    target_member_id: str,
     snapshot_id: str,
+    resource_version: str,
+    generation: int,
     desired_state_id: str,
 ) -> str:
     return _digest(
         {
             "plan_id": plan_id,
             "actor_member_id": actor_member_id,
+            "target_member_id": target_member_id,
             "snapshot_id": snapshot_id,
+            "resource_version": resource_version,
+            "generation": generation,
             "desired_state_id": desired_state_id,
         }
     )
@@ -336,12 +343,20 @@ class PolicyChangeConfirmation:
         confirmation_id = _identifier(self.confirmation_id, "invalid_policy_confirmation_id")
         plan_id = _identifier(self.plan_id, "invalid_policy_plan_id")
         actor_member_id = _identifier(self.actor_member_id, "invalid_household_member_id")
-        _identifier(self.target_member_id, "invalid_household_member_id")
+        target_member_id = _identifier(self.target_member_id, "invalid_household_member_id")
         snapshot_id = _identifier(self.snapshot_id, "invalid_household_snapshot_id")
-        _identifier(self.resource_version, "invalid_household_resource_version")
+        resource_version = _identifier(self.resource_version, "invalid_household_resource_version")
         desired_state_id = _identifier(self.desired_state_id, "invalid_policy_desired_state_id")
         audit_event_id = _identifier(self.audit_event_id, "invalid_audit_event_id")
-        digest = _confirmation_digest(plan_id, actor_member_id, snapshot_id, desired_state_id)
+        digest = _confirmation_digest(
+            plan_id=plan_id,
+            actor_member_id=actor_member_id,
+            target_member_id=target_member_id,
+            snapshot_id=snapshot_id,
+            resource_version=resource_version,
+            generation=self.generation,
+            desired_state_id=desired_state_id,
+        )
         if confirmation_id != "hpconfirm-" + digest[:24] or audit_event_id != "audit-hp-" + digest[24:48]:
             raise PolicyComposerError("policy_confirmation_evidence_mismatch")
 
@@ -514,10 +529,13 @@ def revalidate_policy_change_plan(current: HouseholdSnapshot, plan: PolicyChange
 def confirm_policy_change_plan(current: HouseholdSnapshot, plan: PolicyChangePlan, *, actor_member_id: str) -> PolicyChangeConfirmation:
     revalidate_policy_change_plan(current, plan, actor_member_id=actor_member_id)
     digest = _confirmation_digest(
-        plan.plan_id,
-        plan.actor_member_id,
-        plan.snapshot_id,
-        plan.desired_state.desired_state_id,
+        plan_id=plan.plan_id,
+        actor_member_id=plan.actor_member_id,
+        target_member_id=plan.target_member_id,
+        snapshot_id=plan.snapshot_id,
+        resource_version=plan.resource_version,
+        generation=plan.generation,
+        desired_state_id=plan.desired_state.desired_state_id,
     )
     return PolicyChangeConfirmation(
         confirmation_id="hpconfirm-" + digest[:24],
