@@ -38,7 +38,7 @@
         "external_publication_enabled"
       ],
       "properties": {
-        "schema": {"const": "home-center.household-policy-cozy-card.v1"},
+        "schema": {"const": "home-center.cozy-policy-card.v1"},
         "title": {"type": "string", "minLength": 1, "maxLength": 160},
         "member_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
         "role": {"enum": ["parent", "child", "guest"]},
@@ -81,7 +81,7 @@
         "external_publication_authorized"
       ],
       "properties": {
-        "schema": {"const": "home-center.household-policy-full-inspector.v1"},
+        "schema": {"const": "home-center.full-policy-inspector.v1"},
         "proposal_id": {"type": "string", "pattern": "^hpc-[0-9a-f]{24}$"},
         "bundle_id": {"type": "string", "pattern": "^hpb-[0-9a-f]{24}$"},
         "source": {"const": "role-preset"},
