@@ -71,6 +71,41 @@ def _bundle_canonical(
     }
 
 
+def _plan_canonical(
+    *,
+    household_id: str,
+    snapshot_id: str,
+    resource_version: str,
+    generation: int,
+    actor_member_id: str,
+    target_member_id: str,
+    current_policy_id: str,
+    current_bundle_id: str,
+    target_bundle_id: str,
+) -> dict[str, object]:
+    return {
+        "household_id": household_id,
+        "snapshot_id": snapshot_id,
+        "resource_version": resource_version,
+        "generation": generation,
+        "actor_member_id": actor_member_id,
+        "target_member_id": target_member_id,
+        "current_policy_id": current_policy_id,
+        "current_bundle_id": current_bundle_id,
+        "target_bundle_id": target_bundle_id,
+    }
+
+
+def _confirmation_digest(plan_id: str, actor_member_id: str, snapshot_id: str) -> str:
+    return _digest(
+        {
+            "plan_id": plan_id,
+            "actor_member_id": actor_member_id,
+            "snapshot_id": snapshot_id,
+        }
+    )
+
+
 _INTERNET_PERMISSIVENESS = {
     InternetPolicy.GUEST: 0,
     InternetPolicy.FILTERED: 1,
@@ -142,21 +177,31 @@ class PolicyChangePlan:
     def __post_init__(self) -> None:
         if isinstance(self.generation, bool) or not isinstance(self.generation, int) or self.generation < 1:
             raise PolicyComposerError("invalid_policy_generation")
-        for value, code in (
-            (self.plan_id, "invalid_policy_plan_id"),
-            (self.household_id, "invalid_household_id"),
-            (self.snapshot_id, "invalid_household_snapshot_id"),
-            (self.resource_version, "invalid_household_resource_version"),
-            (self.actor_member_id, "invalid_household_member_id"),
-            (self.target_member_id, "invalid_household_member_id"),
-            (self.current_policy_id, "invalid_policy_id"),
-            (self.current_bundle_id, "invalid_policy_bundle_id"),
-        ):
-            _identifier(value, code)
+        plan_id = _identifier(self.plan_id, "invalid_policy_plan_id")
+        household_id = _identifier(self.household_id, "invalid_household_id")
+        snapshot_id = _identifier(self.snapshot_id, "invalid_household_snapshot_id")
+        resource_version = _identifier(self.resource_version, "invalid_household_resource_version")
+        actor_member_id = _identifier(self.actor_member_id, "invalid_household_member_id")
+        target_member_id = _identifier(self.target_member_id, "invalid_household_member_id")
+        current_policy_id = _identifier(self.current_policy_id, "invalid_policy_id")
+        current_bundle_id = _identifier(self.current_bundle_id, "invalid_policy_bundle_id")
         if not isinstance(self.target_bundle, PolicyBundle):
             raise PolicyComposerError("invalid_policy_bundle")
         if not self.cozy_summary_ru or any(not isinstance(item, str) or not item.strip() for item in self.cozy_summary_ru):
             raise PolicyComposerError("invalid_policy_summary")
+        canonical = _plan_canonical(
+            household_id=household_id,
+            snapshot_id=snapshot_id,
+            resource_version=resource_version,
+            generation=self.generation,
+            actor_member_id=actor_member_id,
+            target_member_id=target_member_id,
+            current_policy_id=current_policy_id,
+            current_bundle_id=current_bundle_id,
+            target_bundle_id=self.target_bundle.bundle_id,
+        )
+        if plan_id != "hpplan-" + _digest(canonical)[:24]:
+            raise PolicyComposerError("policy_change_evidence_mismatch")
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -198,16 +243,16 @@ class PolicyChangeConfirmation:
     def __post_init__(self) -> None:
         if isinstance(self.generation, bool) or not isinstance(self.generation, int) or self.generation < 1:
             raise PolicyComposerError("invalid_policy_generation")
-        for value, code in (
-            (self.confirmation_id, "invalid_policy_confirmation_id"),
-            (self.plan_id, "invalid_policy_plan_id"),
-            (self.actor_member_id, "invalid_household_member_id"),
-            (self.target_member_id, "invalid_household_member_id"),
-            (self.snapshot_id, "invalid_household_snapshot_id"),
-            (self.resource_version, "invalid_household_resource_version"),
-            (self.audit_event_id, "invalid_audit_event_id"),
-        ):
-            _identifier(value, code)
+        confirmation_id = _identifier(self.confirmation_id, "invalid_policy_confirmation_id")
+        plan_id = _identifier(self.plan_id, "invalid_policy_plan_id")
+        actor_member_id = _identifier(self.actor_member_id, "invalid_household_member_id")
+        _identifier(self.target_member_id, "invalid_household_member_id")
+        snapshot_id = _identifier(self.snapshot_id, "invalid_household_snapshot_id")
+        _identifier(self.resource_version, "invalid_household_resource_version")
+        audit_event_id = _identifier(self.audit_event_id, "invalid_audit_event_id")
+        digest = _confirmation_digest(plan_id, actor_member_id, snapshot_id)
+        if confirmation_id != "hpconfirm-" + digest[:24] or audit_event_id != "audit-hp-" + digest[24:48]:
+            raise PolicyComposerError("policy_confirmation_evidence_mismatch")
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -309,17 +354,17 @@ def compose_policy_change_plan(
     current_bundle = build_policy_bundle(current.role)
     if current_bundle == target_bundle:
         raise PolicyComposerError("policy_change_noop")
-    canonical = {
-        "household_id": snapshot.household_id,
-        "snapshot_id": snapshot.snapshot_id,
-        "resource_version": snapshot.resource_version,
-        "generation": snapshot.generation,
-        "actor_member_id": actor_id,
-        "target_member_id": target_id,
-        "current_policy_id": current.policy_id,
-        "current_bundle_id": current_bundle.bundle_id,
-        "target_bundle_id": target_bundle.bundle_id,
-    }
+    canonical = _plan_canonical(
+        household_id=snapshot.household_id,
+        snapshot_id=snapshot.snapshot_id,
+        resource_version=snapshot.resource_version,
+        generation=snapshot.generation,
+        actor_member_id=actor_id,
+        target_member_id=target_id,
+        current_policy_id=current.policy_id,
+        current_bundle_id=current_bundle.bundle_id,
+        target_bundle_id=target_bundle.bundle_id,
+    )
     return PolicyChangePlan(
         plan_id="hpplan-" + _digest(canonical)[:24],
         household_id=snapshot.household_id,
@@ -356,7 +401,7 @@ def revalidate_policy_change_plan(current: HouseholdSnapshot, plan: PolicyChange
 
 def confirm_policy_change_plan(current: HouseholdSnapshot, plan: PolicyChangePlan, *, actor_member_id: str) -> PolicyChangeConfirmation:
     revalidate_policy_change_plan(current, plan, actor_member_id=actor_member_id)
-    digest = _digest({"plan_id": plan.plan_id, "actor_member_id": plan.actor_member_id, "snapshot_id": plan.snapshot_id})
+    digest = _confirmation_digest(plan.plan_id, plan.actor_member_id, plan.snapshot_id)
     return PolicyChangeConfirmation(
         confirmation_id="hpconfirm-" + digest[:24],
         plan_id=plan.plan_id,
