@@ -16,8 +16,11 @@ from .household_policy_composer import (
     PolicyCompositionProposal,
     build_policy_composition_proposal,
 )
-from .household_policy_desired_state import POLICY_APPLY_REQUEST_SCHEMA
-from .household_policy_history import HouseholdPolicyHistoryService
+from .household_policy_desired_state import (
+    POLICY_APPLY_REQUEST_SCHEMA,
+    HouseholdPolicyDesiredStateRepository,
+)
+from .household_policy_history import HouseholdPolicyHistoryError, HouseholdPolicyHistoryService
 from .household_policy_presentation import build_policy_presentation
 from .household_policy_runtime import HouseholdPolicyRuntimeError, HouseholdPolicyRuntimeService
 from .household_runtime import ActorBinding, HOUSEHOLD_STATE_KEY, _state_from_dict
@@ -26,6 +29,8 @@ from .store import StateStore
 
 POLICY_PLAN_RESULT_SCHEMA = "home-center.household-policy-plan-result.v1"
 POLICY_CONFIRM_APPLY_RESULT_SCHEMA = "home-center.household-policy-confirm-apply-result.v1"
+POLICY_HISTORY_OVERVIEW_SCHEMA = "home-center.household-policy-history-overview.v1"
+POLICY_HISTORY_WINDOW = 100
 
 
 class HouseholdPolicyWorkflowService:
@@ -149,6 +154,46 @@ class HouseholdPolicyWorkflowService:
             request=request,
             correlation_id=correlation_id,
         )
+
+    def history_overview(self, *, actor: str, resource_key: str) -> dict[str, object]:
+        """Return a bounded, verified internal-only history view for one policy resource."""
+
+        self.history._authorized_actor(actor, resource_key)
+        current = self.history.repository.read(resource_key)
+        if current is None:
+            raise HouseholdPolicyHistoryError("household_policy_desired_state_missing")
+        current_generation, current_bundle_id = HouseholdPolicyDesiredStateRepository.revision(current)
+        start_generation = max(1, current_generation - POLICY_HISTORY_WINDOW + 1)
+        revisions: list[dict[str, object]] = []
+        for generation in range(start_generation, current_generation + 1):
+            try:
+                value = self.history.read(resource_key=resource_key, generation=generation)
+            except HouseholdPolicyHistoryError as exc:
+                if exc.code == "household_policy_history_not_found":
+                    continue
+                raise
+            revisions.append(
+                {
+                    "generation": value["generation"],
+                    "bundle_id": value["bundle_id"],
+                    "recorded_at": value["recorded_at"],
+                    "evidence_sha256": value["evidence_sha256"],
+                    "audit_event_id": value["audit_event_id"],
+                    "rollback_target": generation < current_generation,
+                }
+            )
+        return {
+            "schema": POLICY_HISTORY_OVERVIEW_SCHEMA,
+            "resource_key": resource_key,
+            "current_generation": current_generation,
+            "current_bundle_id": current_bundle_id,
+            "window_start_generation": start_generation,
+            "truncated": start_generation > 1,
+            "revisions": revisions,
+            "provider_execution_authorized": False,
+            "infrastructure_mutation_authorized": False,
+            "external_publication_authorized": False,
+        }
 
     def rollback(self, *, actor: str, request: dict[str, Any], correlation_id: str) -> dict[str, object]:
         """Restore one exact historical policy bundle as a new monotonic revision."""
