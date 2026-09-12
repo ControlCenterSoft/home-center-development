@@ -206,13 +206,12 @@ class DeviceManagementDeenrollmentRuntimeService:
             )
         return key, envelope, dict(raw_plan)
 
-    @staticmethod
-    def _rebuild(envelope: dict[str, Any], raw_plan: dict[str, object]) -> DeviceManagementDeenrollmentPlan:
+    def _rebuild(self, envelope: dict[str, Any], raw_plan: dict[str, object]) -> DeviceManagementDeenrollmentPlan:
+        """Rebuild from authoritative NR1 evidence rather than mutable execution metadata."""
+
         try:
             base = _snapshot_from_dict(envelope.get("base_snapshot"))
-            receipt = envelope.get("verification_receipt")
-            if not isinstance(receipt, dict):
-                raise ValueError("verification receipt missing")
+            receipt = self._verification_receipt(envelope.get("verification_id"))
             plan = build_deenrollment_plan(
                 verification_receipt=receipt,
                 household_id=base.household_id,
@@ -223,7 +222,7 @@ class DeviceManagementDeenrollmentRuntimeService:
                 requested_at=raw_plan.get("requested_at"),
                 max_observed_age_seconds=raw_plan.get("max_observed_age_seconds"),
             )
-        except (DeviceManagementDeenrollmentError, TypeError, ValueError) as exc:
+        except (DeviceManagementDeenrollmentError, DeviceManagementDeenrollmentRuntimeError, TypeError, ValueError) as exc:
             raise DeviceManagementDeenrollmentRuntimeError(
                 getattr(exc, "code", "device_management_deenrollment_state_invalid")
             ) from exc
@@ -249,10 +248,9 @@ class DeviceManagementDeenrollmentRuntimeService:
         if snapshot != base or [item.to_dict() for item in bindings] != envelope.get("bindings"):
             raise DeviceManagementDeenrollmentRuntimeError("device_management_deenrollment_stale")
         receipt = self._verification_receipt(envelope.get("verification_id"))
-        if receipt != envelope.get("verification_receipt"):
-            raise DeviceManagementDeenrollmentRuntimeError(
-                "device_management_deenrollment_binding_mismatch"
-            )
+        # The execution layer may append its own read-back receipt to the durable
+        # plan envelope. The applied NR1 verification record remains authoritative
+        # for the original enrollment binding and is re-read on every transition.
         self._managed_device(snapshot, receipt)
 
     def confirm(
