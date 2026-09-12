@@ -66,6 +66,15 @@ def test_full_policy_ui_uses_verified_history_and_separate_explicit_rollback_con
     assert ".policy-history-item" in style
 
 
+def test_policy_history_ui_only_treats_explicit_absence_as_empty_history() -> None:
+    client = CLIENT.read_text(encoding="utf-8")
+
+    assert "response.status === 404 && data?.error?.code === 'household_policy_desired_state_missing'" in client
+    assert "История появится после первого сохранения правил." in client
+    assert "Не удалось проверить целостность истории правил." in client
+    assert "historyMessage(errorMessage(data" in client
+
+
 def test_policy_ui_does_not_call_provider_execution_or_job_routes() -> None:
     client = CLIENT.read_text(encoding="utf-8")
 
