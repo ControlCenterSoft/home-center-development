@@ -18,6 +18,7 @@ from .config import Config
 from .device_management_deenrollment_runtime import DeviceManagementDeenrollmentRuntimeService
 from .device_management_enrollment_execution_recovery import RecoverableDeviceManagementEnrollmentExecutionRuntimeService
 from .device_management_enrollment_post_condition_runtime_safe import SafeDeviceManagementEnrollmentPostConditionRuntimeService
+from .device_management_failed_enrollment_cleanup_runtime import DeviceManagementFailedEnrollmentCleanupRuntimeService
 from .device_management_provider_runtime import DeviceManagementProviderRuntimeService
 from .device_management_provider_selection_runtime import DeviceManagementProviderSelectionRuntimeService
 from .external_access import ExternalAccessPolicy, ExternalRequestRateLimiter
@@ -86,6 +87,9 @@ class Runtime:
         self.device_management_deenrollment = DeviceManagementDeenrollmentRuntimeService(
             self.store,
             self.step_up,
+        )
+        self.device_management_failed_enrollment_cleanup = DeviceManagementFailedEnrollmentCleanupRuntimeService(
+            self.store,
         )
         self.reconciler = Reconciler(config, self.store)
 

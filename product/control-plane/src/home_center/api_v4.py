@@ -1,4 +1,4 @@
-"""0.58 web boundary for post-condition verification, de-enrollment and scoped re-auth."""
+"""0.58 web boundary for post-condition verification, de-enrollment, cleanup and scoped re-auth."""
 from __future__ import annotations
 
 import json
@@ -11,6 +11,9 @@ from .api_v3 import RuntimeRequestHandlerV3
 from .device_management_deenrollment_runtime import DeviceManagementDeenrollmentRuntimeError
 from .device_management_enrollment_post_condition_runtime import (
     DeviceManagementEnrollmentPostConditionRuntimeError,
+)
+from .device_management_failed_enrollment_cleanup_runtime import (
+    DeviceManagementFailedEnrollmentCleanupRuntimeError,
 )
 from .local_admin_auth import LocalAdminAuthError
 from .step_up import StepUpError
@@ -27,7 +30,7 @@ def _reauth_scope_allowed(scope: object) -> bool:
 
 
 class RuntimeRequestHandlerV4(RuntimeRequestHandlerV3):
-    """Add 0.58 verification/de-enrollment endpoints without weakening V3 request fences."""
+    """Add 0.58 verification/de-enrollment/cleanup endpoints without weakening V3 fences."""
 
     REAUTH_PATH = "/api/v1/session/reauth"
     VERIFICATION_POSTS = {
@@ -38,6 +41,10 @@ class RuntimeRequestHandlerV4(RuntimeRequestHandlerV3):
         "/api/v1/household/devices/deenrollment/plan",
         "/api/v1/household/devices/deenrollment/confirm",
     }
+    CLEANUP_POSTS = {
+        "/api/v1/household/devices/enrollment/cleanup/plan",
+        "/api/v1/household/devices/enrollment/cleanup/verify",
+    }
 
     def do_POST(self) -> None:  # noqa: N802
         path = urlsplit(self.path).path
@@ -46,6 +53,9 @@ class RuntimeRequestHandlerV4(RuntimeRequestHandlerV3):
             return
         if path in self.DEENROLLMENT_POSTS:
             self._deenrollment(path)
+            return
+        if path in self.CLEANUP_POSTS:
+            self._cleanup(path)
             return
         if path not in self.VERIFICATION_POSTS:
             super().do_POST()
@@ -287,6 +297,116 @@ class RuntimeRequestHandlerV4(RuntimeRequestHandlerV3):
                 HTTPStatus.BAD_REQUEST,
                 "invalid_device_management_deenrollment_request",
                 "Некорректный запрос отключения управления устройством",
+                correlation_id,
+            )
+
+    def _cleanup(self, path: str) -> None:
+        self._request_body_complete = False
+        correlation_id = self._correlation_id()
+        context = self._classify_request(correlation_id)
+        if context is None:
+            return
+        if self._blocked_for_external(path, context):
+            self.close_connection = True
+            self._error(HTTPStatus.NOT_FOUND, "not_found", "Ресурс не найден", correlation_id)
+            return
+        if not self._same_origin_post_allowed(context):
+            self.close_connection = True
+            self.runtime.store.audit(
+                actor=f"network:{context.client_address}",
+                action="request.origin",
+                target=self.runtime.config.node_id,
+                outcome="denied",
+                correlation_id=correlation_id,
+                details={"reason": "cross_origin_request", **self._origin_details(context)},
+            )
+            self._error(
+                HTTPStatus.FORBIDDEN,
+                "cross_origin_request_rejected",
+                "Запрос из другого источника запрещён",
+                correlation_id,
+            )
+            return
+
+        actor = self._require_actor(correlation_id)
+        if not actor:
+            return
+        try:
+            body = self._read_json(max_bytes=8192)
+            service = self.runtime.device_management_failed_enrollment_cleanup
+            if path.endswith("/plan"):
+                value = service.plan(actor=actor, request=body, correlation_id=correlation_id)
+            else:
+                value = service.verify(actor=actor, request=body, correlation_id=correlation_id)
+            self._json(HTTPStatus.OK, value)
+            return
+        except DeviceManagementFailedEnrollmentCleanupRuntimeError as exc:
+            forbidden = {
+                "household_actor_not_bound",
+                "household_member_disabled",
+                "device_management_cleanup_not_authorized",
+                "device_management_cleanup_actor_mismatch",
+            }
+            not_found = {
+                "household_not_configured",
+                "household_device_not_found",
+                "device_management_cleanup_plan_not_found",
+                "device_management_cleanup_verification_not_found",
+            }
+            conflict = {
+                "device_management_cleanup_verification_not_rejected",
+                "device_management_cleanup_binding_mismatch",
+                "device_management_cleanup_device_already_managed",
+                "device_management_cleanup_stale",
+                "device_management_cleanup_state_invalid",
+                "device_management_cleanup_idempotency_conflict",
+                "device_management_cleanup_in_progress",
+                "device_management_cleanup_previous_attempt_failed",
+            }
+            unavailable = {
+                "household_state_invalid",
+                "device_management_cleanup_adapter_unavailable",
+                "device_management_cleanup_provider_error",
+                "device_management_cleanup_readback_rejected",
+                "device_management_cleanup_readback_invalid",
+            }
+            if exc.code in forbidden:
+                status = HTTPStatus.FORBIDDEN
+            elif exc.code in not_found:
+                status = HTTPStatus.NOT_FOUND
+            elif exc.code in conflict:
+                status = HTTPStatus.CONFLICT
+            elif exc.code in unavailable:
+                status = HTTPStatus.SERVICE_UNAVAILABLE
+            else:
+                status = HTTPStatus.BAD_REQUEST
+            self.runtime.store.audit(
+                actor=actor,
+                action="household.device.management.enrollment.cleanup.request",
+                target="household",
+                outcome="denied",
+                correlation_id=correlation_id,
+                details={"reason": exc.code, "path": path},
+            )
+            self._error(
+                status,
+                exc.code,
+                "Восстановление после неуспешного подключения не прошло безопасную проверку",
+                correlation_id,
+            )
+        except (ValueError, TypeError, json.JSONDecodeError):
+            self.runtime.store.audit(
+                actor=actor,
+                action="household.device.management.enrollment.cleanup.request",
+                target="household",
+                outcome="denied",
+                correlation_id=correlation_id,
+                details={"reason": "invalid_device_management_cleanup_request", "path": path},
+            )
+            self._error(
+                HTTPStatus.BAD_REQUEST,
+                "invalid_device_management_cleanup_request",
+                "Некорректный запрос восстановления подключения устройства",
                 correlation_id,
             )
 
