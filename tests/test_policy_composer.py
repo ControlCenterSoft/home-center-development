@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from home_center.household import FamilyMember, Household, HouseholdRole, InternetPolicy
@@ -107,6 +109,9 @@ def test_policy_plan_is_exact_state_explainable_and_non_executing() -> None:
     )
     assert repeated == plan
 
+    with pytest.raises(PolicyComposerError, match="policy_change_evidence_mismatch"):
+        replace(plan, plan_id="hpplan-000000000000000000000000")
+
 
 def test_policy_plan_requires_enabled_parent_actor() -> None:
     snapshot = _snapshot()
@@ -174,3 +179,6 @@ def test_confirmation_authorizes_only_protected_desired_state_write() -> None:
     assert value["desired_state_write_authorized"] is True
     assert value["provider_execution_authorized"] is False
     assert value["external_publication_authorized"] is False
+
+    with pytest.raises(PolicyComposerError, match="policy_confirmation_evidence_mismatch"):
+        replace(confirmation, audit_event_id="audit-hp-000000000000000000000000")
