@@ -21,7 +21,7 @@ from .external_access import ExternalAccessPolicy, ExternalRequestRateLimiter
 from .household_device_enrollment_runtime import HouseholdDeviceEnrollmentRuntimeService
 from .household_device_management_runtime import HouseholdDeviceManagementRuntimeService
 from .household_device_runtime import HouseholdDeviceRuntimeService
-from .household_policy_desired_state import HouseholdPolicyDesiredStateService
+from .household_policy_confirmation_audit import AuditBoundHouseholdPolicyDesiredStateService
 from .household_policy_history import HouseholdPolicyHistoryService
 from .household_policy_runtime import HouseholdPolicyRuntimeService
 from .household_policy_workflow import HouseholdPolicyWorkflowService
@@ -73,7 +73,7 @@ class Runtime:
         self.automation = AutomationPlanningService(self.store.nodes)
         self.household = HouseholdRuntimeService(self.store)
         self.household_policy = HouseholdPolicyRuntimeService(self.store)
-        self.household_policy_desired_state = HouseholdPolicyDesiredStateService(self.store)
+        self.household_policy_desired_state = AuditBoundHouseholdPolicyDesiredStateService(self.store)
         self.household_policy_history = HouseholdPolicyHistoryService(
             self.store,
             desired_state=self.household_policy_desired_state,
