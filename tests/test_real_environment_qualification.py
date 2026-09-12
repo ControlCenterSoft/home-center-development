@@ -32,14 +32,14 @@ def _evidence(**overrides: object) -> RealEnvironmentQualificationEvidence:
         "version": VERSION,
         "revision": REVISION,
         "candidate_artifact_sha256": DIGEST_A,
-        "target_node_id": "hc-target-01",
+        "target_node_id": "target-node-a",
         "target_environment_sha256": DIGEST_B,
         "target_execution_transcript_sha256": DIGEST_C,
         "target_install_or_upgrade_exercised": True,
         "target_health_ready": True,
         "target_user_state_preserved": True,
         "target_rollback_exercised": True,
-        "ha_node_ids": ("dc02", "dc01"),
+        "ha_node_ids": ("ha-node-a", "ha-node-b"),
         "ha_environment_sha256": DIGEST_D,
         "ha_execution_transcript_sha256": DIGEST_E,
         "real_multi_node_contour_exercised": True,
@@ -109,11 +109,13 @@ class RealEnvironmentQualificationTests(unittest.TestCase):
         with self.assertRaisesRegex(
             RealEnvironmentQualificationError, "real_environment_ha_node_count_invalid"
         ):
-            evaluate_real_environment_qualification(_evidence(ha_node_ids=("dc01",)))
+            evaluate_real_environment_qualification(_evidence(ha_node_ids=("ha-node-a",)))
         with self.assertRaisesRegex(
             RealEnvironmentQualificationError, "real_environment_ha_node_ids_not_unique"
         ):
-            evaluate_real_environment_qualification(_evidence(ha_node_ids=("dc01", "dc01")))
+            evaluate_real_environment_qualification(
+                _evidence(ha_node_ids=("ha-node-a", "ha-node-a"))
+            )
 
     def test_invalid_release_or_node_identity_is_rejected(self) -> None:
         with self.assertRaisesRegex(
