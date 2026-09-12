@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/devices/device-management-enrollment-verification-runtime-receipt.v1.schema.json",
+  "title": "Home Center enrollment verification runtime receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "state", "job_id", "verification_id", "execution_job_id", "plan_id",
+    "provider_id", "provider_operation_id", "device_id", "member_id", "observed_at",
+    "post_condition_verified", "managed_state_change_authorized",
+    "credential_value_access_authorized", "provider_mutation_authorized",
+    "policy_application_authorized", "infrastructure_mutation_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.device-management-enrollment-verification-runtime-receipt.v1"},
+    "state": {"enum": ["post-condition-verified", "post-condition-not-verified"]},
+    "job_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "verification_id": {"type": "string", "pattern": "^dmpverify-[0-9a-f]{24}$"},
+    "execution_job_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "plan_id": {"type": "string", "pattern": "^dmpexec-[0-9a-f]{24}$"},
+    "provider_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "provider_operation_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "device_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "observed_at": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"},
+    "post_condition_verified": {"type": "boolean"},
+    "managed_state_change_authorized": {"type": "boolean"},
+    "credential_value_access_authorized": {"const": false},
+    "provider_mutation_authorized": {"const": false},
+    "policy_application_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"state": {"const": "post-condition-verified"}}, "required": ["state"]},
+      "then": {
+        "properties": {
+          "post_condition_verified": {"const": true},
+          "managed_state_change_authorized": {"const": true}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"state": {"const": "post-condition-not-verified"}}, "required": ["state"]},
+      "then": {
+        "properties": {
+          "post_condition_verified": {"const": false},
+          "managed_state_change_authorized": {"const": false}
+        }
+      }
+    }
+  ]
+}
