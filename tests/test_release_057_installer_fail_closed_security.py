@@ -101,6 +101,38 @@ def test_install_node_rejects_path_traversal_archive_before_current_release_acce
     os.environ.get("GITHUB_ACTIONS") != "true" or sys.version_info[:2] != (3, 12),
     reason="privileged installer fail-closed qualification runs once on the hosted Python 3.12 leg",
 )
+@pytest.mark.parametrize(
+    ("member_type", "link_name"),
+    [
+        (tarfile.SYMTYPE, "/etc/passwd"),
+        (tarfile.LNKTYPE, "../escape"),
+        (tarfile.FIFOTYPE, ""),
+    ],
+)
+def test_install_node_rejects_non_regular_archive_entries_before_extraction(
+    tmp_path: Path,
+    member_type: bytes,
+    link_name: str,
+) -> None:
+    artifact = tmp_path / "unsafe-entry.tar.gz"
+    with tarfile.open(artifact, "w:gz") as archive:
+        member = tarfile.TarInfo("./deploy/home-center.service")
+        member.type = member_type
+        member.linkname = link_name
+        archive.addfile(member)
+    digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+
+    completed = _run(_installer_args(artifact, digest))
+
+    assert completed.returncode == 66
+    assert "UNSAFE_ARCHIVE_ENTRY_TYPE" in completed.stderr
+    assert "NODE_DEPLOYMENT=PASS" not in completed.stdout
+
+
+@pytest.mark.skipif(
+    os.environ.get("GITHUB_ACTIONS") != "true" or sys.version_info[:2] != (3, 12),
+    reason="privileged installer fail-closed qualification runs once on the hosted Python 3.12 leg",
+)
 def test_install_node_rejects_wrong_node_identity_before_checksum_or_mutation(tmp_path: Path) -> None:
     artifact = tmp_path / "candidate.tar.gz"
     artifact.write_bytes(b"identity-boundary")
