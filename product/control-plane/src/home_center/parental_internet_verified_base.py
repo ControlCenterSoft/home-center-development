@@ -64,6 +64,7 @@ def _composed_policy(value: object) -> ComposedPolicy:
         or internet is InternetPolicy.FULL
         or value.get("vpn_allowed") is not False
         or value.get("managed_device_required") is not True
+        or value.get("smart_home_control_allowed") is not False
         or value.get("administration_allowed") is not False
         or value.get("external_publication_allowed") is not False
         or value.get("enforcement_verified") is not False
@@ -82,9 +83,8 @@ def _composed_policy(value: object) -> ComposedPolicy:
         item = value.get(name)
         if not isinstance(item, str) or not item or len(item) > 128:
             raise ParentalInternetVerifiedBaseError("parental_verified_base_policy_invalid")
-    for name in ("home_files_allowed", "smart_home_control_allowed"):
-        if type(value.get(name)) is not bool:
-            raise ParentalInternetVerifiedBaseError("parental_verified_base_policy_invalid")
+    if type(value.get("home_files_allowed")) is not bool:
+        raise ParentalInternetVerifiedBaseError("parental_verified_base_policy_invalid")
     canonical = {
         "household_id": value["household_id"],
         "member_id": value["member_id"],
@@ -95,7 +95,7 @@ def _composed_policy(value: object) -> ComposedPolicy:
         "vpn_allowed": False,
         "managed_device_required": True,
         "home_files_allowed": value["home_files_allowed"],
-        "smart_home_control_allowed": value["smart_home_control_allowed"],
+        "smart_home_control_allowed": False,
         "administration_allowed": False,
         "external_publication_allowed": False,
     }
@@ -112,7 +112,7 @@ def _composed_policy(value: object) -> ComposedPolicy:
         vpn_allowed=False,
         managed_device_required=True,
         home_files_allowed=value["home_files_allowed"],
-        smart_home_control_allowed=value["smart_home_control_allowed"],
+        smart_home_control_allowed=False,
         administration_allowed=False,
         explanation_ru=explanation,
     )
