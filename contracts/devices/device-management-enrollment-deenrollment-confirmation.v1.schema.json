@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/devices/device-management-enrollment-deenrollment-confirmation.v1.schema.json",
+  "title": "Home Center enrollment cleanup de-enrollment confirmation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "confirmation_id", "de_enrollment_id", "cleanup_id", "actor_member_id",
+    "idempotency_key", "confirmed_at", "confirmed", "provider_mutation_authorized",
+    "credential_value_access_authorized", "retry_execution_authorized",
+    "managed_state_change_authorized", "policy_application_authorized",
+    "infrastructure_mutation_authorized", "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.device-management-enrollment-deenrollment-confirmation.v1"},
+    "confirmation_id": {"type": "string", "pattern": "^dmpdeconfirm-[0-9a-f]{24}$"},
+    "de_enrollment_id": {"type": "string", "pattern": "^dmpdeenroll-[0-9a-f]{24}$"},
+    "cleanup_id": {"type": "string", "pattern": "^dmpclean-[0-9a-f]{24}$"},
+    "actor_member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "idempotency_key": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$"},
+    "confirmed_at": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"},
+    "confirmed": {"const": true},
+    "provider_mutation_authorized": {"const": true},
+    "credential_value_access_authorized": {"const": false},
+    "retry_execution_authorized": {"const": false},
+    "managed_state_change_authorized": {"const": false},
+    "policy_application_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
