@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://control-center.pro/schemas/home-center/household-policy-confirm-apply-result.v1.schema.json",
+  "title": "Home Center Household Policy Confirm Apply Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "confirmation",
+    "receipt",
+    "desired_state_materialized",
+    "history_evidence_sha256",
+    "history_audit_event_id",
+    "provider_execution_authorized",
+    "infrastructure_mutation_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.household-policy-confirm-apply-result.v1"},
+    "confirmation": {"$ref": "household-policy-confirmation.v1.schema.json"},
+    "receipt": {"$ref": "household-policy-apply-receipt.v1.schema.json"},
+    "desired_state_materialized": {"const": true},
+    "history_evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "history_audit_event_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "provider_execution_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
