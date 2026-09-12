@@ -115,8 +115,11 @@ def validate_rollback_audit_binding(
     ):
         raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR)
 
-    target_history = service.read(resource_key=resource_key, generation=target_generation)
-    current_history = service.read(resource_key=resource_key, generation=generation)
+    try:
+        target_history = service.read(resource_key=resource_key, generation=target_generation)
+        current_history = service.read(resource_key=resource_key, generation=generation)
+    except HouseholdPolicyHistoryError as exc:
+        raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR) from exc
     target_bundle_id = target_history.get("bundle_id")
     history_evidence_sha256 = current_history.get("evidence_sha256")
     if (
@@ -124,6 +127,7 @@ def validate_rollback_audit_binding(
         or current_history.get("bundle_id") != bundle_id
         or not isinstance(history_evidence_sha256, str)
         or len(history_evidence_sha256) != 64
+        or any(char not in "0123456789abcdef" for char in history_evidence_sha256)
     ):
         raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR)
 
