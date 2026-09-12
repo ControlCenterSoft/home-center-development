@@ -1,9 +1,10 @@
 """Revision evidence and fail-closed rollback for Home Center 0.59 Policy Desired State.
 
-History is stored under generation-addressed StateStore keys and is treated as
-immutable by this service. Rollback never rewinds the generation counter: when a
-previous bundle is restored it becomes a new forward revision. This module never
-executes providers, changes devices/networking, or grants infrastructure authority.
+History is stored under generation-addressed StateStore keys and bound to the
+keyed append-only Audit chain. Rollback never rewinds the generation counter:
+when a previous bundle is restored it becomes a new forward revision. This module
+never executes providers, changes devices/networking, or grants infrastructure
+authority.
 """
 
 from __future__ import annotations
@@ -22,8 +23,8 @@ from .household_policy_desired_state import (
     HouseholdPolicyDesiredStateService,
     _proposal_key,
 )
-from .household_policy_runtime import HOUSEHOLD_STATE_KEY, POLICY_PROPOSAL_STATE_SCHEMA
-from .household_runtime import _state_from_dict
+from .household_policy_runtime import POLICY_PROPOSAL_STATE_SCHEMA
+from .household_runtime import HOUSEHOLD_STATE_KEY, _state_from_dict
 from .store import StateStore
 from .util import canonical_json, utc_now
 
@@ -91,8 +92,43 @@ class HouseholdPolicyHistoryService:
     def _evidence_hash(core: dict[str, object]) -> str:
         return hashlib.sha256(canonical_json(core).encode("utf-8")).hexdigest()
 
+    def _validate_history_audit(self, value: dict[str, object]) -> None:
+        audit_event_id = value.get("audit_event_id")
+        if not isinstance(audit_event_id, str) or not audit_event_id:
+            raise HouseholdPolicyHistoryError("household_policy_history_audit_invalid")
+        try:
+            self.store.verify_audit_chain()
+        except RuntimeError as exc:
+            raise HouseholdPolicyHistoryError("household_policy_history_audit_invalid") from exc
+        connection = sqlite3.connect(self.store.path, timeout=5)
+        connection.row_factory = sqlite3.Row
+        try:
+            row = connection.execute(
+                "SELECT action,target,outcome,details_json FROM audit WHERE event_id=?",
+                (audit_event_id,),
+            ).fetchone()
+        finally:
+            connection.close()
+        if row is None:
+            raise HouseholdPolicyHistoryError("household_policy_history_audit_missing")
+        try:
+            details = json.loads(row["details_json"])
+        except (TypeError, json.JSONDecodeError) as exc:
+            raise HouseholdPolicyHistoryError("household_policy_history_audit_invalid") from exc
+        if (
+            row["action"] != "household.policy.history.record"
+            or row["target"] != value.get("resource_key")
+            or row["outcome"] != "recorded"
+            or details.get("generation") != value.get("generation")
+            or details.get("bundle_id") != value.get("bundle_id")
+            or details.get("evidence_sha256") != value.get("evidence_sha256")
+            or details.get("provider_execution_authorized") is not False
+            or details.get("infrastructure_mutation_authorized") is not False
+        ):
+            raise HouseholdPolicyHistoryError("household_policy_history_audit_mismatch")
+
     def archive(self, record: dict[str, object]) -> dict[str, object]:
-        """Persist a generation-addressed copy once; reject any conflicting rewrite."""
+        """Persist a generation-addressed copy once and bind it to keyed Audit evidence."""
 
         core = self._history_core(record)
         resource_key = core["resource_key"]
@@ -100,24 +136,41 @@ class HouseholdPolicyHistoryService:
         assert isinstance(resource_key, str)
         assert isinstance(generation, int)
         key = _history_key(resource_key, generation)
-        existing = self.store.get_meta(key)
-        if existing is not None:
-            self._validate_history(existing, resource_key=resource_key, generation=generation)
-            if existing.get("evidence_sha256") != self._evidence_hash(core):
-                raise HouseholdPolicyHistoryError("household_policy_history_conflict")
-            return existing
-        payload = {
-            **core,
-            "evidence_sha256": self._evidence_hash(core),
-            "recorded_at": utc_now(),
-            "provider_execution_authorized": False,
-            "infrastructure_mutation_authorized": False,
-            "external_publication_authorized": False,
-        }
-        self.store.set_meta(key, payload)
-        persisted = self.store.get_meta(key)
-        self._validate_history(persisted, resource_key=resource_key, generation=generation)
-        return persisted
+        evidence_sha256 = self._evidence_hash(core)
+        with self._lock:
+            existing = self.store.get_meta(key)
+            if existing is not None:
+                validated = self._validate_history(existing, resource_key=resource_key, generation=generation)
+                if validated.get("evidence_sha256") != evidence_sha256:
+                    raise HouseholdPolicyHistoryError("household_policy_history_conflict")
+                return validated
+
+            audit_event_id = self.store.audit(
+                actor="system:household-policy-history",
+                action="household.policy.history.record",
+                target=resource_key,
+                outcome="recorded",
+                correlation_id=f"policy-history-{generation}",
+                details={
+                    "generation": generation,
+                    "bundle_id": core["bundle_id"],
+                    "evidence_sha256": evidence_sha256,
+                    "provider_execution_authorized": False,
+                    "infrastructure_mutation_authorized": False,
+                },
+            )
+            payload = {
+                **core,
+                "evidence_sha256": evidence_sha256,
+                "audit_event_id": audit_event_id,
+                "recorded_at": utc_now(),
+                "provider_execution_authorized": False,
+                "infrastructure_mutation_authorized": False,
+                "external_publication_authorized": False,
+            }
+            self.store.set_meta(key, payload)
+            persisted = self.store.get_meta(key)
+            return self._validate_history(persisted, resource_key=resource_key, generation=generation)
 
     def _validate_history(
         self,
@@ -154,6 +207,7 @@ class HouseholdPolicyHistoryService:
         _, bundle_id = HouseholdPolicyDesiredStateRepository.revision(record)
         if bundle_id != value.get("bundle_id"):
             raise HouseholdPolicyHistoryError("household_policy_history_evidence_mismatch")
+        self._validate_history_audit(value)
         return value
 
     def read(self, *, resource_key: str, generation: int) -> dict[str, object]:
@@ -173,7 +227,7 @@ class HouseholdPolicyHistoryService:
         request: dict[str, Any],
         correlation_id: str,
     ) -> dict[str, object]:
-        """Wrap the existing exact apply protocol so every observed revision gets archived."""
+        """Wrap exact apply so every observed revision is archived without changing its receipt contract."""
 
         if request.get("schema") != POLICY_APPLY_REQUEST_SCHEMA:
             raise HouseholdPolicyDesiredStateError("invalid_household_policy_apply_request")
@@ -199,11 +253,8 @@ class HouseholdPolicyHistoryService:
             after = self.repository.read(resource_key)
             if after is None:
                 raise HouseholdPolicyHistoryError("household_policy_desired_state_missing_after_apply")
-            history = self.archive(after)
-            result = dict(receipt)
-            result["history_evidence_sha256"] = history["evidence_sha256"]
-            result["history_generation"] = history["generation"]
-            return result
+            self.archive(after)
+            return receipt
 
     def _authorized_actor(self, actor: str, resource_key: str) -> None:
         raw = self.store.get_meta(HOUSEHOLD_STATE_KEY)
