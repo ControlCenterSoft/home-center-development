@@ -27,6 +27,7 @@ class ProviderAdapterQualificationEvidence:
     revision: str
     adapter_id: str
     adapter_version: str
+    candidate_artifact_sha256: str
     adapter_artifact_sha256: str
     execution_transcript_sha256: str
     environment_evidence_sha256: str
@@ -48,6 +49,7 @@ class ProviderAdapterQualificationDecision:
     revision: str
     adapter_id: str
     adapter_version: str
+    candidate_artifact_sha256: str
     evidence_sha256: str
     qualified: bool
     blockers: tuple[str, ...]
@@ -62,6 +64,7 @@ class ProviderAdapterQualificationDecision:
             "revision": self.revision,
             "adapter_id": self.adapter_id,
             "adapter_version": self.adapter_version,
+            "candidate_artifact_sha256": self.candidate_artifact_sha256,
             "evidence_sha256": self.evidence_sha256,
             "qualified": self.qualified,
             "blockers": list(self.blockers),
@@ -96,6 +99,7 @@ def evaluate_provider_adapter_qualification(
 
     blockers: list[str] = []
     digest_fields = (
+        ("candidate_artifact_digest", evidence.candidate_artifact_sha256),
         ("adapter_artifact_digest", evidence.adapter_artifact_sha256),
         ("execution_transcript_digest", evidence.execution_transcript_sha256),
         ("environment_evidence_digest", evidence.environment_evidence_sha256),
@@ -120,8 +124,9 @@ def evaluate_provider_adapter_qualification(
         if passed is not True:
             blockers.append(blocker)
 
-    # Bind the decision to the immutable provider artifact and the exact observed run.
-    # The digest is deterministic and carries no provider secrets or endpoint material.
+    # Bind the decision to the exact Home Center candidate, immutable provider
+    # artifact and exact observed run. The digest carries no provider secrets
+    # or endpoint material.
     if blockers:
         evidence_sha256 = "0" * 64
     else:
@@ -133,6 +138,7 @@ def evaluate_provider_adapter_qualification(
             "revision": evidence.revision,
             "adapter_id": evidence.adapter_id,
             "adapter_version": evidence.adapter_version,
+            "candidate_artifact_sha256": evidence.candidate_artifact_sha256,
             "adapter_artifact_sha256": evidence.adapter_artifact_sha256,
             "execution_transcript_sha256": evidence.execution_transcript_sha256,
             "environment_evidence_sha256": evidence.environment_evidence_sha256,
@@ -145,6 +151,7 @@ def evaluate_provider_adapter_qualification(
         revision=evidence.revision,
         adapter_id=evidence.adapter_id,
         adapter_version=evidence.adapter_version,
+        candidate_artifact_sha256=evidence.candidate_artifact_sha256,
         evidence_sha256=evidence_sha256,
         qualified=not blockers,
         blockers=tuple(blockers),

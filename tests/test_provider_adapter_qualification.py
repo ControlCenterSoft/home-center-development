@@ -23,6 +23,7 @@ REVISION = "7" * 40
 DIGEST_A = "a" * 64
 DIGEST_B = "b" * 64
 DIGEST_C = "c" * 64
+DIGEST_D = "d" * 64
 
 
 def _evidence(**overrides: object) -> ProviderAdapterQualificationEvidence:
@@ -31,9 +32,10 @@ def _evidence(**overrides: object) -> ProviderAdapterQualificationEvidence:
         "revision": REVISION,
         "adapter_id": "android-mdm-primary",
         "adapter_version": "1.0.0",
-        "adapter_artifact_sha256": DIGEST_A,
-        "execution_transcript_sha256": DIGEST_B,
-        "environment_evidence_sha256": DIGEST_C,
+        "candidate_artifact_sha256": DIGEST_A,
+        "adapter_artifact_sha256": DIGEST_B,
+        "execution_transcript_sha256": DIGEST_C,
+        "environment_evidence_sha256": DIGEST_D,
         "real_provider_exercised": True,
         "real_target_exercised": True,
         "start_contract_validated": True,
@@ -54,6 +56,7 @@ class ProviderAdapterQualificationTests(unittest.TestCase):
         decision = evaluate_provider_adapter_qualification(_evidence())
         self.assertTrue(decision.qualified)
         self.assertEqual(decision.blockers, ())
+        self.assertEqual(decision.candidate_artifact_sha256, DIGEST_A)
         self.assertRegex(decision.evidence_sha256, r"^[0-9a-f]{64}$")
         self.assertNotEqual(decision.evidence_sha256, "0" * 64)
         self.assertFalse(decision.release_authorized)
@@ -90,12 +93,19 @@ class ProviderAdapterQualificationTests(unittest.TestCase):
 
     def test_missing_exact_evidence_digests_are_blockers(self) -> None:
         decision = evaluate_provider_adapter_qualification(
-            _evidence(adapter_artifact_sha256="", execution_transcript_sha256="bad")
+            _evidence(candidate_artifact_sha256="", adapter_artifact_sha256="bad")
         )
         self.assertEqual(
             decision.blockers,
-            ("adapter_artifact_digest", "execution_transcript_digest"),
+            ("candidate_artifact_digest", "adapter_artifact_digest"),
         )
+
+    def test_candidate_artifact_digest_changes_provider_evidence_identity(self) -> None:
+        first = evaluate_provider_adapter_qualification(_evidence())
+        second = evaluate_provider_adapter_qualification(
+            _evidence(candidate_artifact_sha256="e" * 64)
+        )
+        self.assertNotEqual(first.evidence_sha256, second.evidence_sha256)
 
     def test_invalid_identity_is_rejected_before_evaluation(self) -> None:
         with self.assertRaisesRegex(

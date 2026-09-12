@@ -82,13 +82,20 @@ def _real_environment(
     )
 
 
-def _provider(revision: str = REVISION) -> ProviderAdapterEvidence:
+def _provider(
+    revision: str = REVISION,
+    *,
+    artifact_sha256: str = DIGEST,
+    evidence_sha256: str = DIGEST,
+    qualified: bool = True,
+) -> ProviderAdapterEvidence:
     return ProviderAdapterEvidence(
         binding=_binding(revision),
         adapter_id="provider.example",
         adapter_version="1.0.0",
-        evidence_sha256=DIGEST,
-        qualified=True,
+        candidate_artifact_sha256=artifact_sha256,
+        evidence_sha256=evidence_sha256,
+        qualified=qualified,
     )
 
 
@@ -173,13 +180,7 @@ class ReleasePromotionGateTests(unittest.TestCase):
             multi_node_ha_restart_qualified=False,
         )
         real_environment = _real_environment(evidence_sha256="", qualified=False)
-        provider = ProviderAdapterEvidence(
-            binding=_binding(),
-            adapter_id="provider.example",
-            adapter_version="1.0.0",
-            evidence_sha256=DIGEST,
-            qualified=False,
-        )
+        provider = _provider(qualified=False)
         commercial = CommercialEvidence(
             binding=_binding(),
             disposition="review-required",
@@ -234,6 +235,21 @@ class ReleasePromotionGateTests(unittest.TestCase):
         )
         self.assertEqual(decision.blockers, ("real_environment_artifact_binding",))
 
+    def test_provider_evidence_must_bind_exact_candidate_artifact(self) -> None:
+        decision = evaluate_release_promotion(
+            target_channel=CANDIDATE,
+            version=VERSION,
+            revision=REVISION,
+            qualification=_qualification(),
+            security=_security(),
+            recovery=_recovery(),
+            real_environment=_real_environment(),
+            provider=_provider(artifact_sha256=OTHER_DIGEST),
+            artifacts=_artifacts(),
+            commercial=_commercial(),
+        )
+        self.assertEqual(decision.blockers, ("provider_candidate_artifact_binding",))
+
     def test_real_environment_digest_is_required_even_when_booleans_are_true(self) -> None:
         decision = evaluate_release_promotion(
             target_channel=CANDIDATE,
@@ -248,6 +264,21 @@ class ReleasePromotionGateTests(unittest.TestCase):
             commercial=_commercial(),
         )
         self.assertEqual(decision.blockers, ("real_environment_evidence",))
+
+    def test_provider_candidate_digest_is_required_even_when_qualified_is_true(self) -> None:
+        decision = evaluate_release_promotion(
+            target_channel=CANDIDATE,
+            version=VERSION,
+            revision=REVISION,
+            qualification=_qualification(),
+            security=_security(),
+            recovery=_recovery(),
+            real_environment=_real_environment(),
+            provider=_provider(artifact_sha256=""),
+            artifacts=_artifacts(),
+            commercial=_commercial(),
+        )
+        self.assertEqual(decision.blockers, ("provider_evidence",))
 
     def test_cross_revision_evidence_is_rejected(self) -> None:
         other = "d" * 40
