@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://control-center.pro/schemas/home-center/household-policy-recovery-request.v1.schema.json",
+  "title": "Home Center Household Policy Recovery Request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "proposal_id"],
+  "properties": {
+    "schema": {"const": "home-center.household-policy-recovery-request.v1"},
+    "proposal_id": {"type": "string", "pattern": "^hpc-[0-9a-f]{24}$"}
+  }
+}
