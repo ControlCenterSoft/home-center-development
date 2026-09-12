@@ -82,6 +82,7 @@ class RuntimeRequestHandlerPolicy(RuntimeRequestHandlerV2):
             "household_policy_history_invalid",
             "household_policy_history_evidence_mismatch",
             "household_policy_history_conflict",
+            "household_policy_history_gap",
             "household_policy_history_audit_invalid",
             "household_policy_history_audit_missing",
             "household_policy_history_audit_mismatch",
