@@ -4,7 +4,15 @@ from pathlib import Path
 
 import pytest
 
+from home_center.device_management_enrollment_post_condition_runtime import (
+    CONFIRM_REQUEST_SCHEMA,
+    KEY_PREFIX,
+    PLAN_SCHEMA,
+    STATE_SCHEMA,
+    DeviceManagementEnrollmentPostConditionRuntimeError,
+)
 from home_center.device_management_enrollment_post_condition_runtime_qualified import (
+    QUALIFICATION_BINDING_FIELD,
     ContractQualifiedDeviceManagementEnrollmentPostConditionRuntimeService,
 )
 from home_center.device_management_enrollment_verification import RESULT_SCHEMA, SIGNAL_NAMES
@@ -13,6 +21,7 @@ from home_center.device_management_verifier_qualification import (
     RECEIPT_SCHEMA,
     DeviceManagementVerifierQualificationError,
     qualify_read_back_adapter,
+    validate_contract_qualification_receipt,
 )
 from home_center.step_up import StepUpGrantManager
 from home_center.store import StateStore
@@ -50,6 +59,16 @@ def _profile(**overrides: object) -> dict[str, object]:
     }
     value.update(overrides)
     return value
+
+
+def _service(
+    tmp_path: Path,
+) -> tuple[StateStore, ContractQualifiedDeviceManagementEnrollmentPostConditionRuntimeService]:
+    store = StateStore(tmp_path / "state.db", b"q" * 32, "cluster-test")
+    return store, ContractQualifiedDeviceManagementEnrollmentPostConditionRuntimeService(
+        store,
+        StepUpGrantManager(),
+    )
 
 
 def test_contract_qualification_is_deterministic_read_only_and_never_claims_production() -> None:
@@ -127,12 +146,29 @@ def test_profile_is_closed_and_rejects_unexpected_authority_fields() -> None:
         )
 
 
-def test_strict_runtime_registry_requires_contract_qualification_without_provider_io(tmp_path: Path) -> None:
-    store = StateStore(tmp_path / "state.db", b"q" * 32, "cluster-test")
-    service = ContractQualifiedDeviceManagementEnrollmentPostConditionRuntimeService(
-        store,
-        StepUpGrantManager(),
+def test_contract_receipt_revalidation_rejects_authority_escalation_without_provider_io() -> None:
+    adapter = ContractVerifier()
+    receipt = qualify_read_back_adapter(
+        provider_id=PROVIDER,
+        adapter=adapter,
+        profile=_profile(),
     )
+    receipt["production_qualified"] = True
+
+    with pytest.raises(
+        DeviceManagementVerifierQualificationError,
+        match="device_management_enrollment_verifier_qualification_receipt_rejected",
+    ):
+        validate_contract_qualification_receipt(
+            provider_id=PROVIDER,
+            adapter=adapter,
+            receipt=receipt,
+        )
+    assert adapter.calls == 0
+
+
+def test_strict_runtime_registry_requires_contract_qualification_without_provider_io(tmp_path: Path) -> None:
+    store, service = _service(tmp_path)
     adapter = ContractVerifier()
 
     with pytest.raises(
@@ -152,4 +188,66 @@ def test_strict_runtime_registry_requires_contract_qualification_without_provide
     assert receipt["verification_read_only"] is True
     assert service.adapter_qualification(PROVIDER) == receipt
     assert adapter.calls == 0
+    store.close()
+
+
+def test_registered_adapter_descriptor_drift_fails_closed_before_provider_io(tmp_path: Path) -> None:
+    store, service = _service(tmp_path)
+    adapter = ContractVerifier()
+    service.register_adapter(PROVIDER, adapter, qualification_profile=_profile())
+
+    adapter.verifier_revision = "v2"  # type: ignore[assignment]
+
+    with pytest.raises(
+        DeviceManagementEnrollmentPostConditionRuntimeError,
+        match="device_management_enrollment_verifier_qualification_stale",
+    ):
+        service._adapter(PROVIDER)
+    assert adapter.calls == 0
+    assert store.jobs() == []
+    store.close()
+
+
+def test_confirm_rejects_mismatched_durable_qualification_before_step_up_or_provider_io(
+    tmp_path: Path,
+) -> None:
+    store, service = _service(tmp_path)
+    adapter = ContractVerifier()
+    receipt = service.register_adapter(PROVIDER, adapter, qualification_profile=_profile())
+
+    verification_id = "dmpverify-" + ("1" * 24)
+    tampered = dict(receipt)
+    tampered["verifier_revision"] = "v0"
+    store.set_meta(
+        KEY_PREFIX + verification_id,
+        {
+            "schema": STATE_SCHEMA,
+            "status": "planned",
+            "plan": {
+                "schema": PLAN_SCHEMA,
+                "verification_id": verification_id,
+                "provider_id": PROVIDER,
+            },
+            QUALIFICATION_BINDING_FIELD: tampered,
+        },
+    )
+
+    with pytest.raises(
+        DeviceManagementEnrollmentPostConditionRuntimeError,
+        match="device_management_enrollment_verifier_qualification_binding_mismatch",
+    ):
+        service.confirm(
+            actor="user:test",
+            request={
+                "schema": CONFIRM_REQUEST_SCHEMA,
+                "verification_id": verification_id,
+                "idempotency_key": "qual-binding-1",
+                "confirmed": True,
+            },
+            step_up_token="not-consumed",
+            correlation_id="test-qualification-binding",
+        )
+
+    assert adapter.calls == 0
+    assert store.jobs() == []
     store.close()
