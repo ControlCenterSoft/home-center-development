@@ -26,6 +26,7 @@ from .external_access import ExternalAccessPolicy, ExternalRequestRateLimiter
 from .household_device_enrollment_runtime import HouseholdDeviceEnrollmentRuntimeService
 from .household_device_management_runtime import HouseholdDeviceManagementRuntimeService
 from .household_device_runtime import HouseholdDeviceRuntimeService
+from .household_policy_enforcement_runtime import HouseholdPolicyEnforcementRuntimeService
 from .household_policy_reconciliation_api_runtime import HouseholdPolicyReconciliationApiService
 from .household_policy_reconciliation_runtime import HouseholdPolicyReconciliationRuntimeService
 from .household_runtime import HouseholdRuntimeService
@@ -80,6 +81,7 @@ class Runtime:
         self.household_devices = HouseholdDeviceRuntimeService(self.store)
         self.household_device_management = HouseholdDeviceManagementRuntimeService(self.store)
         self.household_device_enrollment = HouseholdDeviceEnrollmentRuntimeService(self.store)
+        self.household_policy_enforcement = HouseholdPolicyEnforcementRuntimeService(self.store)
         self.household_policy_reconciliation = HouseholdPolicyReconciliationRuntimeService(self.store)
         self.household_policy_reconciliation_api = HouseholdPolicyReconciliationApiService(
             self.store,
