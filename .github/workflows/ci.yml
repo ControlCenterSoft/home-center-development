@@ -44,20 +44,23 @@ jobs:
           HOME_CENTER_RELEASE_BUILD: "1"
         run: |
           set -Eeuo pipefail
+          version="$(tr -d '[:space:]' < VERSION)"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'VERSION must be MAJOR.MINOR.PATCH' >&2; exit 64; }
           candidate_dir="$RUNNER_TEMP/deployment-candidate"
+          artifact="home-center-${version}-linux-amd64.tar.gz"
           mkdir -p "$candidate_dir"
           bash deploy/scripts/build-deployment-artifact.sh "$candidate_dir"
-          test -f "$candidate_dir/home-center-0.57.0-linux-amd64.tar.gz"
-          test -f "$candidate_dir/home-center-0.57.0-linux-amd64.tar.gz.sha256"
-          (cd "$candidate_dir" && sha256sum -c home-center-0.57.0-linux-amd64.tar.gz.sha256)
+          test -f "$candidate_dir/$artifact"
+          test -f "$candidate_dir/$artifact.sha256"
+          (cd "$candidate_dir" && sha256sum -c "$artifact.sha256")
       - name: Preserve exact deployment candidate
         if: matrix.python-version == '3.12'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: home-center-0.57.0-deployment-candidate-${{ env.EXPECTED_SHA }}
+          name: home-center-deployment-candidate-${{ env.EXPECTED_SHA }}
           path: |
-            ${{ runner.temp }}/deployment-candidate/home-center-0.57.0-linux-amd64.tar.gz
-            ${{ runner.temp }}/deployment-candidate/home-center-0.57.0-linux-amd64.tar.gz.sha256
+            ${{ runner.temp }}/deployment-candidate/home-center-*-linux-amd64.tar.gz
+            ${{ runner.temp }}/deployment-candidate/home-center-*-linux-amd64.tar.gz.sha256
           if-no-files-found: error
           retention-days: 30
       - name: Install test dependencies
