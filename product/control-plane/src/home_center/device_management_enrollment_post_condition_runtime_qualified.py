@@ -8,13 +8,20 @@ from __future__ import annotations
 
 from typing import Any
 
+from .device_management_enrollment_post_condition_runtime import (
+    DeviceManagementEnrollmentPostConditionRuntimeError,
+)
 from .device_management_enrollment_post_condition_runtime_safe import (
     SafeDeviceManagementEnrollmentPostConditionRuntimeService,
 )
 from .device_management_verifier_qualification import (
     DeviceManagementVerifierQualificationError,
     qualify_read_back_adapter,
+    validate_contract_qualification_receipt,
 )
+
+
+QUALIFICATION_BINDING_FIELD = "verifier_qualification"
 
 
 class ContractQualifiedDeviceManagementEnrollmentPostConditionRuntimeService(
@@ -46,6 +53,97 @@ class ContractQualifiedDeviceManagementEnrollmentPostConditionRuntimeService(
         self._adapter_qualifications[provider_id] = dict(receipt)
         return dict(receipt)
 
+    def _validated_qualification(
+        self,
+        provider_id: object,
+        *,
+        adapter: object | None = None,
+    ) -> dict[str, object]:
+        if not isinstance(provider_id, str):
+            raise DeviceManagementEnrollmentPostConditionRuntimeError(
+                "device_management_enrollment_verifier_qualification_required"
+            )
+        receipt = self._adapter_qualifications.get(provider_id)
+        if receipt is None:
+            raise DeviceManagementEnrollmentPostConditionRuntimeError(
+                "device_management_enrollment_verifier_qualification_required"
+            )
+        if adapter is None:
+            adapter = super()._adapter(provider_id)
+        try:
+            return validate_contract_qualification_receipt(
+                provider_id=provider_id,
+                adapter=adapter,
+                receipt=receipt,
+            )
+        except DeviceManagementVerifierQualificationError as exc:
+            raise DeviceManagementEnrollmentPostConditionRuntimeError(
+                "device_management_enrollment_verifier_qualification_stale"
+            ) from exc
+
+    def _adapter(self, provider_id: object):
+        adapter = super()._adapter(provider_id)
+        self._validated_qualification(provider_id, adapter=adapter)
+        return adapter
+
+    def plan(
+        self,
+        *,
+        actor: str,
+        request: dict[str, Any],
+        correlation_id: str,
+    ) -> dict[str, object]:
+        """Bind the exact verifier qualification receipt to the durable verification plan."""
+        with self._lock:
+            plan = super().plan(
+                actor=actor,
+                request=request,
+                correlation_id=correlation_id,
+            )
+            provider_id = plan.get("provider_id")
+            qualification = self._validated_qualification(provider_id)
+            key, envelope, loaded_plan = self._load(plan.get("verification_id"))
+            if loaded_plan != plan:
+                raise DeviceManagementEnrollmentPostConditionRuntimeError(
+                    "device_management_enrollment_verification_state_invalid"
+                )
+            bound = envelope.get(QUALIFICATION_BINDING_FIELD)
+            if bound is not None and bound != qualification:
+                raise DeviceManagementEnrollmentPostConditionRuntimeError(
+                    "device_management_enrollment_verifier_qualification_binding_mismatch"
+                )
+            if bound is None:
+                updated = dict(envelope)
+                updated[QUALIFICATION_BINDING_FIELD] = dict(qualification)
+                self.store.set_meta(key, updated)
+        return plan
+
+    def confirm(
+        self,
+        *,
+        actor: str,
+        request: dict[str, Any],
+        step_up_token: object,
+        correlation_id: str,
+    ) -> dict[str, object]:
+        """Fail before step-up consumption/provider I/O if qualification drifted since plan."""
+        with self._lock:
+            _key, envelope, plan = self._load(request.get("verification_id"))
+            if envelope.get("status") != "applied":
+                qualification = self._validated_qualification(plan.get("provider_id"))
+                if envelope.get(QUALIFICATION_BINDING_FIELD) != qualification:
+                    raise DeviceManagementEnrollmentPostConditionRuntimeError(
+                        "device_management_enrollment_verifier_qualification_binding_mismatch"
+                    )
+        return super().confirm(
+            actor=actor,
+            request=request,
+            step_up_token=step_up_token,
+            correlation_id=correlation_id,
+        )
+
     def adapter_qualification(self, provider_id: str) -> dict[str, object] | None:
         receipt = self._adapter_qualifications.get(provider_id)
-        return None if receipt is None else dict(receipt)
+        if receipt is None:
+            return None
+        return dict(self._validated_qualification(provider_id))
