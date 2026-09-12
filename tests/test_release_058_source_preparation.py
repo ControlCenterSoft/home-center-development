@@ -109,6 +109,10 @@ def test_058_source_contains_verification_cleanup_and_deenrollment_boundaries() 
         ROOT
         / "product/control-plane/src/home_center/device_management_enrollment_verification.py"
     ).read_text(encoding="utf-8")
+    verification_runtime = (
+        ROOT
+        / "product/control-plane/src/home_center/device_management_enrollment_verification_runtime.py"
+    ).read_text(encoding="utf-8")
     cleanup = (
         ROOT
         / "product/control-plane/src/home_center/device_management_enrollment_cleanup.py"
@@ -119,6 +123,15 @@ def test_058_source_contains_verification_cleanup_and_deenrollment_boundaries() 
     ).read_text(encoding="utf-8")
 
     assert "build_managed_state_replacement" in verification
+    assert "DeviceManagementEnrollmentVerificationRuntimeService" in verification_runtime
+    assert "create_action_job" in verification_runtime
+    assert "provider-readback" in verification_runtime
+    assert "post-condition-verified" in verification_runtime
+    assert "credential_value_access_authorized\": False" in verification_runtime
+    assert "provider_mutation_authorized\": False" in verification_runtime
+    assert "policy_application_authorized\": False" in verification_runtime
+    assert "external_publication_authorized\": False" in verification_runtime
+    assert "build_managed_state_replacement" not in verification_runtime
     assert "build_failed_enrollment_cleanup_plan" in cleanup
     assert "assess_retry_after_cleanup" in cleanup
     assert "build_deenrollment_plan" in de_enrollment
@@ -130,6 +143,7 @@ def test_058_source_contains_verification_cleanup_and_deenrollment_boundaries() 
     assert "provider_mutation_authorized" in de_enrollment
     assert "secret://" not in cleanup
     assert "secret://" not in de_enrollment
+    assert "secret://" not in verification_runtime
 
 
 def test_058_notes_keep_release_status_closed_and_describe_cleanup_boundary() -> None:
@@ -138,8 +152,10 @@ def test_058_notes_keep_release_status_closed_and_describe_cleanup_boundary() ->
     assert "не Release Candidate и не Public Stable" in notes
     assert "Failed-enrollment cleanup" in notes
     assert "Явный de-enrollment boundary" in notes
+    assert "Durable post-condition verification runtime" in notes
     assert "de-enroll-required" in notes
     assert "retry_planning_allowed=true" in notes
     assert "retry_execution_authorized=false" in notes
-    assert "не вызывает provider adapter сам по себе" in notes
+    assert "не применяет" in notes
+    assert "managed=true" in notes
     assert "не запускает CI или release workflow" in notes
