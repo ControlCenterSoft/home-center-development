@@ -12,7 +12,6 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE_SHA = "60f4c34f82a8335f9eec36bf2c303bb382efdca6"
-SOURCE_VERSION = "0.57.0"
 BASELINE_VERSION = "0.57.0"
 CANDIDATE_VERSION = "0.58.0"
 
@@ -38,15 +37,13 @@ def _sudo(script: str) -> subprocess.CompletedProcess[str]:
     return _run(["sudo", "bash", "-ceu", script])
 
 
-def _build_versioned_artifact(worktree: Path, version: str, output: Path) -> tuple[Path, str, str]:
-    init_path = worktree / "product/control-plane/src/home_center/__init__.py"
-    init_text = init_path.read_text(encoding="utf-8")
-    source_marker = f'__version__ = "{SOURCE_VERSION}"'
-    assert source_marker in init_text
-    init_path.write_text(init_text.replace(source_marker, f'__version__ = "{version}"', 1), encoding="utf-8")
+def _build_exact_artifact(worktree: Path, expected_version: str, output: Path) -> tuple[Path, str, str]:
+    assert (worktree / "VERSION").read_text(encoding="ascii").strip() == expected_version
+    init_text = (worktree / "product/control-plane/src/home_center/__init__.py").read_text(encoding="utf-8")
+    assert f'__version__ = "{expected_version}"' in init_text
 
     _run(["bash", "deploy/scripts/build-deployment-artifact.sh", str(output)], cwd=worktree)
-    artifact = output / f"home-center-{version}-linux-amd64.tar.gz"
+    artifact = output / f"home-center-{expected_version}-linux-amd64.tar.gz"
     sidecar = Path(f"{artifact}.sha256")
     digest = sidecar.read_text(encoding="ascii").split()[0]
     assert hashlib.sha256(artifact.read_bytes()).hexdigest() == digest
@@ -59,11 +56,12 @@ def _build_versioned_artifact(worktree: Path, version: str, output: Path) -> tup
     reason="0.57 -> 0.58 hosted upgrade/rollback drill runs once on the Python 3.12 leg",
 )
 def test_release_058_hosted_upgrade_from_057_and_rollback(tmp_path: Path) -> None:
-    """Exercise the exact 0.58 node artifact from the qualified 0.57 base.
+    """Exercise the exact 0.58 node artifact from the official 0.57 source baseline.
 
-    This is deliberately a filesystem/service-manager-shim qualification.  The
-    existing 0.57 lane already owns the real-systemd Stable 0.56 -> 0.57 drill;
-    this test adds only the non-duplicate 0.57 -> 0.58 install/rollback boundary.
+    The candidate source identity is never rewritten by the test.  Both baseline
+    and candidate artifacts are built from their exact checked-out release
+    identities, then the real install/rollback scripts are exercised with a
+    deterministic service-manager shim.
     """
 
     baseline_worktree = tmp_path / "baseline-src"
@@ -79,12 +77,12 @@ def test_release_058_hosted_upgrade_from_057_and_rollback(tmp_path: Path) -> Non
     had_user = _run(["id", "-u", "home-center"], check=False).returncode == 0
 
     try:
-        baseline_artifact, _, baseline_revision = _build_versioned_artifact(
+        baseline_artifact, _, baseline_revision = _build_exact_artifact(
             baseline_worktree,
             BASELINE_VERSION,
             tmp_path / "baseline-dist",
         )
-        candidate_artifact, candidate_digest, candidate_revision = _build_versioned_artifact(
+        candidate_artifact, candidate_digest, candidate_revision = _build_exact_artifact(
             candidate_worktree,
             CANDIDATE_VERSION,
             tmp_path / "candidate-dist",
