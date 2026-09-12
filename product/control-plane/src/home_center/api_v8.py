@@ -42,6 +42,20 @@ class RuntimeRequestHandlerV8(RuntimeRequestHandlerV7):
             raise ValueError("invalid_household_policy_enforcement_http_request")
         return body
 
+    @staticmethod
+    def _text_field(body: dict[str, object], name: str) -> str:
+        value = body.get(name)
+        if not isinstance(value, str):
+            raise ValueError("invalid_household_policy_enforcement_http_request")
+        return value
+
+    @staticmethod
+    def _bool_field(body: dict[str, object], name: str) -> bool:
+        value = body.get(name)
+        if not isinstance(value, bool):
+            raise ValueError("invalid_household_policy_enforcement_http_request")
+        return value
+
     def do_POST(self) -> None:  # noqa: N802
         path = urlsplit(self.path).path
         if path not in self.POLICY_ENFORCEMENT_POSTS:
@@ -84,15 +98,18 @@ class RuntimeRequestHandlerV8(RuntimeRequestHandlerV7):
             service = self.runtime.household_policy_enforcement
             if path in self.POLICY_ENFORCEMENT_PLAN_POSTS:
                 request = self._exact_body(body, {"member_id", "backend_id"})
+                member_id = self._text_field(request, "member_id")
+                backend_id = self._text_field(request, "backend_id")
                 value = service.plan(
                     actor=actor,
-                    member_id=request["member_id"],
-                    backend_id=request["backend_id"],
+                    member_id=member_id,
+                    backend_id=backend_id,
                     correlation_id=correlation_id,
                 )
             elif path in self.POLICY_ENFORCEMENT_CONFIRM_POSTS:
                 request = self._exact_body(body, {"plan_id", "confirmed"})
-                plan_id = request["plan_id"]
+                plan_id = self._text_field(request, "plan_id")
+                confirmed = self._bool_field(request, "confirmed")
                 if self.headers.get("Idempotency-Key") != plan_id:
                     raise HouseholdPolicyEnforcementError(
                         "household_policy_enforcement_http_idempotency_key_required"
@@ -100,12 +117,12 @@ class RuntimeRequestHandlerV8(RuntimeRequestHandlerV7):
                 value = service.confirm(
                     actor=actor,
                     plan_id=plan_id,
-                    confirmed=request["confirmed"],
+                    confirmed=confirmed,
                     correlation_id=correlation_id,
                 )
             else:
                 request = self._exact_body(body, {"plan_id"})
-                plan_id = request["plan_id"]
+                plan_id = self._text_field(request, "plan_id")
                 if self.headers.get("Idempotency-Key") != plan_id:
                     raise HouseholdPolicyEnforcementError(
                         "household_policy_enforcement_http_idempotency_key_required"
