@@ -1,0 +1,1117 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Home Center Device Management API",
+    "version": "0.58.0-development",
+    "description": "Bounded 0.57–0.58 device-management surface. Every operation is same-origin, authenticated, body-bounded and fail-closed. Provider acceptance is not success; verified post-condition evidence is required before managed-state transition."
+  },
+  "tags": [
+    {
+      "name": "Enrollment execution"
+    },
+    {
+      "name": "Enrollment verification"
+    },
+    {
+      "name": "De-enrollment"
+    },
+    {
+      "name": "Failed enrollment cleanup"
+    },
+    {
+      "name": "Step-up"
+    }
+  ],
+  "paths": {
+    "/api/v1/household/devices/enrollment/execution/plan": {
+      "post": {
+        "tags": [
+          "Enrollment execution"
+        ],
+        "operationId": "planEnrollmentExecution",
+        "summary": "Подготовить provider-backed enrollment execution plan",
+        "x-home-center-boundary": {
+          "authenticated_session_required": true,
+          "same_origin_required": true,
+          "external_access_blocked": true,
+          "max_body_bytes": 8192,
+          "external_publication_authorized": false,
+          "authority": "planning-only"
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../devices/device-management-enrollment-execution-plan-request.v1.schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted by the bounded runtime contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../devices/device-management-enrollment-execution-plan.v1.schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/household/devices/enrollment/execution/start": {
+      "post": {
+        "tags": [
+          "Enrollment execution"
+        ],
+        "operationId": "startEnrollmentExecution",
+        "summary": "Явно подтвердить и запустить provider enrollment",
+        "x-home-center-boundary": {
+          "authenticated_session_required": true,
+          "same_origin_required": true,
+          "external_access_blocked": true,
+          "max_body_bytes": 8192,
+          "external_publication_authorized": false,
+          "authority": "typed-provider-execution-no-managed-state"
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../devices/device-management-enrollment-execution-start-request.v1.schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted by the bounded runtime contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../devices/device-management-enrollment-execution-receipt.v1.schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/household/devices/enrollment/execution/cancel": {
+      "post": {
+        "tags": [
+          "Enrollment execution"
+        ],
+        "operationId": "cancelEnrollmentExecution",
+        "summary": "Явно запросить отмену provider enrollment",
+        "x-home-center-boundary": {
+          "authenticated_session_required": true,
+          "same_origin_required": true,
+          "external_access_blocked": true,
+          "max_body_bytes": 8192,
+          "external_publication_authorized": false,
+          "authority": "typed-provider-cancel-no-managed-state"
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../devices/device-management-enrollment-execution-cancel-request.v1.schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted by the bounded runtime contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../devices/device-management-enrollment-cancel-receipt.v1.schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/household/devices/enrollment/execution/retry": {
+      "post": {
+        "tags": [
+          "Enrollment execution"
+        ],
+        "operationId": "retryEnrollmentExecution",
+        "summary": "Повторить enrollment только после доказанного safe-to-retry outcome",
+        "x-home-center-boundary": {
+          "authenticated_session_required": true,
+          "same_origin_required": true,
+          "external_access_blocked": true,
+          "max_body_bytes": 8192,
+          "external_publication_authorized": false,
+          "authority": "bounded-provider-retry-no-managed-state"
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../devices/device-management-enrollment-execution-retry-request.v1.schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted by the bounded runtime contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../devices/device-management-enrollment-execution-receipt.v1.schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/household/devices/enrollment/verification/plan": {
+      "post": {
+        "tags": [
+          "Enrollment verification"
+        ],
+        "operationId": "planEnrollmentVerification",
+        "summary": "Подготовить post-condition verification",
+        "x-home-center-boundary": {
+          "authenticated_session_required": true,
+          "same_origin_required": true,
+          "external_access_blocked": true,
+          "max_body_bytes": 8192,
+          "external_publication_authorized": false,
+          "authority": "planning-only"
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../devices/device-management-enrollment-post-condition-plan-request.v1.schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted by the bounded runtime contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Exact-bound durable verification plan returned by the 0.58 runtime."
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/household/devices/enrollment/verification/confirm": {
+      "post": {
+        "tags": [
+          "Enrollment verification"
+        ],
+        "operationId": "confirmEnrollmentVerification",
+        "summary": "Подтвердить post-condition verification с scoped step-up",
+        "x-home-center-boundary": {
+          "authenticated_session_required": true,
+          "same_origin_required": true,
+          "external_access_blocked": true,
+          "max_body_bytes": 8192,
+          "external_publication_authorized": false,
+          "authority": "provider-readback-and-managed-state-apply-after-verified-evidence"
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../devices/device-management-enrollment-post-condition-confirm-request.v1.schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted by the bounded runtime contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../devices/device-management-enrollment-post-condition-verification-receipt.v1.schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/StepUpHeader"
+          }
+        ]
+      }
+    },
+    "/api/v1/household/devices/deenrollment/plan": {
+      "post": {
+        "tags": [
+          "De-enrollment"
+        ],
+        "operationId": "planDeviceDeenrollment",
+        "summary": "Подготовить точный de-enrollment plan",
+        "x-home-center-boundary": {
+          "authenticated_session_required": true,
+          "same_origin_required": true,
+          "external_access_blocked": true,
+          "max_body_bytes": 8192,
+          "external_publication_authorized": false,
+          "authority": "planning-only"
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "schema",
+                  "verification_id",
+                  "max_observed_age_seconds"
+                ],
+                "properties": {
+                  "schema": {
+                    "const": "home-center.device-management-deenrollment-runtime-plan-request.v1"
+                  },
+                  "verification_id": {
+                    "type": "string",
+                    "pattern": "^dmpverify-[0-9a-f]{24}$"
+                  },
+                  "max_observed_age_seconds": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted by the bounded runtime contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../devices/device-management-deenrollment-plan.v1.schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/household/devices/deenrollment/confirm": {
+      "post": {
+        "tags": [
+          "De-enrollment"
+        ],
+        "operationId": "confirmDeviceDeenrollment",
+        "summary": "Подтвердить de-enrollment с scoped step-up без вызова provider",
+        "x-home-center-boundary": {
+          "authenticated_session_required": true,
+          "same_origin_required": true,
+          "external_access_blocked": true,
+          "max_body_bytes": 8192,
+          "external_publication_authorized": false,
+          "authority": "provider-mutation-authorization-only-no-provider-call"
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "schema",
+                  "plan_id",
+                  "confirmed"
+                ],
+                "properties": {
+                  "schema": {
+                    "const": "home-center.device-management-deenrollment-runtime-confirm-request.v1"
+                  },
+                  "plan_id": {
+                    "type": "string",
+                    "pattern": "^dmdel-[0-9a-f]{24}$"
+                  },
+                  "confirmed": {
+                    "const": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted by the bounded runtime contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../devices/device-management-deenrollment-confirmation.v1.schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/StepUpHeader"
+          }
+        ]
+      }
+    },
+    "/api/v1/household/devices/deenrollment/execute": {
+      "post": {
+        "tags": [
+          "De-enrollment"
+        ],
+        "operationId": "executeDeviceDeenrollment",
+        "summary": "Однократно выполнить typed provider de-enrollment и verify read-back",
+        "x-home-center-boundary": {
+          "authenticated_session_required": true,
+          "same_origin_required": true,
+          "external_access_blocked": true,
+          "max_body_bytes": 8192,
+          "external_publication_authorized": false,
+          "authority": "typed-provider-mutation-readback-verified-local-state-transition"
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "schema",
+                  "plan_id",
+                  "confirmed",
+                  "idempotency_key"
+                ],
+                "properties": {
+                  "schema": {
+                    "const": "home-center.device-management-deenrollment-execute-request.v1"
+                  },
+                  "plan_id": {
+                    "type": "string",
+                    "pattern": "^dmdel-[0-9a-f]{24}$"
+                  },
+                  "confirmed": {
+                    "const": true
+                  },
+                  "idempotency_key": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 128
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted by the bounded runtime contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Completion or fail-closed reconciliation-required outcome; provider acceptance alone is never success."
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/household/devices/deenrollment/reconcile": {
+      "post": {
+        "tags": [
+          "De-enrollment"
+        ],
+        "operationId": "reconcileDeviceDeenrollment",
+        "summary": "Выполнить read-only reconciliation без повторной provider mutation",
+        "x-home-center-boundary": {
+          "authenticated_session_required": true,
+          "same_origin_required": true,
+          "external_access_blocked": true,
+          "max_body_bytes": 8192,
+          "external_publication_authorized": false,
+          "authority": "read-only-provider-reconciliation-no-provider-retry"
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "schema",
+                  "plan_id",
+                  "idempotency_key"
+                ],
+                "properties": {
+                  "schema": {
+                    "const": "home-center.device-management-deenrollment-reconcile-request.v1"
+                  },
+                  "plan_id": {
+                    "type": "string",
+                    "pattern": "^dmdel-[0-9a-f]{24}$"
+                  },
+                  "idempotency_key": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 128
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted by the bounded runtime contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Read-back reconciliation completion; never implicitly re-invokes provider mutation."
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/household/devices/enrollment/cleanup/plan": {
+      "post": {
+        "tags": [
+          "Failed enrollment cleanup"
+        ],
+        "operationId": "planFailedEnrollmentCleanup",
+        "summary": "Подготовить bounded cleanup plan только для rejected enrollment verification",
+        "x-home-center-boundary": {
+          "authenticated_session_required": true,
+          "same_origin_required": true,
+          "external_access_blocked": true,
+          "max_body_bytes": 8192,
+          "external_publication_authorized": false,
+          "authority": "planning-only"
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "schema",
+                  "verification_id",
+                  "max_observed_age_seconds"
+                ],
+                "properties": {
+                  "schema": {
+                    "const": "home-center.device-management-failed-enrollment-cleanup-runtime-plan-request.v1"
+                  },
+                  "verification_id": {
+                    "type": "string",
+                    "pattern": "^dmpverify-[0-9a-f]{24}$"
+                  },
+                  "max_observed_age_seconds": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted by the bounded runtime contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../devices/device-management-failed-enrollment-cleanup-plan.v1.schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/household/devices/enrollment/cleanup/verify": {
+      "post": {
+        "tags": [
+          "Failed enrollment cleanup"
+        ],
+        "operationId": "verifyFailedEnrollmentCleanup",
+        "summary": "Read-only проверить provider state перед bounded cleanup",
+        "x-home-center-boundary": {
+          "authenticated_session_required": true,
+          "same_origin_required": true,
+          "external_access_blocked": true,
+          "max_body_bytes": 8192,
+          "external_publication_authorized": false,
+          "authority": "read-only-provider-verification-bounded-cleanup-authority"
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "schema",
+                  "plan_id",
+                  "confirmed",
+                  "idempotency_key"
+                ],
+                "properties": {
+                  "schema": {
+                    "const": "home-center.device-management-failed-enrollment-cleanup-runtime-verify-request.v1"
+                  },
+                  "plan_id": {
+                    "type": "string",
+                    "pattern": "^dmclean-[0-9a-f]{24}$"
+                  },
+                  "confirmed": {
+                    "const": true
+                  },
+                  "idempotency_key": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 128
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted by the bounded runtime contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../devices/device-management-failed-enrollment-cleanup-receipt.v1.schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/household/devices/enrollment/cleanup/execute": {
+      "post": {
+        "tags": [
+          "Failed enrollment cleanup"
+        ],
+        "operationId": "executeFailedEnrollmentCleanup",
+        "summary": "Удалить только подтверждённую transient one-time reference из durable copies",
+        "x-home-center-boundary": {
+          "authenticated_session_required": true,
+          "same_origin_required": true,
+          "external_access_blocked": true,
+          "max_body_bytes": 8192,
+          "external_publication_authorized": false,
+          "authority": "local-transient-reference-redaction-only"
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "schema",
+                  "plan_id",
+                  "confirmed",
+                  "idempotency_key"
+                ],
+                "properties": {
+                  "schema": {
+                    "const": "home-center.device-management-failed-enrollment-cleanup-runtime-execute-request.v1"
+                  },
+                  "plan_id": {
+                    "type": "string",
+                    "pattern": "^dmclean-[0-9a-f]{24}$"
+                  },
+                  "confirmed": {
+                    "const": true
+                  },
+                  "idempotency_key": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted by the bounded runtime contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Cleanup execution receipt: no provider, managed-state, policy, device-record, infrastructure or publication mutation."
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/session/reauth": {
+      "post": {
+        "tags": [
+          "Step-up"
+        ],
+        "operationId": "reauthenticateForDeviceManagement",
+        "summary": "Получить одноразовый scoped step-up grant для подтверждения risk-bearing шага",
+        "x-home-center-boundary": {
+          "authenticated_session_required": true,
+          "same_origin_required": true,
+          "external_access_blocked": true,
+          "max_body_bytes": 4096,
+          "external_publication_authorized": false,
+          "authority": "session-step-up-only"
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "schema",
+                  "provider",
+                  "username",
+                  "password",
+                  "scope"
+                ],
+                "properties": {
+                  "schema": {
+                    "const": "home-center.session-reauth-request.v1"
+                  },
+                  "provider": {
+                    "enum": [
+                      "local",
+                      "ad"
+                    ]
+                  },
+                  "username": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "scope": {
+                    "type": "string",
+                    "pattern": "^(?:household\\.device\\.management\\.enrollment\\.verify:dmpverify-[0-9a-f]{24}|household\\.device\\.management\\.deenrollment:dmdel-[0-9a-f]{24})$"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted by the bounded runtime contract.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "schema",
+                    "state",
+                    "scope",
+                    "step_up_token",
+                    "expires_in_seconds",
+                    "single_use"
+                  ],
+                  "properties": {
+                    "schema": {
+                      "const": "home-center.session-reauth-result.v1"
+                    },
+                    "state": {
+                      "const": "verified"
+                    },
+                    "scope": {
+                      "type": "string"
+                    },
+                    "step_up_token": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "expires_in_seconds": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "single_use": {
+                      "const": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "StepUpHeader": {
+        "name": "X-Home-Center-Step-Up",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "description": "Single-use scoped step-up token. Server revalidates actor and exact scope."
+      }
+    },
+    "responses": {
+      "Error": {
+        "description": "Bounded fail-closed error response. Unknown/stale/ambiguous state is never converted to success.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    }
+  }
+}
