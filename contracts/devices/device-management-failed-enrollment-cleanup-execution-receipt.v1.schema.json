@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/devices/device-management-failed-enrollment-cleanup-execution-receipt.v1.schema.json",
+  "title": "Home Center failed enrollment cleanup execution receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "state", "job_id", "plan_id", "enrollment_plan_id", "provider_id",
+    "provider_operation_id", "device_id", "member_id", "cleanup_generation",
+    "execution_state_sha256", "one_time_reference_removed", "removed_reference_sha256",
+    "provider_mutation_performed", "managed_state_changed", "policy_mutation_performed",
+    "device_record_removed", "infrastructure_mutation_performed", "external_publication_performed"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.device-management-failed-enrollment-cleanup-execution-receipt.v1"},
+    "state": {"const": "cleaned"},
+    "job_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "plan_id": {"type": "string", "pattern": "^dmclean-[0-9a-f]{24}$"},
+    "enrollment_plan_id": {"type": "string", "pattern": "^dmpexec-[0-9a-f]{24}$"},
+    "provider_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "provider_operation_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "device_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "member_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "cleanup_generation": {"type": "integer", "minimum": 1},
+    "execution_state_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "one_time_reference_removed": {"type": "boolean"},
+    "removed_reference_sha256": {
+      "anyOf": [
+        {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        {"type": "null"}
+      ]
+    },
+    "provider_mutation_performed": {"const": false},
+    "managed_state_changed": {"const": false},
+    "policy_mutation_performed": {"const": false},
+    "device_record_removed": {"const": false},
+    "infrastructure_mutation_performed": {"const": false},
+    "external_publication_performed": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"one_time_reference_removed": {"const": true}}, "required": ["one_time_reference_removed"]},
+      "then": {"properties": {"removed_reference_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}}
+    },
+    {
+      "if": {"properties": {"one_time_reference_removed": {"const": false}}, "required": ["one_time_reference_removed"]},
+      "then": {"properties": {"removed_reference_sha256": {"type": "null"}}}
+    }
+  ]
+}
