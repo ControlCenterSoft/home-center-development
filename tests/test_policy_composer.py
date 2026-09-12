@@ -93,9 +93,16 @@ def test_policy_plan_is_exact_state_explainable_and_non_executing() -> None:
     assert plan.snapshot_id == snapshot.snapshot_id
     assert plan.resource_version == snapshot.resource_version
     assert plan.generation == snapshot.generation
+    assert plan.desired_state.household_id == snapshot.household_id
+    assert plan.desired_state.member_id == "child-main"
+    assert plan.desired_state.bundle == bundle
+    assert plan.desired_state.provider_execution_authorized is False
+    assert plan.desired_state.infrastructure_mutation_authorized is False
+    assert plan.desired_state.external_publication_authorized is False
     assert plan.confirmation_required is True
     assert plan.desired_state_write_authorized is False
     assert plan.provider_execution_authorized is False
+    assert plan.infrastructure_mutation_authorized is False
     assert plan.external_publication_authorized is False
     assert plan.current_bundle_id == plan.to_dict()["recovery_bundle_id"]
     assert "Домашние файлы: недоступны." in plan.cozy_summary_ru
@@ -109,6 +116,8 @@ def test_policy_plan_is_exact_state_explainable_and_non_executing() -> None:
     )
     assert repeated == plan
 
+    with pytest.raises(PolicyComposerError, match="policy_desired_state_evidence_mismatch"):
+        replace(plan.desired_state, desired_state_id="hpds-000000000000000000000000")
     with pytest.raises(PolicyComposerError, match="policy_change_evidence_mismatch"):
         replace(plan, plan_id="hpplan-000000000000000000000000")
 
@@ -158,7 +167,7 @@ def test_policy_plan_revalidation_rejects_actor_substitution() -> None:
         revalidate_policy_change_plan(snapshot, plan, actor_member_id="child-main")
 
 
-def test_confirmation_authorizes_only_protected_desired_state_write() -> None:
+def test_confirmation_authorizes_only_exact_desired_state_write() -> None:
     snapshot = _snapshot()
     bundle = build_policy_bundle(HouseholdRole.CHILD, home_files_allowed=False)
     plan = compose_policy_change_plan(
@@ -172,13 +181,18 @@ def test_confirmation_authorizes_only_protected_desired_state_write() -> None:
     value = confirmation.to_dict()
 
     assert confirmation.plan_id == plan.plan_id
+    assert confirmation.desired_state_id == plan.desired_state.desired_state_id
     assert confirmation.desired_state_write_authorized is True
     assert confirmation.provider_execution_authorized is False
+    assert confirmation.infrastructure_mutation_authorized is False
     assert confirmation.external_publication_authorized is False
+    assert confirmation.automatic_recovery_authorized is False
     assert confirmation.audit_event_id.startswith("audit-hp-")
     assert value["desired_state_write_authorized"] is True
     assert value["provider_execution_authorized"] is False
+    assert value["infrastructure_mutation_authorized"] is False
     assert value["external_publication_authorized"] is False
+    assert value["automatic_recovery_authorized"] is False
 
     with pytest.raises(PolicyComposerError, match="policy_confirmation_evidence_mismatch"):
         replace(confirmation, audit_event_id="audit-hp-000000000000000000000000")
