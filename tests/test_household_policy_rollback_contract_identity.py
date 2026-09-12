@@ -82,3 +82,47 @@ def test_malformed_rollback_contract_is_rejected_before_audit_lookup(mutate) -> 
             request=request,
             receipt=receipt,
         )
+
+
+def test_target_generation_must_precede_expected_generation_before_audit_lookup() -> None:
+    request = _request()
+    request["expected_generation"] = 1
+    receipt = _receipt(request)
+    receipt["generation"] = 2
+
+    with pytest.raises(HouseholdPolicyHistoryError, match="household_policy_rollback_evidence_mismatch"):
+        validate_rollback_audit_binding(
+            _service(),
+            actor=ACTOR,
+            request=request,
+            receipt=receipt,
+        )
+
+
+def test_changed_rollback_generation_must_be_exact_successor_before_audit_lookup() -> None:
+    request = _request()
+    receipt = _receipt(request)
+    receipt["generation"] = 4
+
+    with pytest.raises(HouseholdPolicyHistoryError, match="household_policy_rollback_evidence_mismatch"):
+        validate_rollback_audit_binding(
+            _service(),
+            actor=ACTOR,
+            request=request,
+            receipt=receipt,
+        )
+
+
+def test_unchanged_rollback_generation_must_equal_expected_before_audit_lookup() -> None:
+    request = _request()
+    receipt = _receipt(request)
+    receipt["changed"] = False
+    receipt["outcome"] = "already-current"
+
+    with pytest.raises(HouseholdPolicyHistoryError, match="household_policy_rollback_evidence_mismatch"):
+        validate_rollback_audit_binding(
+            _service(),
+            actor=ACTOR,
+            request=request,
+            receipt=receipt,
+        )
