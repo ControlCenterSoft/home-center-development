@@ -106,6 +106,7 @@ class CommercialEvidence:
     source_obligations_resolved: bool
     sbom_reviewed: bool
     legal_terms_dispositioned: bool
+    support_terms_dispositioned: bool
     release_claims_reviewed: bool
 
 
@@ -289,6 +290,8 @@ def evaluate_release_promotion(
         blockers.append("sbom_reviewed")
     if not commercial.legal_terms_dispositioned:
         blockers.append("legal_terms_dispositioned")
+    if not commercial.support_terms_dispositioned:
+        blockers.append("support_terms_dispositioned")
     if not commercial.release_claims_reviewed:
         blockers.append("release_claims_reviewed")
 
