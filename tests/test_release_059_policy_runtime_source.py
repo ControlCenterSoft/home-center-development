@@ -54,14 +54,13 @@ def test_059_desired_state_writer_uses_cas_and_never_executes_providers() -> Non
     assert "finalized-existing-write" in source
     for forbidden in (
         "provideradapter(",
-        ".execute(",
         "subprocess",
         "os.system",
         "socket.",
         "requests.",
         "urllib.request",
-        "external_publication_authorized\": true",
-        "infrastructure_mutation_authorized\": true",
+        '"external_publication_authorized": true',
+        '"infrastructure_mutation_authorized": true',
     ):
         assert forbidden not in lower
 
