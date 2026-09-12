@@ -118,10 +118,14 @@ def test_release_057_runtime_never_marks_device_managed_from_provider_acceptance
     assert '"next_required_boundary":"post-condition-verification"' in execution
 
 
-def test_release_057_notes_are_explicitly_non_stable_and_preserve_next_verification_boundary() -> None:
+def test_release_057_notes_are_official_bounded_stable_and_preserve_verification_boundary() -> None:
     notes = (ROOT / "docs/releases/0.57.0.md").read_text(encoding="utf-8")
-    assert "не Release Candidate и не Public Stable" in notes
+    assert "Status: official release." in notes
+    assert "`single-node-core`" in notes
+    assert "multi-node HA / automatic failover — не заявлены" in notes
+    assert "concrete provider execution — не заявлен" in notes
+    assert "commercial launch clearance — не заявлен" in notes
     assert "enrollment_completed = false" in notes
     assert "post_condition_verified = false" in notes
     assert "managed_state_change_authorized = false" in notes
-    assert "Состояние `managed=true` допустимо только после отдельной последующей проверки" in notes
+    assert "Состояние `managed=true` допустимо только после отдельной последующей post-condition verification" in notes
