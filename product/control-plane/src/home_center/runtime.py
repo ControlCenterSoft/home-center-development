@@ -23,8 +23,10 @@ from .household_device_management_runtime import HouseholdDeviceManagementRuntim
 from .household_device_runtime import HouseholdDeviceRuntimeService
 from .household_policy_authorized_history import ScopedHouseholdPolicyHistoryService
 from .household_policy_confirmation_audit import AuditBoundHouseholdPolicyDesiredStateService
+from .household_policy_guarded_workflow import (
+    GuardedHouseholdPolicyWorkflowService as HouseholdPolicyWorkflowService,
+)
 from .household_policy_semantic_runtime import SemanticHouseholdPolicyRuntimeService
-from .household_policy_workflow import HouseholdPolicyWorkflowService
 from .household_runtime import HouseholdRuntimeService
 from .local_admin_auth import LocalAdminCredentialStore
 from .local_admin_change import LocalAdminPasswordChangeClient
