@@ -103,6 +103,12 @@ for unit in home-center.service home-center-backup.service home-center-backup.ti
     cp -a "/etc/systemd/system/$unit" "$BACKUP/$unit"
     : >"$BACKUP/$unit.existed"
   fi
+  if systemctl is-enabled --quiet "$unit" 2>/dev/null; then
+    : >"$BACKUP/$unit.enabled"
+  fi
+  if systemctl is-active --quiet "$unit" 2>/dev/null; then
+    : >"$BACKUP/$unit.active"
+  fi
 done
 
 state_db=$(python3 - <<'PY'
@@ -142,7 +148,7 @@ tar -xzf "$ARTIFACT" -C "$STAGE"
 
 rollback() {
   set +e
-  systemctl stop home-center.service >/dev/null 2>&1 || true
+  systemctl stop home-center-backup.timer home-center-backup.service home-center.service >/dev/null 2>&1 || true
   if [[ -f "$BACKUP/state-db.path" && -f "$BACKUP/state.sqlite3" ]]; then
     restore_state=$(cat "$BACKUP/state-db.path")
     install -m 0640 -o home-center -g home-center "$BACKUP/state.sqlite3" "$restore_state" >/dev/null 2>&1 || true
@@ -151,12 +157,28 @@ rollback() {
   for unit in home-center.service home-center-backup.service home-center-backup.timer; do
     if [[ -f "$BACKUP/$unit.existed" ]]; then
       install -m 0644 -o root -g root "$BACKUP/$unit" "/etc/systemd/system/$unit" >/dev/null 2>&1 || true
+    else
+      systemctl disable "$unit" >/dev/null 2>&1 || true
+      rm -f "/etc/systemd/system/$unit" >/dev/null 2>&1 || true
     fi
   done
   ln -sfn "$previous" /opt/home-center/.current.rollback
   mv -Tf /opt/home-center/.current.rollback "$CURRENT" >/dev/null 2>&1 || true
   systemctl daemon-reload >/dev/null 2>&1 || true
-  systemctl start home-center.service >/dev/null 2>&1 || true
+  for unit in home-center.service home-center-backup.service home-center-backup.timer; do
+    if [[ -f "$BACKUP/$unit.enabled" ]]; then
+      systemctl enable "$unit" >/dev/null 2>&1 || true
+    else
+      systemctl disable "$unit" >/dev/null 2>&1 || true
+    fi
+  done
+  for unit in home-center.service home-center-backup.service home-center-backup.timer; do
+    if [[ -f "$BACKUP/$unit.active" ]]; then
+      systemctl start "$unit" >/dev/null 2>&1 || true
+    else
+      systemctl stop "$unit" >/dev/null 2>&1 || true
+    fi
+  done
   set -e
 }
 

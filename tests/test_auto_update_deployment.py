@@ -74,6 +74,35 @@ class AutoUpdateDeploymentTests(unittest.TestCase):
                 self.assertNotRegex(text, r"(?<![0-9])192\.168\.")
                 self.assertNotRegex(text, r"\bS-1-5-21-[0-9]+")
 
+    def test_failed_node_install_restores_preexisting_systemd_unit_state(self) -> None:
+        text = NODE_INSTALLER.read_text(encoding="utf-8")
+
+        self.assertIn('systemctl is-enabled --quiet "$unit"', text)
+        self.assertIn('>"$BACKUP/$unit.enabled"', text)
+        self.assertIn('systemctl is-active --quiet "$unit"', text)
+        self.assertIn('>"$BACKUP/$unit.active"', text)
+        self.assertIn(
+            "systemctl stop home-center-backup.timer "
+            "home-center-backup.service home-center.service",
+            text,
+        )
+        self.assertIn(
+            'if [[ -f "$BACKUP/$unit.existed" ]]; then',
+            text,
+        )
+        self.assertIn(
+            'rm -f "/etc/systemd/system/$unit"',
+            text,
+        )
+        self.assertIn(
+            'if [[ -f "$BACKUP/$unit.enabled" ]]; then',
+            text,
+        )
+        self.assertIn(
+            'if [[ -f "$BACKUP/$unit.active" ]]; then',
+            text,
+        )
+
     def test_builder_produces_infrastructure_neutral_deployment_archive(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             completed = subprocess.run(
