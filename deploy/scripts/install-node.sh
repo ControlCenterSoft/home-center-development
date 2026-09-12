@@ -86,6 +86,10 @@ RELEASE=/opt/home-center/releases/${VERSION}-${REVISION:0:12}-${SHA256:0:12}
 BACKUP=/var/backups/home-center-deploy/${TRANSACTION_ID}-${NODE_NAME}
 TRANSACTION_DIR=/var/lib/home-center-deploy/transactions
 TRANSACTION_FILE=$TRANSACTION_DIR/${TRANSACTION_ID}-${NODE_NAME}.json
+if [[ -e "$BACKUP" || -L "$BACKUP" || -e "$TRANSACTION_FILE" || -L "$TRANSACTION_FILE" ]]; then
+  echo TRANSACTION_ID_ALREADY_USED >&2
+  exit 66
+fi
 STAGE=$(mktemp -d /opt/home-center/releases/.stage.XXXXXX)
 cleanup() { rm -rf -- "$STAGE"; }
 trap cleanup EXIT
@@ -165,6 +169,20 @@ if [[ ! -e "$RELEASE" ]]; then
   STAGE=$(mktemp -d /opt/home-center/releases/.stage.XXXXXX)
 else
   [[ -d "$RELEASE" && ! -L "$RELEASE" ]] || { echo TARGET_RELEASE_PATH_UNSAFE >&2; exit 66; }
+  for identity_file in VERSION REVISION MANIFEST.sha256; do
+    [[ -f "$RELEASE/$identity_file" && ! -L "$RELEASE/$identity_file" ]] || { echo TARGET_RELEASE_IDENTITY_MISSING >&2; exit 66; }
+  done
+  [[ "$(tr -d '\r\n' <"$RELEASE/VERSION")" == "$VERSION" ]] || { echo TARGET_RELEASE_VERSION_MISMATCH >&2; exit 66; }
+  [[ "$(tr -d '\r\n' <"$RELEASE/REVISION")" == "$REVISION" ]] || { echo TARGET_RELEASE_REVISION_MISMATCH >&2; exit 66; }
+  cmp -s "$STAGE/MANIFEST.sha256" "$RELEASE/MANIFEST.sha256" || { echo TARGET_RELEASE_MANIFEST_IDENTITY_MISMATCH >&2; exit 66; }
+  if find "$RELEASE" \( -type l -o -type b -o -type c -o -type p -o -type s \) -print -quit | grep -q .; then
+    echo TARGET_RELEASE_ENTRY_TYPE_UNSAFE >&2
+    exit 66
+  fi
+  (
+    cd "$RELEASE"
+    sha256sum -c MANIFEST.sha256 >/dev/null
+  ) || { echo TARGET_RELEASE_MANIFEST_MISMATCH >&2; exit 66; }
 fi
 
 systemctl stop home-center.service
