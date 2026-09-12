@@ -15,12 +15,13 @@
     "target_member_id",
     "current_policy_id",
     "current_bundle_id",
-    "target_bundle",
+    "desired_state",
     "cozy_summary_ru",
     "recovery_bundle_id",
     "confirmation_required",
     "desired_state_write_authorized",
     "provider_execution_authorized",
+    "infrastructure_mutation_authorized",
     "external_publication_authorized"
   ],
   "properties": {
@@ -34,7 +35,7 @@
     "target_member_id": {"type": "string", "minLength": 1, "maxLength": 256},
     "current_policy_id": {"type": "string", "pattern": "^hpol-[0-9a-f]{24}$"},
     "current_bundle_id": {"type": "string", "pattern": "^hpb-[0-9a-f]{24}$"},
-    "target_bundle": {"$ref": "policy-bundle.v1.schema.json"},
+    "desired_state": {"$ref": "policy-desired-state.v1.schema.json"},
     "cozy_summary_ru": {
       "type": "array",
       "minItems": 1,
@@ -45,6 +46,7 @@
     "confirmation_required": {"const": true},
     "desired_state_write_authorized": {"const": false},
     "provider_execution_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
     "external_publication_authorized": {"const": false}
   }
 }
