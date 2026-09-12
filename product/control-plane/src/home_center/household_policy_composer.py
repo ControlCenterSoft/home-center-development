@@ -2,16 +2,18 @@
 
 The composer materializes the current RolePreset/EffectivePolicy as a deterministic
 PolicyBundle and binds a proposed Desired State write to an exact Household
-snapshot.  This module is intentionally pure: it never writes Desired State,
-starts Jobs, calls providers or changes infrastructure.  Runtime plan/confirm,
-Audit and recovery are separate boundaries and must revalidate this proposal
-before a protected Desired State write can be authorized.
+snapshot plus the exact previously observed policy Desired State revision. This
+module is intentionally pure: it never writes Desired State, starts Jobs, calls
+providers or changes infrastructure. Runtime plan/confirm, Audit and recovery are
+separate boundaries and must revalidate this proposal before a protected Desired
+State write can be authorized.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass, field
 
 from .home_services import HomeServiceCatalogError, _identifier
@@ -21,6 +23,7 @@ from .household_store import HouseholdSnapshot
 
 POLICY_BUNDLE_SCHEMA = "home-center.household-policy-bundle.v1"
 POLICY_COMPOSITION_PROPOSAL_SCHEMA = "home-center.household-policy-composition-proposal.v1"
+BUNDLE_ID = re.compile(r"^hpb-[0-9a-f]{24}$")
 
 
 class HouseholdPolicyComposerError(ValueError):
@@ -35,6 +38,18 @@ def _canonical(value: object) -> bytes:
 
 def _resource_key(household_id: str, member_id: str) -> str:
     return f"household-policy:{household_id}:{member_id}"
+
+
+def _desired_state_precondition(generation: object, bundle_id: object) -> tuple[int, str | None]:
+    if isinstance(generation, bool) or not isinstance(generation, int) or generation < 0:
+        raise HouseholdPolicyComposerError("invalid_household_policy_desired_state_precondition")
+    if generation == 0:
+        if bundle_id is not None:
+            raise HouseholdPolicyComposerError("invalid_household_policy_desired_state_precondition")
+        return 0, None
+    if not isinstance(bundle_id, str) or BUNDLE_ID.fullmatch(bundle_id) is None:
+        raise HouseholdPolicyComposerError("invalid_household_policy_desired_state_precondition")
+    return generation, bundle_id
 
 
 def _policy_explanation(policy: EffectivePolicy) -> tuple[str, ...]:
@@ -117,6 +132,8 @@ class PolicyCompositionProposal:
     generation: int
     actor_member_id: str
     member_id: str
+    expected_desired_state_generation: int
+    expected_desired_state_bundle_id: str | None
     bundle: PolicyBundle
     schema: str = field(default=POLICY_COMPOSITION_PROPOSAL_SCHEMA, init=False)
     confirmation_required: bool = field(default=True, init=False)
@@ -134,6 +151,8 @@ class PolicyCompositionProposal:
             "generation": self.generation,
             "actor_member_id": self.actor_member_id,
             "member_id": self.member_id,
+            "expected_desired_state_generation": self.expected_desired_state_generation,
+            "expected_desired_state_bundle_id": self.expected_desired_state_bundle_id,
             "bundle": self.bundle.to_dict(),
             "confirmation_required": True,
             "desired_state_write_authorized": False,
@@ -173,11 +192,17 @@ def build_policy_composition_proposal(
     *,
     actor_member_id: str,
     member_id: str,
+    expected_desired_state_generation: int = 0,
+    expected_desired_state_bundle_id: str | None = None,
 ) -> PolicyCompositionProposal:
     """Build an exact-state, confirmation-gated policy materialization proposal."""
 
     if not isinstance(snapshot, HouseholdSnapshot):
         raise TypeError("invalid_household_snapshot")
+    expected_generation, expected_bundle_id = _desired_state_precondition(
+        expected_desired_state_generation,
+        expected_desired_state_bundle_id,
+    )
     try:
         actor = _identifier(actor_member_id, "invalid_household_member_id")
         target = _identifier(member_id, "invalid_household_member_id")
@@ -195,6 +220,8 @@ def build_policy_composition_proposal(
         "generation": snapshot.generation,
         "actor_member_id": actor,
         "member_id": target,
+        "expected_desired_state_generation": expected_generation,
+        "expected_desired_state_bundle_id": expected_bundle_id,
         "bundle": bundle.to_dict(),
     }
     proposal_id = "hpc-" + hashlib.sha256(_canonical(canonical)).hexdigest()[:24]
@@ -206,6 +233,8 @@ def build_policy_composition_proposal(
         generation=snapshot.generation,
         actor_member_id=actor,
         member_id=target,
+        expected_desired_state_generation=expected_generation,
+        expected_desired_state_bundle_id=expected_bundle_id,
         bundle=bundle,
     )
 
@@ -215,11 +244,17 @@ def revalidate_policy_composition_proposal(
     proposal: PolicyCompositionProposal,
     *,
     actor_member_id: str,
+    current_desired_state_generation: int = 0,
+    current_desired_state_bundle_id: str | None = None,
 ) -> PolicyBundle:
-    """Fail closed if Household or actor state changed after the proposal was shown."""
+    """Fail closed if Household, actor or policy Desired State changed after planning."""
 
     if not isinstance(current, HouseholdSnapshot) or not isinstance(proposal, PolicyCompositionProposal):
         raise TypeError("invalid_household_policy_composition")
+    current_generation, current_bundle_id = _desired_state_precondition(
+        current_desired_state_generation,
+        current_desired_state_bundle_id,
+    )
     try:
         actor = _identifier(actor_member_id, "invalid_household_member_id")
     except HomeServiceCatalogError as exc:
@@ -231,6 +266,8 @@ def revalidate_policy_composition_proposal(
         or current.snapshot_id != proposal.snapshot_id
         or current.resource_version != proposal.resource_version
         or current.generation != proposal.generation
+        or current_generation != proposal.expected_desired_state_generation
+        or current_bundle_id != proposal.expected_desired_state_bundle_id
     ):
         raise HouseholdPolicyComposerError("household_policy_composition_stale")
 
@@ -238,6 +275,8 @@ def revalidate_policy_composition_proposal(
         current,
         actor_member_id=actor,
         member_id=proposal.member_id,
+        expected_desired_state_generation=current_generation,
+        expected_desired_state_bundle_id=current_bundle_id,
     )
     if rebuilt != proposal:
         raise HouseholdPolicyComposerError("household_policy_composition_evidence_mismatch")
