@@ -104,6 +104,48 @@ def test_058_deenrollment_adapter_acceptance_cannot_claim_cleanup_success() -> N
         assert schema["properties"]["managed_state_change_authorized"] == {"const": False}
 
 
+def test_058_verification_contracts_are_closed_and_fail_closed() -> None:
+    request = _contract(
+        "device-management-enrollment-verification-request.v1.schema.json"
+    )
+    result = _contract(
+        "device-management-enrollment-verification-result.v1.schema.json"
+    )
+    evidence = _contract(
+        "device-management-enrollment-verification-evidence.v1.schema.json"
+    )
+    runtime_request = _contract(
+        "device-management-enrollment-verification-runtime-request.v1.schema.json"
+    )
+    runtime_receipt = _contract(
+        "device-management-enrollment-verification-runtime-receipt.v1.schema.json"
+    )
+
+    for schema in (request, result, evidence, runtime_request, runtime_receipt):
+        assert schema["additionalProperties"] is False
+
+    assert request["properties"]["provider_readback_authorized"] == {"const": True}
+    assert request["properties"]["credential_value_access_authorized"] == {"const": False}
+    assert request["properties"]["managed_state_change_authorized"] == {"const": False}
+    assert result["properties"]["secret_material_present"] == {"const": False}
+    assert result["properties"]["infrastructure_mutation_authorized"] == {"const": False}
+    assert evidence["properties"]["credential_value_access_authorized"] == {"const": False}
+    assert evidence["properties"]["policy_application_authorized"] == {"const": False}
+    assert runtime_request["required"] == ["schema", "plan_id", "idempotency_key"]
+    assert runtime_receipt["properties"]["state"]["enum"] == [
+        "post-condition-verified",
+        "post-condition-not-verified",
+    ]
+    for field in (
+        "credential_value_access_authorized",
+        "provider_mutation_authorized",
+        "policy_application_authorized",
+        "infrastructure_mutation_authorized",
+        "external_publication_authorized",
+    ):
+        assert runtime_receipt["properties"][field] == {"const": False}
+
+
 def test_058_source_contains_verification_cleanup_and_deenrollment_boundaries() -> None:
     verification = (
         ROOT
@@ -112,6 +154,18 @@ def test_058_source_contains_verification_cleanup_and_deenrollment_boundaries() 
     verification_runtime = (
         ROOT
         / "product/control-plane/src/home_center/device_management_enrollment_verification_runtime.py"
+    ).read_text(encoding="utf-8")
+    api = (
+        ROOT
+        / "product/control-plane/src/home_center/api_v4.py"
+    ).read_text(encoding="utf-8")
+    server = (
+        ROOT
+        / "product/control-plane/src/home_center/server.py"
+    ).read_text(encoding="utf-8")
+    runtime = (
+        ROOT
+        / "product/control-plane/src/home_center/runtime.py"
     ).read_text(encoding="utf-8")
     cleanup = (
         ROOT
@@ -127,11 +181,17 @@ def test_058_source_contains_verification_cleanup_and_deenrollment_boundaries() 
     assert "create_action_job" in verification_runtime
     assert "provider-readback" in verification_runtime
     assert "post-condition-verified" in verification_runtime
-    assert "credential_value_access_authorized\": False" in verification_runtime
-    assert "provider_mutation_authorized\": False" in verification_runtime
-    assert "policy_application_authorized\": False" in verification_runtime
-    assert "external_publication_authorized\": False" in verification_runtime
+    assert 'credential_value_access_authorized": False' in verification_runtime
+    assert 'provider_mutation_authorized": False' in verification_runtime
+    assert 'policy_application_authorized": False' in verification_runtime
+    assert 'external_publication_authorized": False' in verification_runtime
     assert "build_managed_state_replacement" not in verification_runtime
+    assert "device_management_enrollment_verification" in runtime
+    assert "RuntimeRequestHandlerV4" in api
+    assert "/api/v1/household/devices/enrollment/verification/verify" in api
+    assert "_same_origin_post_allowed" in api
+    assert "_blocked_for_external" in api
+    assert "RuntimeRequestHandlerV4" in server
     assert "build_failed_enrollment_cleanup_plan" in cleanup
     assert "assess_retry_after_cleanup" in cleanup
     assert "build_deenrollment_plan" in de_enrollment
@@ -144,6 +204,7 @@ def test_058_source_contains_verification_cleanup_and_deenrollment_boundaries() 
     assert "secret://" not in cleanup
     assert "secret://" not in de_enrollment
     assert "secret://" not in verification_runtime
+    assert "secret://" not in api
 
 
 def test_058_notes_keep_release_status_closed_and_describe_cleanup_boundary() -> None:
@@ -152,10 +213,11 @@ def test_058_notes_keep_release_status_closed_and_describe_cleanup_boundary() ->
     assert "не Release Candidate и не Public Stable" in notes
     assert "Failed-enrollment cleanup" in notes
     assert "Явный de-enrollment boundary" in notes
-    assert "Durable post-condition verification runtime" in notes
+    assert "Durable post-condition verification runtime и API" in notes
     assert "de-enroll-required" in notes
     assert "retry_planning_allowed=true" in notes
     assert "retry_execution_authorized=false" in notes
+    assert "/api/v1/household/devices/enrollment/verification/verify" in notes
     assert "не применяет" in notes
     assert "managed=true" in notes
     assert "не запускает CI или release workflow" in notes
