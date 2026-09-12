@@ -136,6 +136,7 @@ class ParentalInternetPolicy:
     household_id: str
     member_id: str
     base_policy_id: str
+    base_policy_sha256: str
     rule_source_id: str
     rule_source_version: str
     rule_source_sha256: str
@@ -156,7 +157,9 @@ class ParentalInternetPolicy:
         return {
             "schema": self.schema, "policy_id": self.policy_id,
             "household_id": self.household_id, "member_id": self.member_id,
-            "base_policy_id": self.base_policy_id, "rule_source_id": self.rule_source_id,
+            "subject_role": "child", "base_policy_id": self.base_policy_id,
+            "base_policy_sha256": self.base_policy_sha256,
+            "rule_source_id": self.rule_source_id,
             "rule_source_version": self.rule_source_version, "rule_source_sha256": self.rule_source_sha256,
             "allow_domains": list(self.allow_domains), "deny_domains": list(self.deny_domains),
             "allow_categories": list(self.allow_categories), "deny_categories": list(self.deny_categories),
@@ -243,12 +246,31 @@ def build_parental_internet_policy(*, base: ComposedPolicy, rule_source_id: str,
         raise ParentalInternetPolicyError("parental_continuous_controls_without_limit")
     if daily is None and bonus:
         raise ParentalInternetPolicyError("parental_bonus_without_daily_quota")
-    values = dict(household_id=base.household_id, member_id=base.member_id, base_policy_id=base.policy_id,
-        rule_source_id=source_id, rule_source_version=rule_source_version, rule_source_sha256=rule_source_sha256,
-        allow_domains=allow_d, deny_domains=deny_d, allow_categories=allow_c, deny_categories=deny_c,
-        schedule=windows, daily_quota_minutes=daily, weekly_quota_minutes=weekly,
-        continuous_session_minutes=continuous, break_minutes=break_value, grace_minutes=grace, bonus_minutes=bonus)
-    policy_id = "hcip-" + _digest({k: ([x.to_dict() for x in v] if k == "schedule" else v) for k, v in values.items()})[:24]
+    values = dict(
+        household_id=base.household_id,
+        member_id=base.member_id,
+        base_policy_id=base.policy_id,
+        base_policy_sha256=_digest(base.to_dict()),
+        rule_source_id=source_id,
+        rule_source_version=rule_source_version,
+        rule_source_sha256=rule_source_sha256,
+        allow_domains=allow_d,
+        deny_domains=deny_d,
+        allow_categories=allow_c,
+        deny_categories=deny_c,
+        schedule=windows,
+        daily_quota_minutes=daily,
+        weekly_quota_minutes=weekly,
+        continuous_session_minutes=continuous,
+        break_minutes=break_value,
+        grace_minutes=grace,
+        bonus_minutes=bonus,
+    )
+    canonical = {
+        "subject_role": "child",
+        **{k: ([x.to_dict() for x in v] if k == "schedule" else v) for k, v in values.items()},
+    }
+    policy_id = "hcip-" + _digest(canonical)[:24]
     return ParentalInternetPolicy(policy_id=policy_id, **values)
 
 
