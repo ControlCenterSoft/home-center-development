@@ -22,6 +22,12 @@ TARGET_BUNDLE = "hpb-" + "1" * 24
 CURRENT_BEFORE_BUNDLE = "hpb-" + "2" * 24
 CURRENT_GENERATION = 3
 CURRENT_EVIDENCE = "c" * 64
+TARGET_VALUE = {
+    "schema": "home-center.household-policy-bundle.v1",
+    "bundle_id": TARGET_BUNDLE,
+    "desired_state_resource_key": RESOURCE_KEY,
+    "policy": {"internet": {"mode": "family-safe"}},
+}
 
 
 class _HistoryProbe:
@@ -32,12 +38,14 @@ class _HistoryProbe:
                 "resource_key": RESOURCE_KEY,
                 "generation": 1,
                 "bundle_id": TARGET_BUNDLE,
+                "value": TARGET_VALUE,
                 "evidence_sha256": "a" * 64,
             },
             (RESOURCE_KEY, CURRENT_GENERATION): {
                 "resource_key": RESOURCE_KEY,
                 "generation": CURRENT_GENERATION,
                 "bundle_id": TARGET_BUNDLE,
+                "value": TARGET_VALUE,
                 "evidence_sha256": CURRENT_EVIDENCE,
             },
         }
@@ -235,4 +243,27 @@ def test_recovered_rollback_is_bound_to_exact_recovery_audit(tmp_path) -> None:
         request=request,
         receipt=_receipt(audit_event_id=recover_id, recovered=True),
     )
+    store.close()
+
+
+def test_rollback_evidence_requires_exact_materialized_target_value(tmp_path) -> None:
+    store = _store(tmp_path)
+    service = _HistoryProbe(store)
+    request = _request()
+    complete_id = _normal_audit(store, request)
+    service.values[(RESOURCE_KEY, CURRENT_GENERATION)] = {
+        **service.values[(RESOURCE_KEY, CURRENT_GENERATION)],
+        "value": {
+            **TARGET_VALUE,
+            "policy": {"internet": {"mode": "unrestricted"}},
+        },
+    }
+
+    with pytest.raises(HouseholdPolicyHistoryError, match="household_policy_rollback_evidence_mismatch"):
+        validate_rollback_audit_binding(
+            service,
+            actor=ACTOR,
+            request=request,
+            receipt=_receipt(audit_event_id=complete_id),
+        )
     store.close()
