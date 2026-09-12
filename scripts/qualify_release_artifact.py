@@ -63,6 +63,7 @@ REQUIRED_MEMBERS = frozenset(
         "home_center/device_management_enrollment_deenrollment.py",
         "home_center/device_management_enrollment_deenrollment_runtime.py",
         "home_center/device_management_enrollment_cleanup_verification_runtime.py",
+        "home_center/device_management_enrollment_policy_handoff.py",
         "home_center/state_meta_cas.py",
         "home_center/api_v3.py",
         "home_center/api_v4.py",
