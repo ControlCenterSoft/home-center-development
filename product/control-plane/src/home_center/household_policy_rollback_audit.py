@@ -14,6 +14,7 @@ publication authority.
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from typing import Any
 
@@ -56,13 +57,15 @@ _ROLLBACK_RECEIPT_FIELDS = {
     "infrastructure_mutation_authorized",
     "external_publication_authorized",
 }
+_RESOURCE_KEY = re.compile(r"^household-policy:[a-z][a-z0-9_.:-]{1,127}:[a-z][a-z0-9_.:-]{1,127}$")
+_BUNDLE_ID = re.compile(r"^hpb-[0-9a-f]{24}$")
 
 
 def _audit_row(
     service: ScopedHouseholdPolicyHistoryService,
     event_id: object,
 ) -> sqlite3.Row:
-    if not isinstance(event_id, str) or not event_id:
+    if not isinstance(event_id, str) or not event_id or len(event_id) > 128:
         raise HouseholdPolicyHistoryError(ROLLBACK_EVIDENCE_ERROR)
     connection = sqlite3.connect(service.store.path, timeout=5)
     connection.row_factory = sqlite3.Row
@@ -121,6 +124,7 @@ def validate_rollback_audit_binding(
     expected_bundle_id = request.get("expected_bundle_id")
     generation = receipt.get("generation")
     bundle_id = receipt.get("bundle_id")
+    target_history_bundle_id = receipt.get("target_history_bundle_id")
     audit_event_id = receipt.get("audit_event_id")
     recovered = receipt.get("recovered")
     changed = receipt.get("changed")
@@ -128,7 +132,7 @@ def validate_rollback_audit_binding(
 
     if (
         not isinstance(resource_key, str)
-        or not resource_key
+        or _RESOURCE_KEY.fullmatch(resource_key) is None
         or isinstance(target_generation, bool)
         or not isinstance(target_generation, int)
         or target_generation < 1
@@ -137,12 +141,17 @@ def validate_rollback_audit_binding(
         or expected_generation < 1
         or target_generation >= expected_generation
         or not isinstance(expected_bundle_id, str)
-        or not expected_bundle_id
+        or _BUNDLE_ID.fullmatch(expected_bundle_id) is None
         or isinstance(generation, bool)
         or not isinstance(generation, int)
         or generation < 1
         or not isinstance(bundle_id, str)
-        or not bundle_id
+        or _BUNDLE_ID.fullmatch(bundle_id) is None
+        or not isinstance(target_history_bundle_id, str)
+        or _BUNDLE_ID.fullmatch(target_history_bundle_id) is None
+        or not isinstance(audit_event_id, str)
+        or not audit_event_id
+        or len(audit_event_id) > 128
         or not isinstance(recovered, bool)
         or not isinstance(changed, bool)
         or (changed and generation != expected_generation + 1)
@@ -187,7 +196,7 @@ def validate_rollback_audit_binding(
     target_bundle_id = target_history.get("bundle_id")
     history_evidence_sha256 = current_history.get("evidence_sha256")
     if (
-        receipt.get("target_history_bundle_id") != target_bundle_id
+        target_history_bundle_id != target_bundle_id
         or current_history.get("bundle_id") != bundle_id
         or not isinstance(history_evidence_sha256, str)
         or len(history_evidence_sha256) != 64
