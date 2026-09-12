@@ -79,6 +79,7 @@ class RuntimeRequestHandlerV4(RuntimeRequestHandlerV3):
                 "device_management_enrollment_execution_not_verifiable",
                 "device_management_enrollment_verification_binding_mismatch",
                 "device_management_enrollment_verification_stale",
+                "device_management_enrollment_verification_state_mismatch",
                 "device_management_enrollment_device_already_managed",
                 "device_management_enrollment_verification_in_progress",
                 "device_management_enrollment_verification_idempotency_conflict",
