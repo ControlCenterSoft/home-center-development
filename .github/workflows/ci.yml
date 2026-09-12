@@ -15,10 +15,25 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.12", "3.13"]
+        python-version: ["3.12", "3.13", "3.14"]
+    env:
+      EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      PYTHONDONTWRITEBYTECODE: "1"
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Checkout exact event head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ env.EXPECTED_SHA }}
+      - name: Establish exact source identity
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA" || { echo EXACT_HEAD_MISMATCH >&2; exit 66; }
+          test -z "$(git status --porcelain=v1 --untracked-files=all)" || { echo SOURCE_TREE_DIRTY >&2; exit 66; }
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: ${{ matrix.python-version }}
@@ -53,3 +68,5 @@ jobs:
         env:
           PYTHONPATH: product/control-plane/src
         run: python -m pytest -q
+      - name: Run public release security gate
+        run: python tests/security_gate_public_release.py
