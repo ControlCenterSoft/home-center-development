@@ -27,6 +27,9 @@ from .household_policy_runtime import DESIRED_KEY_PREFIX
 from .store import StateStore
 from .util import canonical_json
 
+RUNTIME_COMPLETION_EVIDENCE_SCHEMA = (
+    "home-center.household-policy-reconciliation-completion-evidence.v1"
+)
 RECOVERY_EVIDENCE_SCHEMA = (
     "home-center.household-policy-reconciliation-recovery-evidence.v1"
 )
@@ -84,6 +87,39 @@ def _validate_evidence(
             "household_policy_reconciliation_recovery_evidence_invalid"
         )
     return dict(evidence)
+
+
+def _validate_completed_job_evidence(
+    *,
+    job_evidence: object,
+    request: PolicyReconciliationRequest,
+    reconciliation_evidence: dict[str, object],
+) -> None:
+    if not isinstance(job_evidence, dict):
+        raise HouseholdPolicyReconciliationRecoveryError(
+            "household_policy_reconciliation_recovery_job_evidence_invalid"
+        )
+    schema = job_evidence.get("schema")
+    if schema not in {RUNTIME_COMPLETION_EVIDENCE_SCHEMA, RECOVERY_EVIDENCE_SCHEMA}:
+        raise HouseholdPolicyReconciliationRecoveryError(
+            "household_policy_reconciliation_recovery_job_evidence_invalid"
+        )
+    if (
+        job_evidence.get("request_id") != request.request_id
+        or job_evidence.get("reconciliation_evidence") != reconciliation_evidence
+        or job_evidence.get("desired_state_transition_performed") is not False
+        or job_evidence.get("backend_reinvoked") is not False
+    ):
+        raise HouseholdPolicyReconciliationRecoveryError(
+            "household_policy_reconciliation_recovery_job_evidence_invalid"
+        )
+    if (
+        schema == RECOVERY_EVIDENCE_SCHEMA
+        and job_evidence.get("recovered_after_interruption") is not True
+    ):
+        raise HouseholdPolicyReconciliationRecoveryError(
+            "household_policy_reconciliation_recovery_job_evidence_invalid"
+        )
 
 
 class HouseholdPolicyReconciliationRecoveryService:
@@ -185,9 +221,39 @@ class HouseholdPolicyReconciliationRecoveryService:
         if (
             not isinstance(job, dict)
             or job.get("job_type") != ACTION
-            or job.get("state") != "verifying"
             or job.get("idempotency_key") != request.request_id
         ):
+            raise HouseholdPolicyReconciliationRecoveryError(
+                "household_policy_reconciliation_recovery_job_state_invalid"
+            )
+        job_state = job.get("state")
+        if job_state == "verifying":
+            self.store.transition_action_job(
+                job_id,
+                expected_state="verifying",
+                new_state="succeeded",
+                evidence={
+                    "schema": RECOVERY_EVIDENCE_SCHEMA,
+                    "request_id": request.request_id,
+                    "reconciliation_evidence": evidence,
+                    "desired_state_transition_performed": False,
+                    "backend_reinvoked": False,
+                    "recovered_after_interruption": True,
+                },
+                steps=[
+                    {"step": "backend-read-back", "state": "succeeded"},
+                    {"step": "re-read-exact-desired-state", "state": "succeeded"},
+                    {"step": "verify-actual-state", "state": "succeeded"},
+                    {"step": "persist-reconciliation-evidence", "state": "succeeded"},
+                ],
+            )
+        elif job_state == "succeeded":
+            _validate_completed_job_evidence(
+                job_evidence=job.get("evidence"),
+                request=request,
+                reconciliation_evidence=evidence,
+            )
+        else:
             raise HouseholdPolicyReconciliationRecoveryError(
                 "household_policy_reconciliation_recovery_job_state_invalid"
             )
@@ -205,25 +271,6 @@ class HouseholdPolicyReconciliationRecoveryService:
             "infrastructure_mutation_performed": False,
             "external_publication_performed": False,
         }
-        self.store.transition_action_job(
-            job_id,
-            expected_state="verifying",
-            new_state="succeeded",
-            evidence={
-                "schema": RECOVERY_EVIDENCE_SCHEMA,
-                "request_id": request.request_id,
-                "reconciliation_evidence": evidence,
-                "desired_state_transition_performed": False,
-                "backend_reinvoked": False,
-                "recovered_after_interruption": True,
-            },
-            steps=[
-                {"step": "backend-read-back", "state": "succeeded"},
-                {"step": "re-read-exact-desired-state", "state": "succeeded"},
-                {"step": "verify-actual-state", "state": "succeeded"},
-                {"step": "persist-reconciliation-evidence", "state": "succeeded"},
-            ],
-        )
         completed = dict(envelope)
         completed.update(status="completed", completion=completion, recovery_failure=None)
         self.store.set_meta(state_key, completed)
