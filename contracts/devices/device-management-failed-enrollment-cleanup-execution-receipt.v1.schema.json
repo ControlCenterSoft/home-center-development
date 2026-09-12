@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/devices/device-management-failed-enrollment-cleanup-execution-receipt.v1.schema.json",
+  "title": "Home Center failed enrollment transient cleanup execution receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "state", "job_id", "plan_id", "enrollment_plan_id", "provider_id", "device_id", "member_id", "artifact_kind", "reference_sha256", "transient_reference_state", "provider_mutation_performed", "managed_state_changed", "credential_value_persisted", "policy_mutation_performed", "device_record_removed", "infrastructure_mutation_performed", "external_publication_performed"],
+  "properties": {
+    "schema": {"const": "home-center.device-management-failed-enrollment-cleanup-execution-receipt.v1"},
+    "state": {"const": "succeeded"},
+    "job_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "plan_id": {"type": "string", "pattern": "^dmclean-[0-9a-f]{24}$"},
+    "enrollment_plan_id": {"type": "string", "pattern": "^dmpexec-[0-9a-f]{24}$"},
+    "provider_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "device_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "member_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "artifact_kind": {"type": "string", "enum": ["none", "token", "qr"]},
+    "reference_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "transient_reference_state": {"type": "string", "enum": ["deleted", "absent"]},
+    "provider_mutation_performed": {"const": false},
+    "managed_state_changed": {"const": false},
+    "credential_value_persisted": {"const": false},
+    "policy_mutation_performed": {"const": false},
+    "device_record_removed": {"const": false},
+    "infrastructure_mutation_performed": {"const": false},
+    "external_publication_performed": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"artifact_kind": {"const": "none"}}, "required": ["artifact_kind"]},
+      "then": {"properties": {"reference_sha256": {"const": null}, "transient_reference_state": {"const": "absent"}}}
+    },
+    {
+      "if": {"properties": {"artifact_kind": {"enum": ["token", "qr"]}}, "required": ["artifact_kind"]},
+      "then": {"properties": {"reference_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}}
+    }
+  ]
+}
