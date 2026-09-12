@@ -5,7 +5,10 @@ from pathlib import Path
 import pytest
 
 from home_center.household_policy_desired_state import HouseholdPolicyDesiredStateService
-from home_center.household_policy_history import HouseholdPolicyHistoryService
+from home_center.household_policy_history import (
+    POLICY_ROLLBACK_REQUEST_SCHEMA,
+    HouseholdPolicyHistoryService,
+)
 from home_center.household_policy_runtime import (
     POLICY_CONFIRM_REQUEST_SCHEMA,
     POLICY_PLAN_REQUEST_SCHEMA,
@@ -180,6 +183,59 @@ def test_workflow_rejects_history_payload_not_equal_to_exact_planned_bundle(tmp_
             },
             correlation_id="workflow-confirm-forged-history",
         )
+    store.close()
+
+
+def test_workflow_rejects_rollback_false_success_without_verified_current_state(tmp_path, monkeypatch) -> None:
+    store, household, workflow = _workflow(tmp_path)
+    plan = workflow.plan(
+        actor=ACTOR,
+        request={"schema": POLICY_PLAN_REQUEST_SCHEMA, "member_id": household.actor_member_id(ACTOR)},
+        correlation_id="workflow-plan-false-rollback",
+    )
+    applied = workflow.confirm_and_apply(
+        actor=ACTOR,
+        request={
+            "schema": POLICY_CONFIRM_REQUEST_SCHEMA,
+            "proposal_id": plan["proposal"]["proposal_id"],
+            "confirmed": True,
+        },
+        correlation_id="workflow-confirm-false-rollback",
+    )
+    resource_key = applied["receipt"]["resource_key"]
+    bundle_id = applied["receipt"]["bundle_id"]
+    request = {
+        "schema": POLICY_ROLLBACK_REQUEST_SCHEMA,
+        "resource_key": resource_key,
+        "expected_generation": 2,
+        "expected_bundle_id": "hpb-" + "2" * 24,
+        "target_generation": 1,
+        "confirmed": True,
+    }
+
+    def forged_rollback(*, actor, request, correlation_id):
+        return {
+            "schema": "home-center.household-policy-rollback-receipt.v1",
+            "rollback_id": "hprb-" + "f" * 24,
+            "resource_key": resource_key,
+            "target_history_generation": 1,
+            "target_history_bundle_id": bundle_id,
+            "generation": 2,
+            "bundle_id": bundle_id,
+            "changed": False,
+            "recovered": False,
+            "outcome": "already-current",
+            "audit_event_id": "forged-audit-event",
+            "desired_state_materialized": True,
+            "provider_execution_authorized": False,
+            "infrastructure_mutation_authorized": False,
+            "external_publication_authorized": False,
+        }
+
+    monkeypatch.setattr(workflow.history, "rollback", forged_rollback)
+    with pytest.raises(HouseholdPolicyRuntimeError, match="household_policy_rollback_evidence_mismatch"):
+        workflow.rollback(actor=ACTOR, request=request, correlation_id="workflow-false-rollback")
+    assert workflow.history.repository.read(resource_key)["generation"] == 1
     store.close()
 
 
