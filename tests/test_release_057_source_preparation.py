@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import tomllib
 from pathlib import Path
 
 from scripts.qualify_release_artifact import REQUIRED_MEMBERS
@@ -14,14 +13,11 @@ def _contract(name: str) -> dict[str, object]:
     return json.loads((ROOT / "contracts/devices" / name).read_text(encoding="utf-8"))
 
 
-def test_release_057_candidate_identity_is_057() -> None:
-    assert (ROOT / "VERSION").read_text(encoding="ascii").strip() == "0.57.0"
-    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
-    assert project["version"] == "0.57.0"
-    runtime_init = (ROOT / "product/control-plane/src/home_center/__init__.py").read_text(encoding="utf-8")
-    assert '__version__ = "0.57.0"' in runtime_init
-    html = (ROOT / "product/web/static/index.html").read_text(encoding="utf-8")
-    assert '<small id="version">0.57.0</small>' in html
+def test_release_057_historical_release_identity_is_preserved_in_notes() -> None:
+    notes = (ROOT / "docs/releases/0.57.0.md").read_text(encoding="utf-8")
+    assert "# Home Center 0.57.0" in notes
+    assert "Status: official release." in notes
+    assert "`single-node-core`" in notes
 
 
 def test_release_057_execution_runtime_and_safety_guard_are_required_in_artifact() -> None:
