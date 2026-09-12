@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/household-policy-verification-transition-receipt.v1.schema.json",
+  "title": "Home Center household policy verification transition receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "state", "job_id", "request_id", "evidence_id", "household_id", "member_id", "desired_generation", "plan_id", "policy_sha256", "enforcement_verified", "reconciliation_required", "backend_reinvoked", "backend_mutation_performed", "infrastructure_mutation_performed", "external_publication_performed"],
+  "properties": {
+    "schema": {"const": "home-center.household-policy-verification-transition-receipt.v1"},
+    "state": {"const": "verification-state-transitioned"},
+    "job_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "request_id": {"type": "string", "pattern": "^hprq-[0-9a-f]{24}$"},
+    "evidence_id": {"type": "string", "pattern": "^hpev-[0-9a-f]{24}$"},
+    "household_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "desired_generation": {"type": "integer", "minimum": 1},
+    "plan_id": {"type": "string", "pattern": "^hpcp-[0-9a-f]{24}$"},
+    "policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "enforcement_verified": {"const": true},
+    "reconciliation_required": {"const": false},
+    "backend_reinvoked": {"const": false},
+    "backend_mutation_performed": {"const": false},
+    "infrastructure_mutation_performed": {"const": false},
+    "external_publication_performed": {"const": false}
+  }
+}
