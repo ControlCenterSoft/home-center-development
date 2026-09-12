@@ -11,8 +11,8 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-BASE_SHA = "07e537f415267b010f049ba694a9382a57a3f7fb"
-SOURCE_VERSION = "0.56.0"
+BASE_SHA = "60f4c34f82a8335f9eec36bf2c303bb382efdca6"
+SOURCE_VERSION = "0.57.0"
 BASELINE_VERSION = "0.57.0"
 CANDIDATE_VERSION = "0.58.0"
 
