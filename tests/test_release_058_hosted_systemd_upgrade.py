@@ -178,9 +178,9 @@ install -m 0644 -o root -g root {staging / 'profile.json'} /etc/home-center/depl
 install -m 0644 -o root -g root {tmp_path / 'tls.crt'} /etc/home-center/tls.crt
 install -m 0640 -o root -g "$home_gid" {tmp_path / 'tls.key'} /etc/home-center/tls.key
 install -m 0644 -o root -g root {tmp_path / 'web-ca.crt'} /etc/home-center/web-ca.crt
-install -m 0644 -o root -g root {baseline_extract / 'deploy/systemd/home-center.service'} /etc/systemd/system/home-center.service
-install -m 0644 -o root -g root {baseline_extract / 'deploy/systemd/home-center-backup.service'} /etc/systemd/system/home-center-backup.service
-install -m 0644 -o root -g root {baseline_extract / 'deploy/systemd/home-center-backup.timer'} /etc/systemd/system/home-center-backup.timer
+install -m 0644 -o root -g root {baseline_worktree / 'deploy/systemd/home-center.service'} /etc/systemd/system/home-center.service
+install -m 0644 -o root -g root {baseline_worktree / 'deploy/systemd/home-center-backup.service'} /etc/systemd/system/home-center-backup.service
+install -m 0644 -o root -g root {baseline_worktree / 'deploy/systemd/home-center-backup.timer'} /etc/systemd/system/home-center-backup.timer
 systemctl daemon-reload
 systemctl enable home-center.service home-center-backup.timer >/dev/null
 systemctl start home-center.service
