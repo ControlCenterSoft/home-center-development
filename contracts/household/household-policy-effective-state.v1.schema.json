@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/household-policy-effective-state.v1.schema.json",
+  "title": "Home Center Household Policy effective state v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "household_id",
+    "member_id",
+    "source",
+    "desired_generation",
+    "state",
+    "technical_policy",
+    "explanation_ru",
+    "enforcement_verified",
+    "reconciliation_required",
+    "verified_evidence",
+    "infrastructure_mutation_authorized",
+    "external_publication_authorized",
+    "production_mutation_enabled"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.household-policy-effective-state.v1"},
+    "household_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "source": {"enum": ["role-preset", "composed-desired"]},
+    "desired_generation": {"type": "integer", "minimum": 0},
+    "state": {"enum": ["role-default", "pending-reconciliation", "verified"]},
+    "technical_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_id",
+        "role",
+        "internet_policy",
+        "vpn_allowed",
+        "managed_device_required",
+        "home_files_allowed",
+        "smart_home_control_allowed",
+        "administration_allowed",
+        "external_publication_allowed"
+      ],
+      "properties": {
+        "policy_id": {"type": "string", "pattern": "^(?:hpol|hcpol)-[0-9a-f]{24}$"},
+        "role": {"enum": ["parent", "child", "guest"]},
+        "internet_policy": {"enum": ["full", "filtered", "guest"]},
+        "vpn_allowed": {"type": "boolean"},
+        "managed_device_required": {"type": "boolean"},
+        "home_files_allowed": {"type": "boolean"},
+        "smart_home_control_allowed": {"type": "boolean"},
+        "administration_allowed": {"type": "boolean"},
+        "external_publication_allowed": {"const": false}
+      }
+    },
+    "explanation_ru": {"type": "string", "minLength": 1, "maxLength": 1000},
+    "enforcement_verified": {"type": "boolean"},
+    "reconciliation_required": {"type": "boolean"},
+    "verified_evidence": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["request_id", "backend_id", "evidence_id", "evidence_sha256", "observed_at"],
+          "properties": {
+            "request_id": {"type": "string", "pattern": "^hprq-[0-9a-f]{24}$"},
+            "backend_id": {"type": "string", "minLength": 1, "maxLength": 128},
+            "evidence_id": {"type": "string", "pattern": "^hpev-[0-9a-f]{24}$"},
+            "evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "observed_at": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"}
+          }
+        }
+      ]
+    },
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false},
+    "production_mutation_enabled": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"state": {"const": "verified"}}, "required": ["state"]},
+      "then": {
+        "properties": {
+          "source": {"const": "composed-desired"},
+          "enforcement_verified": {"const": true},
+          "reconciliation_required": {"const": false},
+          "verified_evidence": {"type": "object"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"state": {"const": "pending-reconciliation"}}, "required": ["state"]},
+      "then": {
+        "properties": {
+          "source": {"const": "composed-desired"},
+          "enforcement_verified": {"const": false},
+          "reconciliation_required": {"const": true},
+          "verified_evidence": {"type": "null"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"state": {"const": "role-default"}}, "required": ["state"]},
+      "then": {
+        "properties": {
+          "source": {"const": "role-preset"},
+          "desired_generation": {"const": 0},
+          "enforcement_verified": {"const": false},
+          "reconciliation_required": {"const": false},
+          "verified_evidence": {"type": "null"}
+        }
+      }
+    }
+  ]
+}
