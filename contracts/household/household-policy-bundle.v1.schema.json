@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.example/contracts/household/household-policy-bundle.v1.schema.json",
+  "title": "Home Center Household Policy Bundle v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "bundle_id",
+    "display_name",
+    "internet_policy",
+    "vpn_allowed",
+    "managed_device_required",
+    "home_files_allowed",
+    "smart_home_control_allowed",
+    "administration_allowed",
+    "external_publication_allowed",
+    "production_mutation_enabled"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.household-policy-bundle.v1"},
+    "bundle_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "display_name": {"type": "string", "minLength": 1, "maxLength": 80},
+    "internet_policy": {
+      "type": ["string", "null"],
+      "enum": ["full", "filtered", "guest", null]
+    },
+    "vpn_allowed": {"type": ["boolean", "null"]},
+    "managed_device_required": {"type": ["boolean", "null"]},
+    "home_files_allowed": {"type": ["boolean", "null"]},
+    "smart_home_control_allowed": {"type": ["boolean", "null"]},
+    "administration_allowed": {"type": ["boolean", "null"]},
+    "external_publication_allowed": {"const": false},
+    "production_mutation_enabled": {"const": false}
+  },
+  "anyOf": [
+    {
+      "properties": {"internet_policy": {"not": {"type": "null"}}},
+      "required": ["internet_policy"]
+    },
+    {
+      "properties": {"vpn_allowed": {"not": {"type": "null"}}},
+      "required": ["vpn_allowed"]
+    },
+    {
+      "properties": {"managed_device_required": {"not": {"type": "null"}}},
+      "required": ["managed_device_required"]
+    },
+    {
+      "properties": {"home_files_allowed": {"not": {"type": "null"}}},
+      "required": ["home_files_allowed"]
+    },
+    {
+      "properties": {"smart_home_control_allowed": {"not": {"type": "null"}}},
+      "required": ["smart_home_control_allowed"]
+    },
+    {
+      "properties": {"administration_allowed": {"not": {"type": "null"}}},
+      "required": ["administration_allowed"]
+    }
+  ]
+}
