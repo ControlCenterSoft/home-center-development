@@ -65,9 +65,15 @@ def _receipt(request: dict[str, object]) -> dict[str, object]:
         lambda request, receipt: request.__setitem__("schema", "home-center.household-policy-rollback-request.v999"),
         lambda request, receipt: request.__setitem__("confirmed", False),
         lambda request, receipt: request.__setitem__("unexpected_authority", True),
+        lambda request, receipt: request.__setitem__("resource_key", "household-policy:INVALID"),
+        lambda request, receipt: request.__setitem__("expected_bundle_id", "not-a-bundle"),
         lambda request, receipt: receipt.__setitem__("schema", "home-center.household-policy-rollback-receipt.v999"),
         lambda request, receipt: receipt.__setitem__("policy_application_authorized", True),
         lambda request, receipt: receipt.pop("external_publication_authorized"),
+        lambda request, receipt: receipt.__setitem__("target_history_bundle_id", "not-a-bundle"),
+        lambda request, receipt: receipt.__setitem__("bundle_id", "not-a-bundle"),
+        lambda request, receipt: receipt.__setitem__("audit_event_id", ""),
+        lambda request, receipt: receipt.__setitem__("audit_event_id", "a" * 129),
     ],
 )
 def test_malformed_rollback_contract_is_rejected_before_audit_lookup(mutate) -> None:
