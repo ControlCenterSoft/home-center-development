@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://control-center.pro/schemas/home-center/target-node-evidence.v1.schema.json",
+  "title": "Home Center target-node qualification evidence v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "revision",
+    "candidate_artifact_sha256",
+    "target_node_id",
+    "target_environment_sha256",
+    "target_execution_transcript_sha256",
+    "install_or_upgrade_exercised",
+    "health_ready",
+    "user_state_preserved",
+    "rollback_exercised"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.target-node-evidence.v1"},
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+    },
+    "candidate_artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "target_node_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,126}[A-Za-z0-9])?$"
+    },
+    "target_environment_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "target_execution_transcript_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "install_or_upgrade_exercised": {"type": "boolean"},
+    "health_ready": {"type": "boolean"},
+    "user_state_preserved": {"type": "boolean"},
+    "rollback_exercised": {"type": "boolean"}
+  }
+}
