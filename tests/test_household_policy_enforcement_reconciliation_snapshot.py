@@ -11,6 +11,7 @@ from home_center.household import FamilyMember, Household, HouseholdRole
 from home_center.household_policy_enforcement_reconciliation_snapshot import (
     HouseholdPolicyEnforcementReconciliationSnapshotError,
     ReconciliationSnapshotPolicyAdapter,
+    build_reconciliation_request_from_enforcement_snapshot,
     load_enforcement_reconciliation_snapshot,
 )
 from home_center.household_policy_enforcement_runtime import (
@@ -402,3 +403,49 @@ def test_snapshot_survives_state_store_backup_restore(tmp_path: Path) -> None:
     after = load_enforcement_reconciliation_snapshot(restored, str(plan["plan_id"]))
     assert after == before
     restored.close()
+
+
+def test_read_only_reconciliation_request_keeps_original_binding_after_desired_drift(
+    tmp_path: Path,
+) -> None:
+    store = _store(tmp_path)
+    _commit_desired(store)
+    enforcement, _wrapper, _delegate = _services(store)
+    plan = _plan_confirm(enforcement)
+    enforcement.execute(
+        actor=PARENT_ACTOR,
+        plan_id=str(plan["plan_id"]),
+        correlation_id="enforcement-execute",
+    )
+
+    _commit_desired(store, reason="Новая версия после исходного enforcement")
+    request = build_reconciliation_request_from_enforcement_snapshot(
+        store,
+        str(plan["plan_id"]),
+        requested_at="2026-09-12T18:40:00Z",
+        max_observed_age_seconds=300,
+    )
+
+    assert request["backend_read_only_required"] is True
+    assert request["backend_mutation_authorized"] is False
+    assert request["infrastructure_mutation_authorized"] is False
+    assert request["external_publication_authorized"] is False
+    binding = request["binding"]
+    assert isinstance(binding, dict)
+    assert binding["household_id"] == plan["household_id"]
+    assert binding["member_id"] == plan["member_id"]
+    assert binding["desired_generation"] == plan["desired_generation"]
+    assert binding["desired_plan_id"] == plan["desired_plan_id"]
+    assert binding["policy_id"] == plan["policy_id"]
+    assert binding["policy_sha256"] == plan["policy_sha256"]
+
+    schema = json.loads(
+        (
+            Path(__file__).resolve().parents[1]
+            / "contracts"
+            / "household"
+            / "household-policy-reconciliation-request.v1.schema.json"
+        ).read_text(encoding="utf-8")
+    )
+    Draft202012Validator(schema).validate(request)
+    store.close()
