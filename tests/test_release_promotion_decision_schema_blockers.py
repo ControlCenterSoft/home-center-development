@@ -84,6 +84,7 @@ class ReleasePromotionDecisionSchemaBlockerTests(unittest.TestCase):
             ),
             commercial=CommercialEvidence(
                 binding=binding,
+                candidate_artifact_sha256=DIGEST,
                 disposition=APPROVED,
                 evidence_sha256=DIGEST,
                 dependencies_reviewed=True,
@@ -109,6 +110,75 @@ class ReleasePromotionDecisionSchemaBlockerTests(unittest.TestCase):
                 "provider_adapter_qualification",
             ),
         )
+
+        schema = json.loads(
+            (ROOT / "contracts/releases/release-promotion-decision.v1.schema.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        jsonschema.Draft202012Validator(schema).validate(decision.to_dict())
+
+    def test_commercial_candidate_binding_blocker_matches_schema(self) -> None:
+        binding = ReleaseBinding(version=VERSION, revision=REVISION)
+        decision = evaluate_release_promotion(
+            target_channel=CANDIDATE,
+            version=VERSION,
+            revision=REVISION,
+            qualification=QualificationEvidence(
+                binding=binding,
+                ci_passed=True,
+                exact_source_identity=True,
+                reproducible_artifact=True,
+            ),
+            security=SecurityEvidence(
+                binding=binding,
+                codeql_passed=True,
+                privacy_boundary_passed=True,
+                infrastructure_neutrality_passed=True,
+            ),
+            recovery=RecoveryEvidence(
+                binding=binding,
+                upgrade_qualified=True,
+                rollback_qualified=True,
+                user_state_preserved=True,
+                real_target_accepted=True,
+                multi_node_ha_restart_qualified=True,
+            ),
+            real_environment=RealEnvironmentEvidence(
+                binding=binding,
+                candidate_artifact_sha256=DIGEST,
+                evidence_sha256=DIGEST,
+                qualified=True,
+            ),
+            provider=ProviderAdapterEvidence(
+                binding=binding,
+                adapter_id="provider.example",
+                adapter_version="1.0.0",
+                candidate_artifact_sha256=DIGEST,
+                evidence_sha256=DIGEST,
+                qualified=True,
+            ),
+            artifacts=ArtifactEvidence(
+                binding=binding,
+                candidate_artifact_sha256=DIGEST,
+                qualification_manifest=True,
+                provenance_v2=True,
+            ),
+            commercial=CommercialEvidence(
+                binding=binding,
+                candidate_artifact_sha256=OTHER_DIGEST,
+                disposition=APPROVED,
+                evidence_sha256=DIGEST,
+                dependencies_reviewed=True,
+                redistribution_reviewed=True,
+                notices_prepared=True,
+                source_obligations_resolved=True,
+                sbom_reviewed=True,
+                legal_terms_dispositioned=True,
+                release_claims_reviewed=True,
+            ),
+        )
+        self.assertEqual(decision.blockers, ("commercial_candidate_artifact_binding",))
 
         schema = json.loads(
             (ROOT / "contracts/releases/release-promotion-decision.v1.schema.json").read_text(
