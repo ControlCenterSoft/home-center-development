@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/devices/device-management-enrollment-post-condition-plan-request.v1.schema.json",
+  "title": "Home Center enrollment post-condition plan request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "execution_plan_id", "max_observed_age_seconds", "expected_signals"],
+  "properties": {
+    "schema": {"const": "home-center.device-management-enrollment-post-condition-plan-request.v1"},
+    "execution_plan_id": {"type": "string", "pattern": "^dmpexec-[0-9a-f]{24}$"},
+    "max_observed_age_seconds": {"type": "integer", "minimum": 1, "maximum": 3600},
+    "expected_signals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["certificate", "profile", "agent"],
+      "properties": {
+        "certificate": {"enum": ["present", "absent", "not-applicable"]},
+        "profile": {"enum": ["present", "absent", "not-applicable"]},
+        "agent": {"enum": ["present", "absent", "not-applicable"]}
+      }
+    }
+  }
+}

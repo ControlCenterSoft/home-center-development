@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/auth/session-reauth-request.v1.schema.json",
+  "title": "Home Center session re-auth request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "provider", "username", "password", "scope"],
+  "properties": {
+    "schema": {"const": "home-center.session-reauth-request.v1"},
+    "provider": {"enum": ["local", "ad"]},
+    "username": {"type": "string", "minLength": 1, "maxLength": 256},
+    "password": {"type": "string", "minLength": 1, "maxLength": 4096},
+    "scope": {"type": "string", "pattern": "^household\\.device\\.management\\.enrollment\\.verify:dmpverify-[0-9a-f]{24}$"}
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/auth/session-reauth-result.v1.schema.json",
+  "title": "Home Center session re-auth result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "state", "scope", "step_up_token", "expires_in_seconds", "single_use"],
+  "properties": {
+    "schema": {"const": "home-center.session-reauth-result.v1"},
+    "state": {"const": "verified"},
+    "scope": {"type": "string", "pattern": "^household\\.device\\.management\\.enrollment\\.verify:dmpverify-[0-9a-f]{24}$"},
+    "step_up_token": {"type": "string", "pattern": "^[A-Za-z0-9_-]{32,192}$"},
+    "expires_in_seconds": {"type": "integer", "minimum": 30, "maximum": 900},
+    "single_use": {"const": true}
+  }
+}

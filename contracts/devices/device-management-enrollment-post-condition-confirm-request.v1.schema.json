@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/devices/device-management-enrollment-post-condition-confirm-request.v1.schema.json",
+  "title": "Home Center enrollment post-condition confirm request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "verification_id", "idempotency_key", "confirmed"],
+  "properties": {
+    "schema": {"const": "home-center.device-management-enrollment-post-condition-confirm-request.v1"},
+    "verification_id": {"type": "string", "pattern": "^dmpverify-[0-9a-f]{24}$"},
+    "idempotency_key": {"type": "string", "minLength": 8, "maxLength": 128},
+    "confirmed": {"const": true}
+  }
+}
