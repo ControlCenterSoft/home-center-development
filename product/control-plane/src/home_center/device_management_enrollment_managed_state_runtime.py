@@ -2,13 +2,16 @@
 
 A positive provider read-back authorizes a *local product-state* transition only.
 This boundary commits ``ManagedDevice.managed=True`` with optimistic concurrency
-and atomically succeeds the durable Job and appends Audit evidence.
+and atomically succeeds the durable Job and appends Audit evidence. Replaying the
+same idempotent request after a restart resumes only local exact-state work; no
+provider operation is invoked by this module.
 """
 from __future__ import annotations
 
 import hashlib
 import re
 import threading
+import uuid
 from typing import Any
 
 from .device_management_enrollment_verification import (
@@ -135,7 +138,33 @@ class DeviceManagementEnrollmentManagedStateRuntimeService:
         return evidence, raw, replacement_raw, replacement, commit
 
     @staticmethod
-    def _receipt(*, job_id: str, evidence, replacement, commit) -> dict[str, object]:
+    def _prepared_result(*, verification_id: str, commit) -> dict[str, object]:
+        return {
+            "schema": "home-center.device-management-enrollment-managed-state-commit-prepared.v1",
+            "verification_id": verification_id,
+            "commit_id": commit.commit_id,
+            "previous_resource_version": commit.previous_resource_version,
+            "resource_version": commit.resource_version,
+            "generation": commit.generation,
+            "snapshot_id": commit.snapshot_id,
+            "post_condition_verified": True,
+            "managed_state_change_authorized": True,
+            "managed_state_change_committed": False,
+            "provider_mutation_authorized": False,
+            "policy_application_authorized": False,
+            "infrastructure_mutation_authorized": False,
+            "external_publication_authorized": False,
+        }
+
+    @staticmethod
+    def _receipt(
+        *,
+        job_id: str,
+        audit_event_id: str,
+        evidence,
+        replacement,
+        commit,
+    ) -> dict[str, object]:
         return {
             "schema": COMMIT_RECEIPT_SCHEMA,
             "state": "managed-state-committed",
@@ -151,6 +180,7 @@ class DeviceManagementEnrollmentManagedStateRuntimeService:
             "resource_version": commit.resource_version,
             "generation": commit.generation,
             "snapshot_id": commit.snapshot_id,
+            "audit_event_id": audit_event_id,
             "post_condition_verified": True,
             "managed_state_change_authorized": True,
             "managed_state_change_committed": True,
@@ -173,8 +203,10 @@ class DeviceManagementEnrollmentManagedStateRuntimeService:
         replacement,
         commit,
     ) -> dict[str, object]:
+        audit_event_id = str(uuid.uuid4())
         receipt = self._receipt(
             job_id=job_id,
+            audit_event_id=audit_event_id,
             evidence=evidence,
             replacement=replacement,
             commit=commit,
@@ -200,6 +232,7 @@ class DeviceManagementEnrollmentManagedStateRuntimeService:
                 "resource_version": commit.resource_version,
                 "generation": commit.generation,
                 "snapshot_id": commit.snapshot_id,
+                "audit_event_id": audit_event_id,
                 "post_condition_verified": True,
                 "managed_state_change_committed": True,
                 "provider_mutation_authorized": False,
@@ -213,6 +246,7 @@ class DeviceManagementEnrollmentManagedStateRuntimeService:
             audit_target=evidence.device_id,
             audit_outcome="accepted",
             audit_correlation_id=correlation_id,
+            audit_event_id=audit_event_id,
             audit_details={
                 "job_id": job_id,
                 "verification_id": evidence.verification_id,
@@ -224,6 +258,7 @@ class DeviceManagementEnrollmentManagedStateRuntimeService:
                 "resource_version": commit.resource_version,
                 "generation": commit.generation,
                 "snapshot_id": commit.snapshot_id,
+                "audit_event_id": audit_event_id,
                 "scope": "local-household-managed-state-only",
                 "provider_mutation_authorized": False,
                 "policy_application_authorized": False,
@@ -240,6 +275,10 @@ class DeviceManagementEnrollmentManagedStateRuntimeService:
             raise DeviceManagementEnrollmentManagedStateRuntimeError(
                 "device_management_enrollment_verification_stale"
             )
+        if event_id != audit_event_id:
+            raise DeviceManagementEnrollmentManagedStateRuntimeError(
+                "device_management_enrollment_managed_state_commit_evidence_invalid"
+            )
         persisted = self.store.job(job_id)
         if (
             not isinstance(persisted, dict)
@@ -250,6 +289,102 @@ class DeviceManagementEnrollmentManagedStateRuntimeService:
                 "device_management_enrollment_managed_state_commit_evidence_invalid"
             )
         return receipt
+
+    def _resume(
+        self,
+        *,
+        actor: str,
+        verification_id: str,
+        job: dict[str, Any],
+        correlation_id: str,
+    ) -> dict[str, object]:
+        preflight = job.get("preflight")
+        if (
+            job.get("job_type") != COMMIT_ACTION
+            or job.get("initiator") != actor
+            or not isinstance(preflight, dict)
+            or preflight.get("verification_id") != verification_id
+        ):
+            raise DeviceManagementEnrollmentManagedStateRuntimeError(
+                "device_management_enrollment_managed_state_commit_state_invalid"
+            )
+        if job.get("state") == "succeeded":
+            result = job.get("result")
+            if isinstance(result, dict) and result.get("schema") == COMMIT_RECEIPT_SCHEMA:
+                return dict(result)
+            raise DeviceManagementEnrollmentManagedStateRuntimeError(
+                "device_management_enrollment_managed_state_commit_state_invalid"
+            )
+        if job.get("state") == "failed":
+            raise DeviceManagementEnrollmentManagedStateRuntimeError(
+                "device_management_enrollment_managed_state_commit_retry_required"
+            )
+        if job.get("state") not in {"preflight", "running", "verifying"}:
+            raise DeviceManagementEnrollmentManagedStateRuntimeError(
+                "device_management_enrollment_managed_state_commit_state_invalid"
+            )
+
+        state = str(job["state"])
+        try:
+            evidence, raw, replacement_raw, replacement, commit = self._prepare(
+                actor=actor,
+                verification_id=verification_id,
+            )
+        except DeviceManagementEnrollmentManagedStateRuntimeError as exc:
+            self._fail(job["job_id"], expected_state=state, code=exc.code)
+            raise
+
+        prepared = self._prepared_result(
+            verification_id=verification_id,
+            commit=commit,
+        )
+        if state == "preflight":
+            job = self.store.transition_action_job(
+                job["job_id"],
+                expected_state="preflight",
+                new_state="running",
+                steps=[
+                    {"step": "revalidate-verification-and-household", "state": "succeeded"},
+                    {"step": "compare-and-swap-household-state", "state": "pending"},
+                    {"step": "append-audit-evidence", "state": "pending"},
+                ],
+            )
+            state = "running"
+
+        if state == "running":
+            job = self.store.transition_action_job(
+                job["job_id"],
+                expected_state="running",
+                new_state="verifying",
+                result=prepared,
+                steps=[
+                    {"step": "revalidate-verification-and-household", "state": "succeeded"},
+                    {"step": "compare-and-swap-household-state", "state": "running"},
+                    {"step": "append-audit-evidence", "state": "pending"},
+                ],
+            )
+            state = "verifying"
+
+        if state != "verifying" or job.get("result") != prepared:
+            self._fail(
+                job["job_id"],
+                expected_state=state,
+                code="device_management_enrollment_managed_state_commit_state_invalid",
+            )
+            raise DeviceManagementEnrollmentManagedStateRuntimeError(
+                "device_management_enrollment_managed_state_commit_state_invalid"
+            )
+
+        return self._atomic_commit(
+            actor=actor,
+            correlation_id=correlation_id,
+            job_id=job["job_id"],
+            evidence=evidence,
+            expected_raw=raw,
+            replacement_raw=replacement_raw,
+            replacement=replacement,
+            commit=commit,
+        )
 
     def commit(
         self,
@@ -280,7 +415,7 @@ class DeviceManagementEnrollmentManagedStateRuntimeService:
 
         with self._lock:
             try:
-                job, created = self.store.create_action_job(
+                job, _created = self.store.create_action_job(
                     action_id=COMMIT_ACTION,
                     actor=actor,
                     reason="commit verified enrollment to local household managed state",
@@ -294,7 +429,8 @@ class DeviceManagementEnrollmentManagedStateRuntimeService:
                     preflight={
                         "schema": "home-center.device-management-enrollment-managed-state-commit-preflight.v1",
                         "verification_id": verification_id,
-                        "post_condition_verified": True,
+                        "verification_reference_present": True,
+                        "post_condition_verified": False,
                         "managed_state_change_authorized": False,
                         "provider_mutation_authorized": False,
                         "policy_application_authorized": False,
@@ -311,74 +447,11 @@ class DeviceManagementEnrollmentManagedStateRuntimeService:
                 raise DeviceManagementEnrollmentManagedStateRuntimeError(
                     "device_management_enrollment_managed_state_idempotency_conflict"
                 ) from exc
-
-            if not created:
-                if (
-                    job.get("state") == "succeeded"
-                    and isinstance(job.get("result"), dict)
-                    and job["result"].get("schema") == COMMIT_RECEIPT_SCHEMA
-                ):
-                    return dict(job["result"])
-                if job.get("state") in {"preflight", "running", "verifying"}:
-                    raise DeviceManagementEnrollmentManagedStateRuntimeError(
-                        "device_management_enrollment_managed_state_commit_in_progress"
-                    )
-                raise DeviceManagementEnrollmentManagedStateRuntimeError(
-                    "device_management_enrollment_managed_state_commit_retry_required"
-                )
-
-            try:
-                evidence, raw, replacement_raw, replacement, commit = self._prepare(
-                    actor=actor,
-                    verification_id=verification_id,
-                )
-            except DeviceManagementEnrollmentManagedStateRuntimeError as exc:
-                self._fail(job["job_id"], expected_state="preflight", code=exc.code)
-                raise
-
-            running = self.store.transition_action_job(
-                job["job_id"],
-                expected_state="preflight",
-                new_state="running",
-                steps=[
-                    {"step": "revalidate-verification-and-household", "state": "succeeded"},
-                    {"step": "compare-and-swap-household-state", "state": "pending"},
-                    {"step": "append-audit-evidence", "state": "pending"},
-                ],
-            )
-            verifying = self.store.transition_action_job(
-                running["job_id"],
-                expected_state="running",
-                new_state="verifying",
-                result={
-                    "schema": "home-center.device-management-enrollment-managed-state-commit-prepared.v1",
-                    "verification_id": verification_id,
-                    "commit_id": commit.commit_id,
-                    "previous_resource_version": commit.previous_resource_version,
-                    "resource_version": commit.resource_version,
-                    "generation": commit.generation,
-                    "snapshot_id": commit.snapshot_id,
-                    "managed_state_change_committed": False,
-                    "provider_mutation_authorized": False,
-                    "policy_application_authorized": False,
-                    "infrastructure_mutation_authorized": False,
-                    "external_publication_authorized": False,
-                },
-                steps=[
-                    {"step": "revalidate-verification-and-household", "state": "succeeded"},
-                    {"step": "compare-and-swap-household-state", "state": "running"},
-                    {"step": "append-audit-evidence", "state": "pending"},
-                ],
-            )
-            return self._atomic_commit(
+            return self._resume(
                 actor=actor,
+                verification_id=verification_id,
+                job=job,
                 correlation_id=correlation_id,
-                job_id=verifying["job_id"],
-                evidence=evidence,
-                expected_raw=raw,
-                replacement_raw=replacement_raw,
-                replacement=replacement,
-                commit=commit,
             )
 
     def receipt(self, job_id: str) -> dict[str, object]:
