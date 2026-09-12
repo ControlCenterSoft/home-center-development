@@ -97,6 +97,10 @@ jobs:
           if blocking:
               for number, level, rule_id, path, start_line, end_line in blocking:
                   print(
+                      f"CODEQL_RELEASE_BLOCKER alert={number} severity={level} "
+                      f"rule={rule_id} location={path}:{start_line}-{end_line}"
+                  )
+                  print(
                       f"::error file={path},line={start_line},endLine={end_line},"
                       f"title=CodeQL release gate::Open CodeQL alert #{number} "
                       f"({level}, {rule_id})"
