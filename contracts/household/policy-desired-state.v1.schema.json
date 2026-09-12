@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/policy-desired-state.v1.schema.json",
+  "title": "Home Center policy Desired State v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "desired_state_id",
+    "household_id",
+    "member_id",
+    "snapshot_id",
+    "resource_version",
+    "generation",
+    "bundle",
+    "provider_execution_authorized",
+    "infrastructure_mutation_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.policy-desired-state.v1"},
+    "desired_state_id": {"type": "string", "pattern": "^hpds-[0-9a-f]{24}$"},
+    "household_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "member_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "snapshot_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "resource_version": {"type": "string", "minLength": 1, "maxLength": 256},
+    "generation": {"type": "integer", "minimum": 1},
+    "bundle": {"$ref": "policy-bundle.v1.schema.json"},
+    "provider_execution_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
