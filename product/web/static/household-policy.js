@@ -99,6 +99,113 @@
     }
   }
 
+  function authorityDenied(value) {
+    return value?.provider_execution_authorized === false
+      && value?.infrastructure_mutation_authorized === false
+      && value?.external_publication_authorized === false;
+  }
+
+  function safePlanResponse(data) {
+    const proposal = data?.proposal;
+    const presentation = data?.presentation;
+    const cozy = presentation?.cozy;
+    const full = presentation?.full;
+    const technical = full?.technical_policy;
+    return data?.schema === 'home-center.household-policy-plan-result.v1'
+      && data?.confirmation_required === true
+      && data?.desired_state_materialized === false
+      && authorityDenied(data)
+      && proposal?.schema === 'home-center.household-policy-composition-proposal.v1'
+      && typeof proposal?.proposal_id === 'string'
+      && proposal?.confirmation_required === true
+      && proposal?.desired_state_write_authorized === false
+      && proposal?.infrastructure_mutation_authorized === false
+      && proposal?.external_publication_authorized === false
+      && presentation?.schema === 'home-center.household-policy-presentation.v1'
+      && presentation?.proposal_id === proposal?.proposal_id
+      && presentation?.bundle_id === proposal?.bundle?.bundle_id
+      && presentation?.same_policy_evidence === true
+      && presentation?.confirmation_required === true
+      && presentation?.mutation_started === false
+      && presentation?.infrastructure_mutation_authorized === false
+      && presentation?.external_publication_authorized === false
+      && cozy?.confirmation_required === true
+      && cozy?.mutation_started === false
+      && cozy?.external_publication_enabled === false
+      && full?.proposal_id === proposal?.proposal_id
+      && full?.bundle_id === proposal?.bundle?.bundle_id
+      && full?.confirmation_required === true
+      && full?.desired_state_write_authorized === false
+      && full?.infrastructure_mutation_authorized === false
+      && full?.external_publication_authorized === false
+      && technical?.external_publication_allowed === false
+      && technical?.production_mutation_enabled === false;
+  }
+
+  function safeHistoryResponse(data, resourceKey) {
+    if (
+      data?.schema !== 'home-center.household-policy-history-overview.v1'
+      || data?.resource_key !== resourceKey
+      || !Number.isInteger(data?.current_generation)
+      || data.current_generation < 1
+      || typeof data?.current_bundle_id !== 'string'
+      || !Number.isInteger(data?.window_start_generation)
+      || data.window_start_generation < 1
+      || data.window_start_generation > data.current_generation
+      || !Array.isArray(data?.revisions)
+      || !authorityDenied(data)
+    ) return false;
+
+    const expectedCount = data.current_generation - data.window_start_generation + 1;
+    if (data.revisions.length !== expectedCount) return false;
+    for (let index = 0; index < data.revisions.length; index += 1) {
+      const revision = data.revisions[index];
+      if (
+        revision?.generation !== data.window_start_generation + index
+        || typeof revision?.bundle_id !== 'string'
+        || !/^[0-9a-f]{64}$/.test(String(revision?.evidence_sha256 || ''))
+        || typeof revision?.audit_event_id !== 'string'
+        || !revision.audit_event_id
+      ) return false;
+    }
+    const current = data.revisions[data.revisions.length - 1];
+    return current?.generation === data.current_generation && current?.bundle_id === data.current_bundle_id;
+  }
+
+  function safeApplyResponse(data, proposalId, resourceKey) {
+    const confirmation = data?.confirmation;
+    const receipt = data?.receipt;
+    return data?.schema === 'home-center.household-policy-confirm-apply-result.v1'
+      && data?.desired_state_materialized === true
+      && authorityDenied(data)
+      && /^[0-9a-f]{64}$/.test(String(data?.history_evidence_sha256 || ''))
+      && typeof data?.history_audit_event_id === 'string'
+      && Boolean(data.history_audit_event_id)
+      && confirmation?.proposal_id === proposalId
+      && confirmation?.desired_state_write_ready === true
+      && confirmation?.desired_state_write_authorized === false
+      && confirmation?.infrastructure_mutation_authorized === false
+      && confirmation?.external_publication_authorized === false
+      && receipt?.schema === 'home-center.household-policy-apply-receipt.v1'
+      && receipt?.proposal_id === proposalId
+      && receipt?.confirmation_id === confirmation?.confirmation_id
+      && receipt?.bundle_id === confirmation?.bundle_id
+      && receipt?.resource_key === resourceKey
+      && receipt?.desired_state_materialized === true
+      && authorityDenied(receipt);
+  }
+
+  function safeRollbackResponse(data, requestBody) {
+    return data?.schema === 'home-center.household-policy-rollback-receipt.v1'
+      && data?.resource_key === requestBody.resource_key
+      && data?.target_history_generation === requestBody.target_generation
+      && Number.isInteger(data?.generation)
+      && data.generation > requestBody.expected_generation
+      && data?.desired_state_materialized === true
+      && authorityDenied(data)
+      && ['rolled-back', 'already-rolled-back'].includes(data?.outcome);
+  }
+
   function historyRevisionNode(revision, history) {
     const item = document.createElement('article');
     item.className = 'policy-history-item';
@@ -132,7 +239,7 @@
     const list = byId('policy-history-list');
     if (!list) return;
     list.replaceChildren();
-    const revisions = Array.isArray(data?.revisions) ? [...data.revisions].reverse() : [];
+    const revisions = [...data.revisions].reverse();
     revisions.forEach((revision) => list.append(historyRevisionNode(revision, data)));
     if (!revisions.some((revision) => revision?.rollback_target === true)) {
       const empty = document.createElement('p');
@@ -163,16 +270,9 @@
         }
         return;
       }
-      if (
-        data?.schema !== 'home-center.household-policy-history-overview.v1'
-        || data?.resource_key !== resourceKey
-        || !Number.isInteger(data?.current_generation)
-        || !data?.current_bundle_id
-        || !Array.isArray(data?.revisions)
-        || data?.provider_execution_authorized !== false
-        || data?.infrastructure_mutation_authorized !== false
-      ) {
+      if (!safeHistoryResponse(data, resourceKey)) {
         latestHistory = null;
+        byId('policy-history-list')?.replaceChildren();
         historyMessage('Home Center вернул непроверяемую историю правил.', 'error');
         return;
       }
@@ -219,7 +319,7 @@
           confirmed: true,
         }),
       });
-      if (!response.ok || data?.desired_state_materialized !== true) {
+      if (!response.ok || !safeRollbackResponse(data, requestBody)) {
         historyMessage(errorMessage(data, 'Не удалось вернуть ревизию. Обновите историю и повторите проверку.'), 'error');
         return;
       }
@@ -240,13 +340,12 @@
   }
 
   function renderPlan(data) {
-    const proposal = data?.proposal;
-    const presentation = data?.presentation;
-    const cozy = presentation?.cozy;
-    const full = presentation?.full;
-    if (!proposal?.proposal_id || !cozy || !full || presentation?.same_policy_evidence !== true) {
-      throw new Error('invalid_policy_plan_response');
-    }
+    if (!safePlanResponse(data)) throw new Error('invalid_policy_plan_response');
+    const proposal = data.proposal;
+    const presentation = data.presentation;
+    const cozy = presentation.cozy;
+    const full = presentation.full;
+
     activeProposalId = proposal.proposal_id;
     activePolicyResourceKey = full.desired_state_resource_key || null;
     byId('policy-preview-title').textContent = cozy.title || 'Правила';
@@ -313,7 +412,8 @@
       }
       renderPlan(data);
     } catch (_) {
-      message('Не удалось связаться с Home Center.', 'error');
+      resetPreview();
+      message('Home Center вернул непроверяемый план или соединение недоступно.', 'error');
     } finally {
       button.disabled = false;
     }
@@ -321,8 +421,9 @@
 
   async function confirmPolicy(event) {
     const button = event.currentTarget;
-    if (!activeProposalId) return;
+    if (!activeProposalId || !activePolicyResourceKey) return;
     const proposalId = activeProposalId;
+    const resourceKey = activePolicyResourceKey;
     button.disabled = true;
     message('Применяем подтверждённые правила…');
     try {
@@ -338,15 +439,14 @@
         message(errorMessage(data, 'Правила не применены. Сформируйте план заново.'), 'error');
         return;
       }
-      if (data?.desired_state_materialized !== true) {
-        message('Home Center не подтвердил сохранение правил.', 'error');
+      if (!safeApplyResponse(data, proposalId, resourceKey)) {
+        message('Home Center не подтвердил безопасное сохранение точной ревизии правил.', 'error');
         return;
       }
       activeProposalId = null;
       button.disabled = true;
       message('Правила сохранены. Техническое выполнение на устройствах этим действием не запускается.', 'success');
-      const resourceKey = data?.receipt?.resource_key || activePolicyResourceKey;
-      if (resourceKey) await loadHistory(resourceKey);
+      await loadHistory(resourceKey);
     } catch (_) {
       message('Не удалось связаться с Home Center. Повторное подтверждение безопасно и идемпотентно.', 'error');
     }
