@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/role-identity-provisioning-preflight-decision.v1.schema.json",
+  "title": "Home Center role identity provisioning preflight decision v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "plan_id", "account_name", "provider_id", "provider_version",
+    "provider_evidence_sha256", "observation_evidence_sha256", "state", "ready",
+    "blockers", "execution_authorized", "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.role-identity-provisioning-preflight-decision.v1"},
+    "plan_id": {"type": "string", "pattern": "^hcidp-[0-9a-f]{24}$"},
+    "account_name": {"type": "string", "pattern": "^[a-z][a-z0-9._-]{0,31}$"},
+    "provider_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "provider_version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+    "provider_evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "observation_evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "state": {"enum": ["absent", "exists", "conflict", "unknown"]},
+    "ready": {"type": "boolean"},
+    "blockers": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "observation_from_future", "observation_expired", "account_already_exists",
+          "account_name_conflict", "account_state_unknown"
+        ]
+      }
+    },
+    "execution_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
