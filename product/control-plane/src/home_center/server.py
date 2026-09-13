@@ -16,7 +16,7 @@ from pathlib import Path
 from .api import PeerRequestHandler
 from .api_v8 import RuntimeRequestHandlerV8
 from .config import load_config
-from .runtime import Runtime
+from .runtime_safe import ProductionRuntime as Runtime
 
 
 LOG = logging.getLogger("home_center")
