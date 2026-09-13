@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/smart-home/zigbee-mqtt-recovery-binding.v1.schema.json",
+  "title": "Home Center ZigBee/MQTT recovery binding v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "recovery_binding_id",
+    "operation_plan_id",
+    "coordinator_id",
+    "inventory_sha256",
+    "backup_id",
+    "backup_configuration_sha256",
+    "backup_artifact_sha256",
+    "backup_verified",
+    "recovery_available",
+    "execution_authorized",
+    "restore_execution_authorized",
+    "device_state_mutation_authorized",
+    "infrastructure_mutation_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.zigbee-mqtt-recovery-binding.v1"},
+    "recovery_binding_id": {"type": "string", "pattern": "^hc65-recovery-[0-9a-f]{24}$"},
+    "operation_plan_id": {"type": "string", "pattern": "^hc65-op-[0-9a-f]{24}$"},
+    "coordinator_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "inventory_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "backup_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "backup_configuration_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "backup_artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "backup_verified": {"const": true},
+    "recovery_available": {"const": true},
+    "execution_authorized": {"const": false},
+    "restore_execution_authorized": {"const": false},
+    "device_state_mutation_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
