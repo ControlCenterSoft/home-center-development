@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BASE_SHA = "ff5ef0c7fb878ee28ff314cd5809c8cb0df2f726"
 BASELINE_VERSION = "0.61.2"
 CANDIDATE_VERSION = "0.62.1"
+CURRENT_VERSION = (ROOT / "VERSION").read_text(encoding="ascii").strip()
 
 
 def _load_060_drill():
@@ -24,8 +25,10 @@ def _load_060_drill():
 
 
 @pytest.mark.skipif(
-    os.environ.get("GITHUB_ACTIONS") != "true" or sys.version_info[:2] != (3, 12),
-    reason="0.61.2 -> 0.62.1 hosted upgrade/rollback drill runs once on Python 3.12",
+    os.environ.get("GITHUB_ACTIONS") != "true"
+    or sys.version_info[:2] != (3, 12)
+    or CURRENT_VERSION != CANDIDATE_VERSION,
+    reason="0.61.2 -> 0.62.1 hosted upgrade/rollback drill is scoped to the exact 0.62.1 release line",
 )
 def test_release_062_hosted_upgrade_from_0612_and_rollback(tmp_path: Path) -> None:
     module = _load_060_drill()
