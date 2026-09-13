@@ -16,10 +16,18 @@ from dataclasses import dataclass
 from typing import Any
 
 from .home_services import HomeServiceCatalogError, _identifier
-from .role_identity_provisioning import IdentityProviderCapability, RoleIdentityProvisioningPlan
+from .household import EffectivePolicy
+from .household_policy_composer import ComposedPolicy
+from .household_store import HouseholdSnapshot
+from .role_identity_provisioning import (
+    IdentityProviderCapability,
+    IdentityProvisioningError,
+    RoleIdentityProvisioningPlan,
+    build_role_identity_provisioning_plan,
+    plan_from_dict,
+)
 from .role_identity_provisioning_execution import (
     IdentityProvisioningExecutionError,
-    RoleIdentityProvisioningAdapterResult,
     RoleIdentityProvisioningProviderAdapter,
     adapter_result_from_dict,
     build_identity_execution_request,
@@ -85,6 +93,44 @@ def _correlation(value: object) -> str:
 
 def _request_hash(value: object) -> str:
     return hashlib.sha256(canonical_json(value).encode("utf-8")).hexdigest()
+
+
+def _strict_plan(value: RoleIdentityProvisioningPlan | dict[str, object]) -> RoleIdentityProvisioningPlan:
+    try:
+        return plan_from_dict(value.to_dict() if isinstance(value, RoleIdentityProvisioningPlan) else value)
+    except IdentityProvisioningError as exc:
+        raise IdentityProvisioningRuntimeError("identity_runtime_plan_rejected") from exc
+
+
+def _revalidate_current_plan(
+    *,
+    snapshot: HouseholdSnapshot,
+    policy: EffectivePolicy | ComposedPolicy,
+    provider: IdentityProviderCapability,
+    plan: RoleIdentityProvisioningPlan | dict[str, object],
+) -> RoleIdentityProvisioningPlan:
+    if not isinstance(snapshot, HouseholdSnapshot):
+        raise IdentityProvisioningRuntimeError("identity_runtime_household_snapshot_invalid")
+    if not isinstance(provider, IdentityProviderCapability):
+        raise IdentityProvisioningRuntimeError("identity_runtime_provider_invalid")
+    parsed = _strict_plan(plan)
+    try:
+        rebuilt = build_role_identity_provisioning_plan(
+            snapshot=snapshot,
+            policy=policy,
+            provider=provider,
+            member_id=parsed.member_id,
+            account_name=parsed.account_name,
+            home_directory_mode=parsed.home_directory_mode,
+            profile_mode=parsed.profile_mode,
+        )
+    except IdentityProvisioningError as exc:
+        raise IdentityProvisioningRuntimeError(
+            getattr(exc, "code", "identity_runtime_plan_stale")
+        ) from exc
+    if rebuilt.to_dict() != parsed.to_dict():
+        raise IdentityProvisioningRuntimeError("identity_runtime_plan_stale")
+    return parsed
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,7 +199,9 @@ class RoleIdentityProvisioningRuntimeService:
     def start(
         self,
         *,
-        plan: RoleIdentityProvisioningPlan,
+        snapshot: HouseholdSnapshot,
+        policy: EffectivePolicy | ComposedPolicy,
+        plan: RoleIdentityProvisioningPlan | dict[str, object],
         provider: IdentityProviderCapability,
         preflight_observation: AccountPreflightObservation,
         credential_references: object,
@@ -166,8 +214,9 @@ class RoleIdentityProvisioningRuntimeService:
     ) -> dict[str, Any]:
         """Create a durable Job and invoke the exact qualified adapter at most once here.
 
-        Replaying the same durable request returns the existing Job without any provider
-        call, regardless of whether that Job is preflight/running/verifying/terminal.
+        The plan is reconstructed and rebuilt against the exact current Household and
+        policy immediately before durable admission. Replaying the same durable request
+        returns the existing Job without any provider call, regardless of its state.
         """
 
         actor_id = _actor(actor)
@@ -176,16 +225,18 @@ class RoleIdentityProvisioningRuntimeService:
         correlation = _correlation(correlation_id)
         if confirmed is not True:
             raise IdentityProvisioningRuntimeError("identity_runtime_confirmation_required")
-        if not isinstance(plan, RoleIdentityProvisioningPlan):
-            raise IdentityProvisioningRuntimeError("identity_runtime_plan_invalid")
-        if not isinstance(provider, IdentityProviderCapability):
-            raise IdentityProvisioningRuntimeError("identity_runtime_provider_invalid")
+        current_plan = _revalidate_current_plan(
+            snapshot=snapshot,
+            policy=policy,
+            provider=provider,
+            plan=plan,
+        )
         if not isinstance(preflight_observation, AccountPreflightObservation):
             raise IdentityProvisioningRuntimeError("identity_runtime_preflight_observation_invalid")
 
         try:
             preflight = evaluate_account_preflight(
-                plan=plan,
+                plan=current_plan,
                 provider=provider,
                 observation=preflight_observation,
                 now=now,
@@ -203,7 +254,7 @@ class RoleIdentityProvisioningRuntimeService:
 
         intent = {
             "schema": "home-center.role-identity-runtime-intent.v1",
-            "plan": plan.to_dict(),
+            "plan": current_plan.to_dict(),
             "provider": provider.to_dict(),
             "preflight": preflight.to_dict(),
             "preflight_observation": preflight_observation.to_dict(),
@@ -226,11 +277,15 @@ class RoleIdentityProvisioningRuntimeService:
             request_hash=digest,
             preflight={
                 "schema": "home-center.role-identity-runtime-preflight.v1",
-                "plan_id": plan.plan_id,
+                "plan_id": current_plan.plan_id,
+                "household_snapshot_id": current_plan.household_snapshot_id,
+                "household_resource_version": current_plan.household_resource_version,
+                "household_generation": current_plan.household_generation,
+                "policy_id": current_plan.policy_id,
                 "provider_id": provider.provider_id,
                 "provider_version": provider.provider_version,
                 "provider_evidence_sha256": provider.evidence_sha256,
-                "account_name": plan.account_name,
+                "account_name": current_plan.account_name,
                 "preflight": preflight.to_dict(),
                 "adapter_qualification_evidence_sha256": registration.qualification_evidence_sha256,
                 "provider_execution_authorized": False,
@@ -244,7 +299,7 @@ class RoleIdentityProvisioningRuntimeService:
 
         try:
             request = build_identity_execution_request(
-                plan=plan,
+                plan=current_plan,
                 provider=provider,
                 job_id=job["job_id"],
                 credential_references=[item.to_dict() for item in normalized_refs],
@@ -266,7 +321,7 @@ class RoleIdentityProvisioningRuntimeService:
             self.store.audit(
                 actor=actor_id,
                 action="role-identity-provisioning-admission",
-                target=plan.plan_id,
+                target=current_plan.plan_id,
                 outcome="failed",
                 correlation_id=correlation,
                 details={"job_id": job["job_id"], "code": exc.code, "provider_invoked": False},
@@ -296,13 +351,13 @@ class RoleIdentityProvisioningRuntimeService:
         self.store.audit(
             actor=actor_id,
             action="role-identity-provisioning-provider-start",
-            target=plan.plan_id,
+            target=current_plan.plan_id,
             outcome="started",
             correlation_id=correlation,
             details={
                 "job_id": job["job_id"],
                 "provider_id": provider.provider_id,
-                "account_name": plan.account_name,
+                "account_name": current_plan.account_name,
                 "automatic_retry_authorized": False,
             },
         )
@@ -310,7 +365,7 @@ class RoleIdentityProvisioningRuntimeService:
         try:
             raw_result = registration.adapter.start(request)
             accepted = adapter_result_from_dict(raw_result)
-            if accepted.account_name != plan.account_name:
+            if accepted.account_name != current_plan.account_name:
                 raise IdentityProvisioningExecutionError("identity_adapter_result_account_mismatch")
         except Exception as exc:
             code = (
@@ -341,7 +396,7 @@ class RoleIdentityProvisioningRuntimeService:
             self.store.audit(
                 actor=actor_id,
                 action="role-identity-provisioning-provider-start",
-                target=plan.plan_id,
+                target=current_plan.plan_id,
                 outcome="ambiguous",
                 correlation_id=correlation,
                 details={
@@ -375,7 +430,7 @@ class RoleIdentityProvisioningRuntimeService:
         self.store.audit(
             actor=actor_id,
             action="role-identity-provisioning-provider-start",
-            target=plan.plan_id,
+            target=current_plan.plan_id,
             outcome="accepted-unverified",
             correlation_id=correlation,
             details={
@@ -390,7 +445,7 @@ class RoleIdentityProvisioningRuntimeService:
         self,
         *,
         job_id: str,
-        plan: RoleIdentityProvisioningPlan,
+        plan: RoleIdentityProvisioningPlan | dict[str, object],
         provider: IdentityProviderCapability,
         observation: IdentityProvisioningReadbackObservation | dict[str, object],
         actor: str,
@@ -399,6 +454,7 @@ class RoleIdentityProvisioningRuntimeService:
     ) -> dict[str, Any]:
         actor_id = _actor(actor)
         correlation = _correlation(correlation_id)
+        parsed_plan = _strict_plan(plan)
         job = self.store.job(job_id)
         if job is None:
             raise IdentityProvisioningRuntimeError("identity_runtime_job_not_found")
@@ -421,20 +477,22 @@ class RoleIdentityProvisioningRuntimeService:
                 else verification_observation_from_dict(observation)
             )
         except (IdentityProvisioningExecutionError, IdentityProvisioningVerificationError) as exc:
-            raise IdentityProvisioningRuntimeError(getattr(exc, "code", "identity_runtime_verification_evidence_rejected")) from exc
+            raise IdentityProvisioningRuntimeError(
+                getattr(exc, "code", "identity_runtime_verification_evidence_rejected")
+            ) from exc
         if (
             request.job_id != job_id
-            or request.plan_id != plan.plan_id
+            or request.plan_id != parsed_plan.plan_id
             or request.provider_id != provider.provider_id
             or request.provider_version != provider.provider_version
             or request.provider_evidence_sha256 != provider.evidence_sha256
-            or request.account_name != plan.account_name
+            or request.account_name != parsed_plan.account_name
         ):
             raise IdentityProvisioningRuntimeError("identity_runtime_execution_binding_mismatch")
 
         try:
             verification = verify_identity_provisioning(
-                plan=plan,
+                plan=parsed_plan,
                 provider=provider,
                 accepted=accepted,
                 observation=parsed_observation,
@@ -447,7 +505,7 @@ class RoleIdentityProvisioningRuntimeService:
             self.store.audit(
                 actor=actor_id,
                 action="role-identity-provisioning-post-condition",
-                target=plan.plan_id,
+                target=parsed_plan.plan_id,
                 outcome="blocked",
                 correlation_id=correlation,
                 details={
@@ -485,7 +543,7 @@ class RoleIdentityProvisioningRuntimeService:
         self.store.audit(
             actor=actor_id,
             action="role-identity-provisioning-post-condition",
-            target=plan.plan_id,
+            target=parsed_plan.plan_id,
             outcome="verified",
             correlation_id=correlation,
             details={
