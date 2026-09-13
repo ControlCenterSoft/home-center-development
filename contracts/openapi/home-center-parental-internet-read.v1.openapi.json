@@ -1,0 +1,80 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Home Center 0.60 Parental Internet Read API",
+    "version": "0.60.0-development",
+    "description": "Authenticated parent-authorized read surface for saved parental Internet Desired State and side-effect-free decision previews. Policy identity and rule-source identity are always resolved server-side. Preview output is not provider enforcement evidence, Actual State, or execution authority."
+  },
+  "paths": {
+    "/api/v1/household/parental-internet/desired": {
+      "get": {
+        "operationId": "getParentalInternetDesiredState",
+        "security": [{"sessionCookie": []}],
+        "parameters": [
+          {
+            "name": "member_id",
+            "in": "query",
+            "required": true,
+            "schema": {"type": "string", "minLength": 1, "maxLength": 128}
+          },
+          {
+            "name": "view",
+            "in": "query",
+            "required": true,
+            "schema": {"enum": ["cozy", "full"]}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current saved parental policy projection or an explicit absent state; no provider execution authority",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../household/parental-internet-policy-desired-read.v1.schema.json"}
+              }
+            }
+          },
+          "400": {"description": "Malformed query"},
+          "401": {"description": "Authentication required"},
+          "403": {"description": "Parent/Household administration authority required"},
+          "404": {"description": "Household or member not found"},
+          "503": {"description": "Saved/verified policy state is invalid or unavailable"}
+        }
+      }
+    },
+    "/api/v1/household/parental-internet/decision-preview": {
+      "post": {
+        "operationId": "previewParentalInternetDecision",
+        "security": [{"sessionCookie": []}],
+        "description": "Same-origin read-only preview. The server supplies current policy and rule-source identity; caller facts cannot authorize DNS/proxy execution.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "../household/parental-internet-decision-preview-request.v1.schema.json"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "UI preview bound to current protected Desired State and exact verified 0.59 base; enforcement_verified remains false",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../household/parental-internet-decision-preview-result.v1.schema.json"}
+              }
+            }
+          },
+          "400": {"description": "Malformed or out-of-bounds preview request"},
+          "401": {"description": "Authentication required"},
+          "403": {"description": "Parent/Household administration authority or same-origin requirement not satisfied"},
+          "404": {"description": "Household/member or saved parental Desired State not found"},
+          "503": {"description": "Verified 0.59 base or current saved parental state is stale/invalid"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {"type": "apiKey", "in": "cookie", "name": "hc_session"}
+    }
+  }
+}
