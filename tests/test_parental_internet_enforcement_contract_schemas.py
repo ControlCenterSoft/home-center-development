@@ -7,6 +7,7 @@ import jsonschema
 import pytest
 
 from home_center.parental_internet_policy_adapter import (
+    ParentalInternetEnforcementApplyRequest,
     ParentalInternetEnforcementObservation,
     ParentalInternetEnforcementReadbackRequest,
     ParentalInternetEnforcementRollbackRequest,
@@ -25,6 +26,73 @@ def _schema(name: str) -> dict[str, object]:
 
 def _validate(name: str, payload: dict[str, object]) -> None:
     jsonschema.Draft202012Validator(_schema(name)).validate(payload)
+
+
+def _policy() -> dict[str, object]:
+    return {
+        "schema": "home-center.parental-internet-policy.v1",
+        "policy_id": "hcip-" + "a" * 24,
+        "household_id": "home",
+        "member_id": "child",
+        "subject_role": "child",
+        "base_policy_id": "hcpol-" + "b" * 24,
+        "base_policy_sha256": "c" * 64,
+        "rule_source_id": "family-filter",
+        "rule_source_version": "2026.09.13",
+        "rule_source_sha256": "d" * 64,
+        "allow_domains": ["school.example"],
+        "deny_domains": ["blocked.example"],
+        "allow_categories": ["education"],
+        "deny_categories": ["adult"],
+        "schedule": [],
+        "daily_quota_minutes": 180,
+        "weekly_quota_minutes": 900,
+        "continuous_session_minutes": 60,
+        "break_minutes": 15,
+        "grace_minutes": 5,
+        "bonus_minutes": 0,
+        "default_decision": "deny",
+        "dns_policy_required": True,
+        "proxy_policy_required": True,
+        "enforcement_authorized": False,
+        "infrastructure_mutation_authorized": False,
+        "external_publication_authorized": False,
+    }
+
+
+def test_apply_request_schema_requires_closed_child_policy_contract() -> None:
+    request = ParentalInternetEnforcementApplyRequest(
+        job_id="job-parental-001",
+        adapter_id="local-dns-proxy",
+        adapter_version="1.0.0",
+        household_id="home",
+        member_id="child",
+        desired_generation=4,
+        desired_plan_id="hpip-" + "e" * 24,
+        desired_state_sha256="a" * 64,
+        verified_base_state_sha256="f" * 64,
+        policy_id="hcip-" + "a" * 24,
+        policy_sha256="b" * 64,
+        policy=_policy(),
+    )
+    schema = _schema("parental-internet-enforcement-apply-request.v1.schema.json")
+    raw = request.to_dict()
+    jsonschema.Draft202012Validator(schema).validate(raw)
+
+    weakened = json.loads(json.dumps(raw))
+    weakened["policy"]["default_decision"] = "allow"
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.Draft202012Validator(schema).validate(weakened)
+
+    extra_authority = json.loads(json.dumps(raw))
+    extra_authority["policy"]["provider_execution_authorized"] = True
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.Draft202012Validator(schema).validate(extra_authority)
+
+    incomplete = json.loads(json.dumps(raw))
+    del incomplete["policy"]["rule_source_sha256"]
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.Draft202012Validator(schema).validate(incomplete)
 
 
 def test_readback_request_schema_matches_typed_read_only_contract() -> None:
