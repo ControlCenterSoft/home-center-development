@@ -16,6 +16,8 @@ _CORRELATION_ID = re.compile(r"[A-Za-z0-9._:-]{1,96}\Z")
 
 
 class QrOnboardingRuntimeDelegate(Protocol):
+    repository: Any
+
     def issue(self, **kwargs: Any) -> Any: ...
 
     def consume(self, **kwargs: Any) -> Any: ...
@@ -42,6 +44,14 @@ class QrOnboardingAuditedRuntimeService:
             raise TypeError("qr_audited_state_store_invalid")
         self.runtime = runtime
         self.store = store
+
+    @property
+    def repository(self) -> Any:
+        """Expose the same read-only repository seam expected by the API adapter."""
+        repository = getattr(self.runtime, "repository", None)
+        if repository is None:
+            raise QrOnboardingStateAuditError("qr_audited_repository_unavailable")
+        return repository
 
     @staticmethod
     def _correlation_id(value: str) -> str:
