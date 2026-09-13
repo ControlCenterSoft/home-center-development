@@ -93,7 +93,7 @@ def test_confirmation_request_is_closed_and_reconstructs_nested_evidence() -> No
         confirmation_request_from_dict(request)
 
 
-def test_confirmation_receipt_strict_reconstruction_rejects_authority_tampering() -> None:
+def test_confirmation_receipt_strict_reconstruction_rejects_tampering() -> None:
     _plan, _preflight, receipt = _objects()
     assert confirmation_receipt_from_dict(receipt.to_dict()) == receipt
 
@@ -107,6 +107,14 @@ def test_confirmation_receipt_strict_reconstruction_rejects_authority_tampering(
 
     raw = receipt.to_dict()
     raw["account_name"] = "other.user"
+    with pytest.raises(
+        IdentityProvisioningConfirmationError,
+        match="identity_confirmation_receipt_rejected",
+    ):
+        confirmation_receipt_from_dict(raw)
+
+    raw = receipt.to_dict()
+    raw["receipt_id"] = "hcidcr-" + "0" * 24
     with pytest.raises(
         IdentityProvisioningConfirmationError,
         match="identity_confirmation_receipt_rejected",
