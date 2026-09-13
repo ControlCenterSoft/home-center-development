@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import re
 import threading
-from typing import Protocol
+from typing import Callable, Protocol
 
 from .home_services import HomeServiceCatalogError, _identifier
 from .household import HouseholdRole, effective_policy
@@ -81,9 +81,16 @@ def _id(value: object, code: str) -> str:
 class RoleIdentityProvisioningApiRuntimeService:
     """Bind product API operations to server-side Household/provider authority."""
 
-    def __init__(self, store: StateStore, execution: RoleIdentityProvisioningRuntimeService) -> None:
+    def __init__(
+        self,
+        store: StateStore,
+        execution: RoleIdentityProvisioningRuntimeService,
+        *,
+        now: Callable[[], str] = utc_now,
+    ) -> None:
         self.store = store
         self.execution = execution
+        self._now = now
         self._lock = threading.RLock()
         self._providers: dict[str, _ProviderRegistration] = {}
 
@@ -131,6 +138,8 @@ class RoleIdentityProvisioningApiRuntimeService:
         return registration
 
     def _context(self, actor: str, member_id: str):
+        """Authorize the actor before resolving target-member details."""
+
         if not isinstance(actor, str) or not actor:
             raise IdentityProvisioningApiRuntimeError("identity_api_actor_invalid")
         raw = self.store.get_meta(HOUSEHOLD_STATE_KEY)
@@ -142,19 +151,26 @@ class RoleIdentityProvisioningApiRuntimeService:
             if actor_member_id is None:
                 raise IdentityProvisioningApiRuntimeError("household_actor_not_bound")
             actor_member = snapshot.household.member(actor_member_id)
-            target_member = snapshot.household.member(member_id)
             actor_policy = effective_policy(snapshot.household, actor_member_id)
-            target_policy = effective_policy(snapshot.household, member_id)
         except IdentityProvisioningApiRuntimeError:
             raise
         except HomeServiceCatalogError as exc:
             raise IdentityProvisioningApiRuntimeError(exc.code) from exc
         except Exception as exc:
             raise IdentityProvisioningApiRuntimeError(getattr(exc, "code", "household_state_invalid")) from exc
-        if not actor_member.enabled or not target_member.enabled:
+        if not actor_member.enabled:
             raise IdentityProvisioningApiRuntimeError("household_member_disabled")
         if actor_policy.role is not HouseholdRole.PARENT or not actor_policy.administration_allowed:
             raise IdentityProvisioningApiRuntimeError("identity_api_not_authorized")
+        try:
+            target_member = snapshot.household.member(member_id)
+            target_policy = effective_policy(snapshot.household, member_id)
+        except HomeServiceCatalogError as exc:
+            raise IdentityProvisioningApiRuntimeError(exc.code) from exc
+        except Exception as exc:
+            raise IdentityProvisioningApiRuntimeError(getattr(exc, "code", "household_state_invalid")) from exc
+        if not target_member.enabled:
+            raise IdentityProvisioningApiRuntimeError("household_member_disabled")
         return snapshot, target_policy
 
     @staticmethod
@@ -181,8 +197,8 @@ class RoleIdentityProvisioningApiRuntimeService:
         return plan
 
     def _revalidate_plan(self, actor: str, plan: RoleIdentityProvisioningPlan) -> _ProviderRegistration:
-        registration = self._provider(plan.provider_id)
         snapshot, policy = self._context(actor, plan.member_id)
+        registration = self._provider(plan.provider_id)
         try:
             current = build_role_identity_provisioning_plan(
                 snapshot=snapshot,
@@ -201,8 +217,8 @@ class RoleIdentityProvisioningApiRuntimeService:
 
     def plan(self, *, actor: str, member_id: object, provider_id: object, account_name: object, home_directory_mode: object, profile_mode: object, correlation_id: str) -> dict[str, object]:
         member_id = _id(member_id, "identity_api_member_id_invalid")
-        registration = self._provider(provider_id)
         snapshot, policy = self._context(actor, member_id)
+        registration = self._provider(provider_id)
         try:
             plan = build_role_identity_provisioning_plan(
                 snapshot=snapshot,
@@ -243,7 +259,12 @@ class RoleIdentityProvisioningApiRuntimeService:
     def _observe_preflight(self, *, registration: _ProviderRegistration, plan: RoleIdentityProvisioningPlan):
         try:
             observation = observation_from_dict(registration.adapter.preflight(plan=plan))
-            decision = evaluate_account_preflight(plan=plan, provider=registration.capability, observation=observation, now=utc_now())
+            decision = evaluate_account_preflight(
+                plan=plan,
+                provider=registration.capability,
+                observation=observation,
+                now=self._now(),
+            )
             return decision, observation
         except IdentityProvisioningPreflightError as exc:
             raise IdentityProvisioningApiRuntimeError(exc.code) from exc
