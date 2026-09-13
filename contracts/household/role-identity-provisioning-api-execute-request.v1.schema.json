@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/role-identity-provisioning-api-execute-request.v1.schema.json",
+  "title": "Home Center role identity provisioning API execute request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "plan_id", "preflight_observation", "credential_references", "confirmed"],
+  "properties": {
+    "schema": {"const": "home-center.role-identity-provisioning-api-execute-request.v1"},
+    "plan_id": {"type": "string", "pattern": "^hcidp-[0-9a-f]{24}$"},
+    "preflight_observation": {"$ref": "role-identity-account-preflight-observation.v1.schema.json"},
+    "credential_references": {
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "reference"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1, "maxLength": 128},
+          "reference": {"type": "string", "pattern": "^secret://[A-Za-z0-9][A-Za-z0-9._/-]{0,239}$"}
+        }
+      }
+    },
+    "confirmed": {"const": true}
+  }
+}
