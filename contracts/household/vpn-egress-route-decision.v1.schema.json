@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/vpn-egress-route-decision.v1.schema.json",
+  "title": "Home Center VPN egress route decision v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "policy_id", "route", "reason", "provider_id", "location_id", "dns_strategy",
+    "observation_evidence_sha256", "parental_deny_has_priority", "execution_authorized",
+    "infrastructure_mutation_authorized", "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.vpn-egress-route-decision.v1"},
+    "policy_id": {"type": "string", "pattern": "^hcvpn-[0-9a-f]{24}$"},
+    "route": {"enum": ["vpn", "direct", "deny"]},
+    "reason": {
+      "enum": [
+        "parental_decision_required", "parental_decision_binding_mismatch", "parental_deny",
+        "parental_decision_unknown", "provider_observation_binding_mismatch", "vpn_unhealthy_fail_closed",
+        "vpn_unhealthy_direct_fallback", "split_route_domain_required", "split_route_domain_invalid",
+        "split_route_direct", "vpn_route_selected"
+      ]
+    },
+    "provider_id": {"type": ["string", "null"], "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "location_id": {"type": ["string", "null"], "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "dns_strategy": {"type": ["string", "null"], "enum": ["provider", "parental", "system", null]},
+    "observation_evidence_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "parental_deny_has_priority": {"const": true},
+    "execution_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"route": {"const": "vpn"}}, "required": ["route"]},
+      "then": {
+        "properties": {
+          "provider_id": {"type": "string"},
+          "location_id": {"type": "string"},
+          "dns_strategy": {"type": "string"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"route": {"enum": ["direct", "deny"]}}, "required": ["route"]},
+      "then": {
+        "properties": {
+          "provider_id": {"const": null},
+          "location_id": {"const": null},
+          "dns_strategy": {"const": null}
+        }
+      }
+    }
+  ]
+}
