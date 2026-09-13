@@ -11,12 +11,19 @@ ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_MEMBERS = {
     "home_center/role_identity_provisioning.py",
     "home_center/role_identity_provisioning_execution.py",
+    "home_center/role_identity_provider_qualification.py",
+    "home_center/role_identity_provisioning_api_runtime.py",
+    "home_center/api_v9.py",
 }
 CONTRACT_MEMBERS = {
     "contracts/household/role-identity-provider-capability.v1.schema.json",
     "contracts/household/role-identity-provisioning-plan.v1.schema.json",
     "contracts/household/role-identity-provisioning-execution-request.v1.schema.json",
     "contracts/household/role-identity-provisioning-adapter-result.v1.schema.json",
+    "contracts/household/role-identity-provider-qualification.v1.schema.json",
+    "contracts/household/role-identity-provisioning-api-plan-request.v1.schema.json",
+    "contracts/household/role-identity-provisioning-api-preflight-request.v1.schema.json",
+    "contracts/household/role-identity-provisioning-api-execute-request.v1.schema.json",
 }
 
 
@@ -37,12 +44,10 @@ def test_062_runtime_and_contracts_are_present_in_node_deployment_candidate() ->
     runner_temp = os.environ.get("RUNNER_TEMP")
     if not runner_temp:
         pytest.skip("deployment candidate membership is runner-qualified on the Python 3.12 leg")
-
     version = (ROOT / "VERSION").read_text(encoding="ascii").strip()
     archive_path = Path(runner_temp) / "deployment-candidate" / f"home-center-{version}-linux-amd64.tar.gz"
     if not archive_path.is_file():
         pytest.skip("deployment candidate is built only on the Python 3.12 CI leg")
-
     with tarfile.open(archive_path, "r:gz") as archive:
         members = {name[2:] if name.startswith("./") else name for name in archive.getnames()}
     assert RUNTIME_MEMBERS <= members
