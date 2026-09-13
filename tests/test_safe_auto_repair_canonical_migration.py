@@ -15,14 +15,17 @@ def _normalize(sql: str) -> str:
     return "\n".join(line.rstrip() for line in sql.strip().splitlines()) + "\n"
 
 
-def test_history_migration_is_exactly_next_after_current_canonical_store() -> None:
+def test_history_migration_is_installed_once_as_canonical_migration_five() -> None:
     versions = [version for version, _ in MIGRATIONS]
+    assert versions == [1, 2, 3, 4, 5]
     assert versions == sorted(set(versions))
-    assert SAFE_AUTO_REPAIR_HISTORY_MIGRATION_VERSION == max(versions) + 1
     assert SAFE_AUTO_REPAIR_HISTORY_MIGRATION_VERSION == 5
+    installed = [sql for version, sql in MIGRATIONS if version == SAFE_AUTO_REPAIR_HISTORY_MIGRATION_VERSION]
+    assert len(installed) == 1
+    assert _normalize(installed[0]) == normalized_migration_sql()
 
 
-def test_prepared_migration_matches_repository_schema_exactly() -> None:
+def test_installed_migration_matches_repository_schema_exactly() -> None:
     assert normalized_migration_sql() == _normalize(SQLiteSafeAutoRepairHistoryRepository.schema_sql())
 
 
