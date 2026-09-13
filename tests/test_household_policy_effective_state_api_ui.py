@@ -35,9 +35,10 @@ def test_effective_state_query_rejects_ambiguous_or_extra_input(path: str) -> No
         _member_id_from_query(path)
 
 
-def test_api_route_is_read_only_and_wired_through_v7() -> None:
+def test_api_route_is_read_only_and_wired_through_current_handler_chain() -> None:
     api_v6 = (ROOT / "product/control-plane/src/home_center/api_v6.py").read_text(encoding="utf-8")
     api_v7 = (ROOT / "product/control-plane/src/home_center/api_v7.py").read_text(encoding="utf-8")
+    api_v8 = (ROOT / "product/control-plane/src/home_center/api_v8.py").read_text(encoding="utf-8")
     server = (ROOT / "product/control-plane/src/home_center/server.py").read_text(encoding="utf-8")
 
     assert EFFECTIVE_STATE_PATH == "/api/v1/household/policy/effective-state"
@@ -46,7 +47,8 @@ def test_api_route_is_read_only_and_wired_through_v7() -> None:
     assert "def do_POST(self)" not in api_v6
     assert "HouseholdPolicyEffectiveStateService(self.runtime.store).read" in api_v6
     assert "class RuntimeRequestHandlerV7(RuntimeRequestHandlerV6)" in api_v7
-    assert "RuntimeRequestHandlerV7" in server
+    assert "class RuntimeRequestHandlerV8(RuntimeRequestHandlerV7)" in api_v8
+    assert "RuntimeRequestHandlerV8" in server
     assert "RuntimeRequestHandlerV5" not in server
 
 

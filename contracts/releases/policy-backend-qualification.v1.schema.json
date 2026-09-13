@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://control-center.pro/schemas/home-center/policy-backend-qualification.v1.schema.json",
+  "title": "Home Center policy backend qualification decision v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "revision",
+    "candidate_artifact_sha256",
+    "backend_id",
+    "adapter_id",
+    "adapter_version",
+    "adapter_artifact_sha256",
+    "evidence_sha256",
+    "qualified",
+    "blockers",
+    "backend_mutation_authorized",
+    "release_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.policy-backend-qualification.v1"},
+    "version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+    "revision": {"type": "string", "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"},
+    "candidate_artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "backend_id": {"type": "string", "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$"},
+    "adapter_id": {"type": "string", "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$"},
+    "adapter_version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+    "adapter_artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "qualified": {"type": "boolean"},
+    "blockers": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "backend_mutation_authorized": {"const": false},
+    "release_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
