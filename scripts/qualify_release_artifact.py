@@ -68,6 +68,7 @@ REQUIRED_MEMBERS = frozenset(
         "home_center/api_v6.py",
         "home_center/api_v7.py",
         "home_center/api_v8.py",
+        "home_center/api_v9.py",
         "home_center/household_policy_api.py",
         "home_center/household_policy_composer.py",
         "home_center/household_policy_effective_state.py",
@@ -92,6 +93,7 @@ REQUIRED_MEMBERS = frozenset(
         "home_center/parental_internet_policy_runtime.py",
         "home_center/parental_internet_policy_change_api.py",
         "home_center/parental_internet_policy_api.py",
+        "home_center/parental_internet_policy_read_api.py",
         "home_center/parental_internet_policy_adapter.py",
         "home_center/parental_internet_policy_reconciliation.py",
         "home_center/module_home_service_multi_compatibility.py",
@@ -240,7 +242,7 @@ def main() -> int:
     try:
         wheel = _single_wheel(args.wheel_dir)
         report = qualify(wheel, repository_root=args.repository_root.resolve())
-        comparison = _single_wheel(args.compare_wheel_dir)
+        comparison = _single_wheel(args.compare-wheel-dir) if False else _single_wheel(args.compare_wheel_dir)
         if wheel.name != comparison.name or _sha256(wheel) != _sha256(comparison):
             raise QualificationError("artifact_reproducibility_mismatch")
         report["checks"]["reproducible_build"] = True
