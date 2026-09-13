@@ -21,6 +21,7 @@ from .role_identity_provisioning_confirmation import (
     IdentityAccountPreflightEvidence,
     IdentityProvisioningConfirmationError,
     RoleIdentityProvisioningConfirmationReceipt,
+    _canonical_sha,
     account_preflight_from_dict,
 )
 
@@ -83,6 +84,31 @@ def confirmation_receipt_from_dict(value: object) -> RoleIdentityProvisioningCon
         profile_mode = StorageMode(value["profile_mode"])
     except (KeyError, TypeError, ValueError, HomeServiceCatalogError, IdentityProvisioningError, IdentityProvisioningConfirmationError) as exc:
         raise IdentityProvisioningConfirmationError("identity_confirmation_receipt_rejected") from exc
+
+    canonical = {
+        "schema": IDENTITY_CONFIRM_RECEIPT_SCHEMA,
+        "plan_id": plan_id,
+        "household_id": household_id,
+        "member_id": member_id,
+        "account_name": account_name,
+        "provider_id": provider_id,
+        "provider_version": provider_version,
+        "provider_evidence_sha256": provider_sha,
+        "preflight_evidence_id": preflight_evidence_id,
+        "home_directory_mode": home_mode.value,
+        "profile_mode": profile_mode.value,
+        "outcome": "confirmed-awaiting-execution",
+        "provider_execution_authorized": False,
+        "credential_material_authorized": False,
+        "emergency_admin_mutation_authorized": False,
+        "arbitrary_privilege_grant_authorized": False,
+        "infrastructure_mutation_authorized": False,
+        "external_publication_authorized": False,
+        "post_condition_verification_required": True,
+    }
+    if receipt_id != "hcidcr-" + _canonical_sha(canonical)[:24]:
+        raise IdentityProvisioningConfirmationError("identity_confirmation_receipt_rejected")
+
     receipt = RoleIdentityProvisioningConfirmationReceipt(
         receipt_id=receipt_id,
         plan_id=plan_id,
