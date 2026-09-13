@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/role-identity-provider-qualification.v1.schema.json",
+  "title": "Home Center role identity provider qualification decision v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "revision",
+    "candidate_artifact_sha256",
+    "provider_id",
+    "provider_version",
+    "provider_kind",
+    "provider_evidence_sha256",
+    "adapter_artifact_sha256",
+    "qualification_evidence_sha256",
+    "qualified",
+    "blockers",
+    "provider_execution_authorized",
+    "durable_state_change_authorized",
+    "emergency_admin_mutation_authorized",
+    "privilege_grant_authorized",
+    "release_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.role-identity-provider-qualification.v1"},
+    "version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+    "revision": {"type": "string", "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$"},
+    "candidate_artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "provider_id": {"type": "string", "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$"},
+    "provider_version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+    "provider_kind": {"enum": ["local", "directory"]},
+    "provider_evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "adapter_artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "qualification_evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "qualified": {"type": "boolean"},
+    "blockers": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "provider_execution_authorized": {"const": false},
+    "durable_state_change_authorized": {"const": false},
+    "emergency_admin_mutation_authorized": {"const": false},
+    "privilege_grant_authorized": {"const": false},
+    "release_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
