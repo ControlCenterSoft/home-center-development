@@ -5,6 +5,7 @@ from pathlib import Path
 
 import jsonschema
 
+from home_center.api_v8 import RuntimeRequestHandlerV8
 from home_center.api_v9 import (
     CONFIRM_PATH,
     PLAN_PATH,
@@ -13,7 +14,6 @@ from home_center.api_v9 import (
     REAUTH_RESULT_SCHEMA,
     RuntimeRequestHandlerV9,
 )
-from home_center.api_v8 import RuntimeRequestHandlerV8
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -52,7 +52,7 @@ def test_parental_reauth_contract_is_exact_plan_bound_and_closed() -> None:
     assert result["properties"]["scope"]["pattern"].startswith("^household")
 
 
-def test_parental_change_openapi_requires_idempotency_and_step_up() -> None:
+def test_parental_change_openapi_requires_idempotency_and_documents_replay_exception() -> None:
     document = _json("contracts/openapi/home-center-parental-internet-change.v1.openapi.json")
     assert document["openapi"] == "3.1.0"
     assert document["info"]["version"] == "0.60.0-development"
@@ -60,7 +60,9 @@ def test_parental_change_openapi_requires_idempotency_and_step_up() -> None:
     confirm = document["paths"][CONFIRM_PATH]["post"]
     headers = {item["name"]: item for item in confirm["parameters"]}
     assert headers["Idempotency-Key"]["required"] is True
-    assert headers["X-Home-Center-Step-Up"]["required"] is True
+    assert headers["X-Home-Center-Step-Up"]["required"] is False
+    assert "Required for a new Desired State commit" in headers["X-Home-Center-Step-Up"]["description"]
+    assert "already committed exact idempotent receipt replay" in headers["X-Home-Center-Step-Up"]["description"]
     serialized = json.dumps(document, sort_keys=True)
     assert "/execute" not in serialized
     assert "DNS/proxy enforcement" in document["info"]["description"]
