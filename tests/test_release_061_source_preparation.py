@@ -5,7 +5,7 @@ import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.61.1"
+VERSION = "0.61.2"
 BASE_SHA = "9376f16eaaf109085dc0e097e1a306cf6fa18468"
 
 
@@ -31,9 +31,11 @@ def test_061_notes_are_official_bounded_and_truthful() -> None:
     assert "Concrete production VPN adapter execution" in notes
     assert "Multi-node HA / automatic failover" in notes
     assert "commercial launch clearance" in notes
-    assert "0.61.0 → 0.61.1" in notes
+    assert "0.61.0 → 0.61.2" in notes
     assert "split-route direct egress" in notes
     assert "split_route_direct_not_authorized" in notes
+    assert "v0.61.1" in notes
+    assert "не переиспользует release evidence 0.61.1" in notes
 
 
 def test_061_vpn_runtime_source_is_present() -> None:
@@ -88,7 +90,7 @@ def test_061_upgrade_drills_bind_exact_current_stable_without_source_rewrite() -
         source = (ROOT / "tests" / name).read_text(encoding="utf-8")
         assert f'BASE_SHA = "{BASE_SHA}"' in source
         assert 'BASELINE_VERSION = "0.61.0"' in source
-        assert 'CANDIDATE_VERSION = "0.61.1"' in source
+        assert 'CANDIDATE_VERSION = "0.61.2"' in source
         assert "SOURCE_VERSION" not in source
         assert "replace(source_marker" not in source
 
