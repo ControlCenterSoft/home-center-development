@@ -11,4 +11,5 @@ def test_release_064_safe_repair_runtime_is_required_in_artifact() -> None:
         "home_center/safe_auto_repair_verification.py",
         "home_center/safe_auto_repair_worker.py",
         "home_center/safe_auto_repair_job_store.py",
+        "home_center/safe_auto_repair_ui.py",
     } <= REQUIRED_MEMBERS
