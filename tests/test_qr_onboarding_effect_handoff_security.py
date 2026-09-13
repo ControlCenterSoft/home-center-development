@@ -29,6 +29,7 @@ def _guest_handoff():
                 FamilyMember("parent-1", "Parent", HouseholdRole.PARENT),
                 FamilyMember("guest-1", "Guest", HouseholdRole.GUEST),
             ),
+            devices=(),
         )
     )
     snapshot = household_store.read("home-main")
