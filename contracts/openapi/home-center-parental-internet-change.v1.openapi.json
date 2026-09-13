@@ -12,11 +12,7 @@
         "security": [{"sessionCookie": []}],
         "requestBody": {
           "required": true,
-          "content": {
-            "application/json": {
-              "schema": {"$ref": "../household/parental-internet-policy-plan-request.v1.schema.json"}
-            }
-          }
+          "content": {"application/json": {"schema": {"$ref": "../household/parental-internet-policy-plan-request.v1.schema.json"}}}
         },
         "responses": {
           "200": {
@@ -36,14 +32,10 @@
       "post": {
         "operationId": "reauthParentalInternetPolicyChange",
         "security": [{"sessionCookie": []}],
-        "description": "Issues one short-lived single-use grant only after the exact plan, current parent authority, Household snapshot and verified 0.59 base are revalidated. Passwords are never persisted or returned.",
+        "description": "Issues one short-lived single-use grant only after current credentials are verified and the exact plan/current authority/state are revalidated. Passwords are never persisted or returned.",
         "requestBody": {
           "required": true,
-          "content": {
-            "application/json": {
-              "schema": {"$ref": "../household/parental-internet-reauth-request.v1.schema.json"}
-            }
-          }
+          "content": {"application/json": {"schema": {"$ref": "../household/parental-internet-reauth-request.v1.schema.json"}}}
         },
         "responses": {
           "200": {
@@ -75,22 +67,18 @@
           {
             "name": "X-Home-Center-Step-Up",
             "in": "header",
-            "required": true,
-            "description": "Short-lived actor/plan-bound single-use grant obtained through the parental re-auth operation.",
+            "required": false,
+            "description": "Required for a new Desired State commit. May be omitted only for an already committed exact idempotent receipt replay, which performs no new mutation.",
             "schema": {"type": "string", "minLength": 16, "maxLength": 256}
           }
         ],
         "requestBody": {
           "required": true,
-          "content": {
-            "application/json": {
-              "schema": {"$ref": "../household/parental-internet-policy-confirm-request.v1.schema.json"}
-            }
-          }
+          "content": {"application/json": {"schema": {"$ref": "../household/parental-internet-policy-confirm-request.v1.schema.json"}}}
         },
         "responses": {
           "200": {
-            "description": "Protected parental Desired State committed and read back. Enforcement remains unverified and reconciliation-required.",
+            "description": "Protected parental Desired State committed/read back, or the exact already-committed receipt replayed. Enforcement remains unverified and reconciliation-required.",
             "content": {"application/json": {"schema": {"$ref": "../household/parental-internet-policy-commit-receipt.v1.schema.json"}}}
           },
           "400": {"description": "Malformed request"},
