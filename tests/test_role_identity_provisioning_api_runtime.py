@@ -7,6 +7,8 @@ import pytest
 from home_center.household import FamilyMember, Household, HouseholdRole
 from home_center.household_runtime import ActorBinding, HOUSEHOLD_STATE_KEY, _persisted
 from home_center.household_store import HouseholdStore
+from home_center.role_identity_binding_api_runtime import RoleIdentityBindingApiRuntimeService
+from home_center.role_identity_binding_transition import RoleIdentityBindingTransitionService
 from home_center.role_identity_provider_qualification import (
     IdentityProviderQualificationEvidence,
     evaluate_identity_provider_qualification,
@@ -211,6 +213,30 @@ def test_server_authoritative_api_plan_preflight_execute_revalidates_provider_an
     assert adapter.preflight_calls == 2
     assert adapter.start_calls == 1
     assert adapter.observe_calls == 1
+
+    provider_calls_before_binding = (
+        adapter.preflight_calls,
+        adapter.start_calls,
+        adapter.observe_calls,
+    )
+    binding_service = RoleIdentityBindingApiRuntimeService(
+        store, RoleIdentityBindingTransitionService(store)
+    )
+    binding = binding_service.bind(
+        actor=PARENT_ACTOR,
+        plan_id=plan["plan_id"],
+        execution_job_id=receipt["job_id"],
+        confirmed=True,
+        idempotency_key="api-bind-1",
+        correlation_id="api-bind",
+    )
+    assert binding["state"] == "bound"
+    assert binding["provider_reinvocation_performed"] is False
+    assert (
+        adapter.preflight_calls,
+        adapter.start_calls,
+        adapter.observe_calls,
+    ) == provider_calls_before_binding
     store.close()
 
 

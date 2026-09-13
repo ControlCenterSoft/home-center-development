@@ -11,11 +11,13 @@ ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_MEMBERS = {
     "home_center/api_v9.py",
     "home_center/role_identity_provisioning_api_runtime.py",
+    "home_center/role_identity_binding_api_runtime.py",
 }
 CONTRACT_MEMBERS = {
     "contracts/household/role-identity-provisioning-api-plan-request.v1.schema.json",
     "contracts/household/role-identity-provisioning-api-preflight-request.v1.schema.json",
     "contracts/household/role-identity-provisioning-api-execute-request.v1.schema.json",
+    "contracts/household/role-identity-provisioning-api-bind-request.v1.schema.json",
 }
 
 
