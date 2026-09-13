@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/parental-internet-decision-preview-result.v1.schema.json",
+  "title": "Home Center parental Internet decision preview result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "member_id", "view", "policy_id", "policy_sha256", "decision",
+    "preview_only", "enforcement_verified", "provider_execution_authorized",
+    "infrastructure_mutation_authorized", "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.parental-internet-decision-preview-result.v1"},
+    "member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "view": {"enum": ["cozy", "full"]},
+    "policy_id": {"type": "string", "pattern": "^hcip-[0-9a-f]{24}$"},
+    "policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "decision": {"type": "object"},
+    "preview_only": {"const": true},
+    "enforcement_verified": {"const": false},
+    "provider_execution_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
