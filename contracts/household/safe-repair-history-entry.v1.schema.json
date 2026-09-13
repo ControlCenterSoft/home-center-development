@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/safe-repair-history-entry.v1.schema.json",
+  "title": "Home Center safe repair history entry v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "entry_id", "job_id", "target_id", "recommendation_kind", "status",
+    "title_ru", "detail_ru", "completed_at_epoch", "repair_verified"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.safe-repair-history-entry.v1"},
+    "entry_id": {"type": "string", "pattern": "^src-[0-9a-f]{24}$"},
+    "job_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "target_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "recommendation_kind": {
+      "enum": ["managed-device-policy", "household-policy-reconciliation", "compatibility-evidence-refresh"]
+    },
+    "status": {"enum": ["fixed", "failed", "needs-attention"]},
+    "title_ru": {"type": "string", "minLength": 1, "maxLength": 80},
+    "detail_ru": {"type": "string", "minLength": 1, "maxLength": 480},
+    "completed_at_epoch": {"type": "integer", "minimum": 0},
+    "repair_verified": {"type": "boolean"}
+  }
+}
