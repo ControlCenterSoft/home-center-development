@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/parental-internet-enforcement-adapter-capabilities.v1.schema.json",
+  "title": "Home Center parental Internet enforcement adapter capabilities v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "adapter_id", "adapter_version", "supports_dns", "supports_proxy", "supports_readback", "supports_rollback", "credential_value_access_required", "external_publication_required"],
+  "properties": {
+    "schema": {"const": "home-center.parental-internet-enforcement-adapter-capabilities.v1"},
+    "adapter_id": {"type": "string", "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$"},
+    "adapter_version": {"type": "string", "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"},
+    "supports_dns": {"const": true},
+    "supports_proxy": {"const": true},
+    "supports_readback": {"const": true},
+    "supports_rollback": {"type": "boolean"},
+    "credential_value_access_required": {"const": false},
+    "external_publication_required": {"const": false}
+  }
+}
