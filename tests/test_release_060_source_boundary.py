@@ -6,11 +6,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_release_060_notes_preserve_current_stable_and_non_rc_status() -> None:
+def test_release_060_notes_define_bounded_official_release_identity() -> None:
     notes = (ROOT / "docs/releases/0.60.0.md").read_text(encoding="utf-8")
-    assert "Status: source development; not Release Candidate and not Public Stable." in notes
-    assert "Текущий официальный Public Stable остаётся Home Center 0.59.0" in notes
-    assert (ROOT / "VERSION").read_text(encoding="ascii").strip() == "0.59.0"
+    assert notes.startswith("# Home Center 0.60.0\n\nStatus: official release.")
+    assert "Release profile: `single-node-core`." in notes
+    assert (ROOT / "VERSION").read_text(encoding="ascii").strip() == "0.60.0"
 
 
 def test_release_060_notes_do_not_turn_provider_acceptance_into_success() -> None:
@@ -20,11 +20,11 @@ def test_release_060_notes_do_not_turn_provider_acceptance_into_success() -> Non
     assert "`reconciliation_required=true`" in notes
     assert "`dns_policy_applied=false`" in notes
     assert "`proxy_policy_applied=false`" in notes
-    assert "Concrete production adapter не регистрируется" in notes
+    assert "Concrete production adapter должен проходить отдельную exact-bound qualification" in notes
 
 
 def test_release_060_notes_keep_commercial_and_ha_claims_separate() -> None:
     notes = (ROOT / "docs/releases/0.60.0.md").read_text(encoding="utf-8")
-    assert "Commercial launch clearance" in notes
-    assert "multi-node HA/automatic failover" in notes
+    assert "commercial launch clearance" in notes
+    assert "Multi-node HA / automatic failover" in notes
     assert "не заявляются" in notes
