@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/smart-home/zigbee-mqtt-operation-plan.v1.schema.json",
+  "title": "Home Center ZigBee/MQTT operation plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "plan_id", "operation", "coordinator_id", "inventory_sha256", "expected_device_id", "pairing_window_seconds", "physical_confirmation_required", "backup_required_before_execution", "execution_authorized", "provider_execution_authorized", "device_state_mutation_authorized", "infrastructure_mutation_authorized", "external_publication_authorized"],
+  "properties": {
+    "schema": {"const": "home-center.zigbee-mqtt-operation-plan.v1"},
+    "plan_id": {"type": "string", "pattern": "^hc65-op-[0-9a-f]{24}$"},
+    "operation": {"enum": ["pair", "unpair"]},
+    "coordinator_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "inventory_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "expected_device_id": {"type": ["string", "null"], "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "pairing_window_seconds": {"type": ["integer", "null"], "minimum": 1, "maximum": 300},
+    "physical_confirmation_required": {"type": "boolean"},
+    "backup_required_before_execution": {"const": true},
+    "execution_authorized": {"const": false},
+    "provider_execution_authorized": {"const": false},
+    "device_state_mutation_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  },
+  "allOf": [
+    {"if": {"properties": {"operation": {"const": "pair"}}, "required": ["operation"]}, "then": {"properties": {"pairing_window_seconds": {"type": "integer", "minimum": 1, "maximum": 300}}}},
+    {"if": {"properties": {"operation": {"const": "unpair"}}, "required": ["operation"]}, "then": {"properties": {"expected_device_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"}, "pairing_window_seconds": {"type": "null"}}}}
+  ]
+}
