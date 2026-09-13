@@ -13,6 +13,7 @@ RUNTIME_MEMBERS = {
     "home_center/role_identity_provisioning_confirmation.py",
     "home_center/role_identity_provisioning_confirmation_api.py",
     "home_center/role_identity_provisioning_execution.py",
+    "home_center/role_identity_provisioning_post_condition.py",
 }
 CONTRACT_MEMBERS = {
     "contracts/household/role-identity-provider-capability.v1.schema.json",
@@ -22,6 +23,8 @@ CONTRACT_MEMBERS = {
     "contracts/household/role-identity-provisioning-confirm-receipt.v1.schema.json",
     "contracts/household/role-identity-provider-create-request.v1.schema.json",
     "contracts/household/role-identity-provider-create-result.v1.schema.json",
+    "contracts/household/role-identity-provider-readback-observation.v1.schema.json",
+    "contracts/household/role-identity-provisioning-verification-receipt.v1.schema.json",
 }
 
 
