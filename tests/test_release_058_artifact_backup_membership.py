@@ -30,6 +30,60 @@ CONTRACT_MEMBERS = {
     "contracts/devices/device-management-failed-enrollment-cleanup-readback-result.v1.schema.json",
     "contracts/devices/device-management-failed-enrollment-cleanup-receipt.v1.schema.json",
 }
+RELEASE_059_RUNTIME_MEMBERS = {
+    "home_center/api_v6.py",
+    "home_center/api_v7.py",
+    "home_center/api_v8.py",
+    "home_center/household_policy_api.py",
+    "home_center/household_policy_composer.py",
+    "home_center/household_policy_effective_state.py",
+    "home_center/household_policy_enforcement_admission.py",
+    "home_center/household_policy_enforcement_qualification_binding.py",
+    "home_center/household_policy_enforcement_reconciliation_snapshot.py",
+    "home_center/household_policy_enforcement_runtime.py",
+    "home_center/household_policy_reconciliation.py",
+    "home_center/household_policy_reconciliation_api_runtime.py",
+    "home_center/household_policy_reconciliation_recovery.py",
+    "home_center/household_policy_reconciliation_runtime.py",
+    "home_center/household_policy_runtime.py",
+    "home_center/household_policy_verification_state.py",
+    "home_center/household_policy_verification_transition.py",
+    "home_center/policy_backend_qualification.py",
+    "home_center/release_promotion_gate.py",
+    "home_center/target_node_qualification.py",
+    "home_center/technical_stable_profile.py",
+}
+RELEASE_059_CONTRACT_MEMBERS = {
+    "contracts/household/household-policy-change-confirm-request.v1.schema.json",
+    "contracts/household/household-policy-change-plan-request.v1.schema.json",
+    "contracts/household/household-policy-change-plan.v1.schema.json",
+    "contracts/household/household-policy-desired-state.v1.schema.json",
+    "contracts/household/household-policy-actual-state-observation.v1.schema.json",
+    "contracts/household/household-policy-backend-apply-request.v1.schema.json",
+    "contracts/household/household-policy-effective-state.v1.schema.json",
+    "contracts/household/household-policy-enforcement-admission.v1.schema.json",
+    "contracts/household/household-policy-enforcement-confirm-request.v1.schema.json",
+    "contracts/household/household-policy-enforcement-confirmation.v1.schema.json",
+    "contracts/household/household-policy-enforcement-execute-request.v1.schema.json",
+    "contracts/household/household-policy-enforcement-plan-request.v1.schema.json",
+    "contracts/household/household-policy-enforcement-plan.v1.schema.json",
+    "contracts/household/household-policy-enforcement-qualification-binding.v1.schema.json",
+    "contracts/household/household-policy-enforcement-receipt.v1.schema.json",
+    "contracts/household/household-policy-enforcement-reconciliation-snapshot.v1.schema.json",
+    "contracts/household/household-policy-reconciliation-evidence.v1.schema.json",
+    "contracts/household/household-policy-reconciliation-request.v1.schema.json",
+    "contracts/household/household-policy-verification-transition-receipt.v1.schema.json",
+    "contracts/household/household-policy-verification-transition-request.v1.schema.json",
+    "contracts/household/household-policy-verified-desired-state.v1.schema.json",
+    "contracts/openapi/home-center-household-policy-enforcement.v1.openapi.json",
+    "contracts/releases/policy-backend-qualification.v1.schema.json",
+    "contracts/releases/target-node-qualification.v1.schema.json",
+    "contracts/releases/technical-stable-profile-decision.v1.schema.json",
+}
+RELEASE_059_WEB_MEMBERS = {
+    "web/index.html",
+    "web/policy-effective-state.js",
+}
 
 
 def _single(path: Path, pattern: str) -> Path:
@@ -44,21 +98,24 @@ def _normalized(name: str) -> str:
 
 @pytest.mark.skipif(
     os.environ.get("GITHUB_ACTIONS") != "true" or sys.version_info[:2] != (3, 12),
-    reason="0.58 deployment-artifact membership is qualified once on the hosted Python 3.12 leg",
+    reason="deployment-artifact membership is qualified once on the hosted Python 3.12 leg",
 )
-def test_release_058_runtime_and_contracts_are_in_qualified_artifacts(tmp_path: Path) -> None:
-    """Prove the 0.58 boundary is carried by both wheel and node artifact.
+def test_release_058_and_059_runtime_contracts_and_ui_are_in_qualified_artifacts(tmp_path: Path) -> None:
+    """Prove inherited 0.58 and current 0.59 boundaries are carried by release artifacts.
 
-    The normal CI build has already produced the wheel in dist/first.  This test
+    The normal CI build has already produced the wheel in dist/first. This test
     additionally builds the node deployment archive from the exact checked-out
-    head and validates its sidecar plus per-member MANIFEST hashes.  It does not
+    head and validates its sidecar plus per-member MANIFEST hashes. It does not
     publish an artifact or grant provider/production authority.
     """
+
+    required_runtime = RUNTIME_MEMBERS | RELEASE_059_RUNTIME_MEMBERS
+    required_contracts = CONTRACT_MEMBERS | RELEASE_059_CONTRACT_MEMBERS
 
     wheel = _single(ROOT / "dist" / "first", "*.whl")
     with zipfile.ZipFile(wheel) as bundle:
         wheel_members = set(bundle.namelist())
-    assert RUNTIME_MEMBERS <= wheel_members
+    assert required_runtime <= wheel_members
 
     output = tmp_path / "deployment-dist"
     subprocess_result = __import__("subprocess").run(
@@ -78,8 +135,13 @@ def test_release_058_runtime_and_contracts_are_in_qualified_artifacts(tmp_path: 
 
     with tarfile.open(artifact, "r:gz") as bundle:
         files = {_normalized(member.name): member for member in bundle.getmembers() if member.isfile()}
-        assert RUNTIME_MEMBERS <= set(files)
-        assert CONTRACT_MEMBERS <= set(files)
+        assert required_runtime <= set(files)
+        assert required_contracts <= set(files)
+        assert RELEASE_059_WEB_MEMBERS <= set(files)
+
+        index_stream = bundle.extractfile(files["web/index.html"])
+        assert index_stream is not None
+        assert b'/static/policy-effective-state.js' in index_stream.read()
 
         manifest_member = files["MANIFEST.sha256"]
         manifest_stream = bundle.extractfile(manifest_member)
@@ -90,7 +152,7 @@ def test_release_058_runtime_and_contracts_are_in_qualified_artifacts(tmp_path: 
             name = _normalized(raw_name.strip().lstrip("*"))
             manifest[name] = digest
 
-        required = RUNTIME_MEMBERS | CONTRACT_MEMBERS
+        required = required_runtime | required_contracts | RELEASE_059_WEB_MEMBERS
         assert required <= set(manifest)
         for name in sorted(required):
             stream = bundle.extractfile(files[name])
