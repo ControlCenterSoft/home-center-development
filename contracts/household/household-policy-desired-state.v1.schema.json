@@ -13,8 +13,8 @@
     "plan_id": {"type": "string", "pattern": "^hpcp-[0-9a-f]{24}$"},
     "policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "reason": {"type": "string", "minLength": 1, "maxLength": 512},
-    "enforcement_verified": {"const": false},
-    "reconciliation_required": {"const": true},
+    "enforcement_verified": {"type": "boolean"},
+    "reconciliation_required": {"type": "boolean"},
     "infrastructure_mutation_authorized": {"const": false},
     "external_publication_authorized": {"const": false},
     "policy": {
@@ -41,5 +41,19 @@
         "explanation_ru": {"type": "string", "minLength": 1, "maxLength": 1024}
       }
     }
-  }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "enforcement_verified": {"const": false},
+        "reconciliation_required": {"const": true}
+      }
+    },
+    {
+      "properties": {
+        "enforcement_verified": {"const": true},
+        "reconciliation_required": {"const": false}
+      }
+    }
+  ]
 }

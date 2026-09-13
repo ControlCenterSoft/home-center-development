@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/household-policy-verification-transition-request.v1.schema.json",
+  "title": "Home Center household policy verification transition request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "request_id", "evidence_id"],
+  "properties": {
+    "schema": {"const": "home-center.household-policy-verification-transition-request.v1"},
+    "request_id": {"type": "string", "pattern": "^hprq-[0-9a-f]{24}$"},
+    "evidence_id": {"type": "string", "pattern": "^hpev-[0-9a-f]{24}$"}
+  }
+}

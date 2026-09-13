@@ -3,7 +3,7 @@
 The service writes Home Center product Desired State only.  A successful commit means
 "saved / waiting for application" and never means that network, device or provider
 state has been enforced.  The actual-state reconciliation/enforcement path remains a
-separate future boundary.
+separate boundary.
 """
 
 from __future__ import annotations
@@ -101,14 +101,17 @@ class HouseholdPolicyRuntimeService:
     def _desired(value: object) -> dict[str, Any] | None:
         if value is None:
             return None
+        flags = (
+            value.get("enforcement_verified") if isinstance(value, dict) else None,
+            value.get("reconciliation_required") if isinstance(value, dict) else None,
+        )
         if (
             not isinstance(value, dict)
             or value.get("schema") != DESIRED_STATE_SCHEMA
             or not isinstance(value.get("generation"), int)
             or isinstance(value.get("generation"), bool)
             or value["generation"] < 1
-            or value.get("enforcement_verified") is not False
-            or value.get("reconciliation_required") is not True
+            or flags not in {(False, True), (True, False)}
             or value.get("infrastructure_mutation_authorized") is not False
             or value.get("external_publication_authorized") is not False
             or not isinstance(value.get("policy"), dict)
