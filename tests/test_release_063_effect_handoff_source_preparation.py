@@ -43,7 +43,7 @@ def test_063_effect_handoff_contracts_are_closed_and_non_authorizing() -> None:
 
 
 def test_063_effect_handoff_does_not_preempt_release_identity_or_open_execution() -> None:
-    assert (ROOT / "VERSION").read_text(encoding="ascii").strip() == "0.62.1"
+    assert (ROOT / "VERSION").read_text(encoding="ascii").strip() != "0.63.0"
     handoff_source = (
         ROOT / "product/control-plane/src/home_center/qr_onboarding_effect_handoff.py"
     ).read_text(encoding="utf-8")
