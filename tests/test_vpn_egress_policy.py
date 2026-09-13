@@ -211,8 +211,22 @@ def test_explicit_direct_fallback_is_possible_only_without_kill_switch() -> None
     assert decision.reason == "vpn_unhealthy_direct_fallback"
 
 
-def test_split_routing_routes_only_matching_domains_to_vpn() -> None:
+def test_split_routing_with_deny_fallback_does_not_leak_nonmatching_domains_direct() -> None:
     policy = _manual_policy(split_domains=("example.com",))
+    denied = evaluate_vpn_route(policy=policy, observation=_observation(), domain="other.example.net")
+    tunneled = evaluate_vpn_route(policy=policy, observation=_observation(), domain="api.example.com")
+    assert denied.route is RouteMode.DENY
+    assert denied.reason == "split_route_direct_not_authorized"
+    assert tunneled.route is RouteMode.VPN
+    assert tunneled.reason == "vpn_route_selected"
+
+
+def test_split_routing_nonmatch_can_use_direct_only_when_explicitly_permitted() -> None:
+    policy = _manual_policy(
+        split_domains=("example.com",),
+        kill_switch=False,
+        fallback_mode=FallbackMode.DIRECT,
+    )
     direct = evaluate_vpn_route(policy=policy, observation=_observation(), domain="other.example.net")
     tunneled = evaluate_vpn_route(policy=policy, observation=_observation(), domain="api.example.com")
     assert direct.route is RouteMode.DIRECT

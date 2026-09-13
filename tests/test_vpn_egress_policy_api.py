@@ -43,12 +43,37 @@ def test_cozy_projection_does_not_claim_vpn_is_active() -> None:
     assert projection["execution_authorized"] is False
 
 
+def test_cozy_projection_preserves_fail_closed_split_route_denial() -> None:
+    projection = cozy_vpn_route_projection(
+        _decision(route=RouteMode.DENY, reason="split_route_direct_not_authorized")
+    )
+    assert projection["route"] == "deny"
+    assert projection["reason"] == "split_route_direct_not_authorized"
+    assert projection["title"] == "Прямой маршрут запрещён"
+    assert "Доступ закрыт безопасно" in projection["explanation"]
+    assert projection["active_state_verified"] is False
+    assert projection["execution_authorized"] is False
+
+
 def test_full_projection_preserves_exact_provider_evidence() -> None:
     projection = full_vpn_route_projection(_decision(route=RouteMode.VPN, reason="vpn_route_selected"))
     decision = projection["decision"]
     assert decision["provider_id"] == "provider-a"
     assert decision["location_id"] == "nl-ams"
     assert decision["observation_evidence_sha256"] == DIGEST
+    assert projection["active_state_verified"] is False
+
+
+def test_full_projection_preserves_fail_closed_split_route_denial_reason() -> None:
+    projection = full_vpn_route_projection(
+        _decision(route=RouteMode.DENY, reason="split_route_direct_not_authorized")
+    )
+    decision = projection["decision"]
+    assert decision["route"] == "deny"
+    assert decision["reason"] == "split_route_direct_not_authorized"
+    assert decision["provider_id"] is None
+    assert decision["location_id"] is None
+    assert decision["dns_strategy"] is None
     assert projection["active_state_verified"] is False
 
 
@@ -64,3 +89,15 @@ def test_invalid_vpn_route_shape_is_rejected() -> None:
     )
     with pytest.raises(VpnEgressPolicyAPIError, match="invalid_vpn_route_decision"):
         cozy_vpn_route_projection(bad)
+
+
+def test_direct_route_cannot_use_fail_closed_deny_reason() -> None:
+    bad = _decision(route=RouteMode.DIRECT, reason="split_route_direct_not_authorized")
+    with pytest.raises(VpnEgressPolicyAPIError, match="invalid_vpn_route_decision"):
+        cozy_vpn_route_projection(bad)
+
+
+def test_deny_route_cannot_use_direct_fallback_reason() -> None:
+    bad = _decision(route=RouteMode.DENY, reason="split_route_direct")
+    with pytest.raises(VpnEgressPolicyAPIError, match="invalid_vpn_route_decision"):
+        full_vpn_route_projection(bad)

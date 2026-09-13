@@ -236,16 +236,34 @@ def route_decision_from_dict(value: object) -> VpnRouteDecision:
         location_id = raw["location_id"]
         dns_raw = raw["dns_strategy"]
         dns = None if dns_raw is None else DnsStrategy(dns_raw)
-        observation_sha = raw["observation_evidence_sha256"]
-        if observation_sha is not None:
-            _sha256(observation_sha, "vpn_observation_evidence_invalid")
+        observation_sha = _sha256(
+            raw["observation_evidence_sha256"],
+            "vpn_observation_evidence_invalid",
+        )
         if route is RouteMode.VPN:
             provider_id = _identifier(provider_id, "vpn_provider_id_invalid")
             location_id = _identifier(location_id, "vpn_location_id_invalid")
             if dns is None or raw.get("reason") != "vpn_route_selected":
                 raise ValueError
-        elif provider_id is not None or location_id is not None or dns is not None:
-            raise ValueError
+        else:
+            if provider_id is not None or location_id is not None or dns is not None:
+                raise ValueError
+            reason = raw.get("reason")
+            if route is RouteMode.DIRECT:
+                if reason not in {"vpn_unhealthy_direct_fallback", "split_route_direct"}:
+                    raise ValueError
+            elif reason not in {
+                "parental_decision_required",
+                "parental_decision_binding_mismatch",
+                "parental_deny",
+                "parental_decision_unknown",
+                "provider_observation_binding_mismatch",
+                "vpn_unhealthy_fail_closed",
+                "split_route_domain_required",
+                "split_route_domain_invalid",
+                "split_route_direct_not_authorized",
+            }:
+                raise ValueError
         result = VpnRouteDecision(
             policy_id=policy_id,
             route=route,
