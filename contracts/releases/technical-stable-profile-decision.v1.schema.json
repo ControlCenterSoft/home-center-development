@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://control-center.pro/schemas/home-center/technical-stable-profile-decision.v1.schema.json",
+  "title": "Home Center technical Stable profile decision v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema","version","revision","release_profile","ready","blockers","target_node_qualified","ha_supported","provider_execution_supported","commercial_launch_cleared","release_authorized","external_publication_authorized"],
+  "properties": {
+    "schema": {"const":"home-center.technical-stable-profile-decision.v1"},
+    "version": {"type":"string","pattern":"^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+    "revision": {"type":"string","pattern":"^(?:[0-9a-f]{40}|[0-9a-f]{64})$"},
+    "release_profile": {"const":"single-node-core"},
+    "ready": {"type":"boolean"},
+    "blockers": {"type":"array","uniqueItems":true,"items":{"enum":["qualification_binding","ci","source_identity","reproducible_artifact","security_binding","codeql","privacy_boundary","infrastructure_neutrality","recovery_binding","upgrade","rollback","user_state_preservation","target_node_binding","target_node_evidence","target_node_candidate_artifact_binding","target_node_qualification","artifact_binding","candidate_artifact_digest","qualification_manifest","provenance_v2","source_artifact_digest","deployment_artifact_digest","checksum_sidecar","sha256sums","acceptance_manifest","release_manifest","spdx_sbom"]}},
+    "target_node_qualified": {"type":"boolean"},
+    "ha_supported": {"const":false},
+    "provider_execution_supported": {"const":false},
+    "commercial_launch_cleared": {"const":false},
+    "release_authorized": {"const":false},
+    "external_publication_authorized": {"const":false}
+  },
+  "allOf": [
+    {"if":{"properties":{"ready":{"const":true}},"required":["ready"]},"then":{"properties":{"blockers":{"maxItems":0},"target_node_qualified":{"const":true}}}},
+    {"if":{"properties":{"ready":{"const":false}},"required":["ready"]},"then":{"properties":{"blockers":{"minItems":1}}}}
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://control-center.pro/schemas/home-center/target-node-qualification.v1.schema.json",
+  "title": "Home Center target-node qualification decision v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema","version","revision","candidate_artifact_sha256","evidence_sha256","qualified","blockers","release_authorized","external_publication_authorized"],
+  "properties": {
+    "schema": {"const": "home-center.target-node-qualification.v1"},
+    "version": {"type":"string","pattern":"^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+    "revision": {"type":"string","pattern":"^(?:[0-9a-f]{40}|[0-9a-f]{64})$"},
+    "candidate_artifact_sha256": {"type":"string","pattern":"^[0-9a-f]{64}$"},
+    "evidence_sha256": {"type":"string","pattern":"^[0-9a-f]{64}$"},
+    "qualified": {"type":"boolean"},
+    "blockers": {"type":"array","uniqueItems":true,"items":{"enum":["candidate_artifact_digest","target_environment_digest","target_execution_transcript_digest","target_install_or_upgrade","target_health_ready","target_user_state_preservation","target_rollback"]}},
+    "release_authorized": {"const":false},
+    "external_publication_authorized": {"const":false}
+  }
+}
