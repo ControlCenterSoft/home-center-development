@@ -13,14 +13,20 @@ def _contract(name: str) -> dict[str, object]:
     return json.loads((ROOT / "contracts/household" / name).read_text(encoding="utf-8"))
 
 
-def test_062_exact_release_identity_is_consistent() -> None:
-    assert (ROOT / "VERSION").read_text(encoding="ascii").strip() == VERSION
+def _semver_tuple(value: str) -> tuple[int, int, int]:
+    major, minor, patch = value.split(".")
+    return int(major), int(minor), int(patch)
+
+
+def test_062_release_identity_remains_consistent_in_later_release_trains() -> None:
+    current = (ROOT / "VERSION").read_text(encoding="ascii").strip()
+    assert _semver_tuple(current) >= _semver_tuple(VERSION)
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
-    assert project["version"] == VERSION
+    assert project["version"] == current
     runtime_init = (ROOT / "product/control-plane/src/home_center/__init__.py").read_text(encoding="utf-8")
-    assert f'__version__ = "{VERSION}"' in runtime_init
+    assert f'__version__ = "{current}"' in runtime_init
     html = (ROOT / "product/web/static/index.html").read_text(encoding="utf-8")
-    assert f'<small id="version">{VERSION}</small>' in html
+    assert f'<small id="version">{current}</small>' in html
 
 
 def test_062_release_notes_are_official_bounded_and_truthful() -> None:
