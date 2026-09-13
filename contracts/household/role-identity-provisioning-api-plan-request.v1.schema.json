@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/role-identity-provisioning-api-plan-request.v1.schema.json",
+  "title": "Home Center role identity provisioning API plan request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "member_id", "provider_id", "account_name", "home_directory_mode", "profile_mode"],
+  "properties": {
+    "schema": {"const": "home-center.role-identity-provisioning-api-plan-request.v1"},
+    "member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "provider_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "account_name": {"type": "string", "pattern": "^[a-z][a-z0-9._-]{0,31}$"},
+    "home_directory_mode": {"enum": ["local", "portable"]},
+    "profile_mode": {"enum": ["local", "portable"]}
+  }
+}
