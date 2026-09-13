@@ -167,14 +167,14 @@ class StateStore:
         self.cluster_id = cluster_id
         self._lock = threading.RLock()
         path.parent.mkdir(parents=True, exist_ok=True)
-        os.chmod(path.parent, 0o750)
+        os.chmod(path.parent, 0o700)
         self._connection = sqlite3.connect(path, check_same_thread=False, timeout=5)
         self._connection.row_factory = sqlite3.Row
         self._connection.execute("PRAGMA journal_mode=WAL")
         self._connection.execute("PRAGMA synchronous=FULL")
         self._connection.execute("PRAGMA foreign_keys=ON")
         self._migrate()
-        os.chmod(path, 0o640)
+        os.chmod(path, 0o600)
         self.set_meta("cluster_id", cluster_id)
         self.verify_audit_chain()
 
