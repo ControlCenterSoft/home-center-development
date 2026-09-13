@@ -64,6 +64,21 @@ jobs:
         run: |
           set -euo pipefail
 
+          guarded_tag_delta() {
+            local tag_sha="$1"
+            [[ -n "$tag_sha" ]] || return 1
+            [[ "$tag_sha" == "$RELEASE_SHA" ]] && return 0
+            git fetch --no-tags origin "$tag_sha" "$RELEASE_SHA"
+            git merge-base --is-ancestor "$tag_sha" "$RELEASE_SHA" || return 1
+            unexpected="$(git diff --name-only "$tag_sha" "$RELEASE_SHA" -- | grep -Ev "^(docs/releases/${RELEASE_VERSION}\.md|\.github/workflows/publish-release\.yml|\.github/workflows/publish-deployment-artifact\.yml)$" || true)"
+            if [[ -n "$unexpected" ]]; then
+              echo "Existing tag differs from current SHA outside the guarded release-repair allowlist:" >&2
+              printf '%s\n' "$unexpected" >&2
+              return 1
+            fi
+            echo "Keeping immutable product tag ${RELEASE_TAG} at ${tag_sha}; only guarded release metadata/automation changed"
+          }
+
           release_exists=false
           if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" >/dev/null 2>&1; then
             release_exists=true
@@ -79,37 +94,33 @@ jobs:
               echo "Existing release ${RELEASE_TAG} has no matching Git tag" >&2
               exit 1
             fi
-
-            if [[ "$tag_sha" != "$RELEASE_SHA" ]]; then
-              git fetch --no-tags origin "$tag_sha" "$RELEASE_SHA"
-              if ! git merge-base --is-ancestor "$tag_sha" "$RELEASE_SHA"; then
-                echo "Existing tag ${RELEASE_TAG} is not an ancestor of current release SHA" >&2
-                exit 1
-              fi
-
-              unexpected="$(git diff --name-only "$tag_sha" "$RELEASE_SHA" -- | grep -Ev "^(docs/releases/${RELEASE_VERSION}\.md|\.github/workflows/publish-release\.yml|\.github/workflows/publish-deployment-artifact\.yml)$" || true)"
-              if [[ -n "$unexpected" ]]; then
-                echo "Existing tag differs from current SHA outside the guarded release-repair allowlist:" >&2
-                printf '%s\n' "$unexpected" >&2
-                exit 1
-              fi
-              echo "Keeping immutable product tag ${RELEASE_TAG} at ${tag_sha}; only guarded release metadata/automation changed"
-            fi
+            guarded_tag_delta "$tag_sha" || {
+              echo "Existing tag ${RELEASE_TAG} is incompatible with current release SHA ${RELEASE_SHA}" >&2
+              exit 1
+            }
 
             gh release edit "$RELEASE_TAG" \
               --repo "$GITHUB_REPOSITORY" \
               --title "Home Center ${RELEASE_VERSION}" \
               --notes-file "$RELEASE_NOTES"
           else
-            if [[ -n "$tag_sha" && "$tag_sha" != "$RELEASE_SHA" ]]; then
-              echo "${RELEASE_TAG} already points to ${tag_sha}, expected ${RELEASE_SHA}" >&2
-              exit 1
-            fi
-            if [[ -z "$tag_sha" ]]; then
+            if [[ -n "$tag_sha" ]]; then
+              guarded_tag_delta "$tag_sha" || {
+                echo "${RELEASE_TAG} already points to ${tag_sha}, incompatible with ${RELEASE_SHA}" >&2
+                exit 1
+              }
+            else
               gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
                 -f ref="refs/tags/${RELEASE_TAG}" \
                 -f sha="$RELEASE_SHA" >/dev/null
+              tag_sha="$RELEASE_SHA"
             fi
+
+            # gh release --verify-tag verifies the local checkout, while a tag
+            # created through the API after checkout is not present locally yet.
+            # Fetch only this exact immutable tag before creating the release.
+            git fetch --no-tags origin "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
+            [[ "$(git rev-list -n1 "$RELEASE_TAG")" == "$tag_sha" ]]
 
             gh release create "$RELEASE_TAG" \
               --repo "$GITHUB_REPOSITORY" \
