@@ -1,3 +1,10 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import jsonschema
+
 from home_center.safe_auto_repair import (
     RepairAction,
     RepairBlocker,
@@ -7,6 +14,7 @@ from home_center.safe_auto_repair import (
     evaluate_safe_auto_repair,
 )
 
+ROOT = Path(__file__).resolve().parents[1]
 DIGEST = "a" * 64
 POLICY_DIGEST = "b" * 64
 
@@ -66,6 +74,21 @@ def test_recovery_and_post_condition_evidence_are_required() -> None:
     assert RepairBlocker.POST_CONDITION_NOT_VERIFIABLE in no_verification.blockers
 
 
+def test_external_or_infrastructure_requirements_are_not_auto_repair_eligible() -> None:
+    provider = evaluate_safe_auto_repair(
+        candidate=candidate(provider_execution_required=True), policy=policy()
+    )
+    infrastructure = evaluate_safe_auto_repair(
+        candidate=candidate(infrastructure_mutation_required=True), policy=policy()
+    )
+    publication = evaluate_safe_auto_repair(
+        candidate=candidate(external_publication_required=True), policy=policy()
+    )
+    assert RepairBlocker.PROVIDER_EXECUTION_REQUIRED in provider.blockers
+    assert RepairBlocker.INFRASTRUCTURE_MUTATION_REQUIRED in infrastructure.blockers
+    assert RepairBlocker.EXTERNAL_PUBLICATION_REQUIRED in publication.blockers
+
+
 def test_recommendation_identity_changes_with_generation_and_policy() -> None:
     first = evaluate_safe_auto_repair(candidate=candidate(), policy=policy())
     replay = evaluate_safe_auto_repair(candidate=candidate(), policy=policy())
@@ -74,3 +97,14 @@ def test_recommendation_identity_changes_with_generation_and_policy() -> None:
     assert first.recommendation_id == replay.recommendation_id
     assert first.recommendation_id != newer.recommendation_id
     assert first.recommendation_id != other_policy.recommendation_id
+
+
+def test_recommendation_serialization_matches_closed_contract() -> None:
+    schema = json.loads(
+        (ROOT / "contracts/automation/safe-auto-repair-recommendation.v1.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    jsonschema.Draft202012Validator(schema).validate(
+        evaluate_safe_auto_repair(candidate=candidate(), policy=policy()).to_dict()
+    )
