@@ -12,39 +12,44 @@ ROOT = Path(__file__).resolve().parents[1]
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     """Keep completed release-specific deployment drills historical.
 
-    The 0.57 hosted upgrade drills qualify the exact 0.56 -> 0.57 candidate and
-    intentionally assert that the checked-out source itself is 0.57.0.  Once a
-    newer exact release identity is under qualification, rerunning those old
-    candidate drills against the new source would be a false release check.
-    Their historical contracts remain covered by their source/tests; the active
-    release train owns the current Stable -> candidate deployment drills.
+    Exact Stable -> candidate deployment drills are release-identity specific.
+    Once a newer release train owns the checkout, old candidate drills remain
+    historical evidence and must not be rerun against a different source
+    identity.  The active release train provides its own exact-bound drills.
     """
 
     current_version = (ROOT / "VERSION").read_text(encoding="ascii").strip()
-    if current_version == "0.57.0":
-        return
-    historical_057 = {
-        "test_release_057_hosted_upgrade_drill.py",
-        "test_release_057_hosted_systemd_upgrade.py",
-    }
-    marker = pytest.mark.skip(reason="historical 0.57 candidate deployment drill; current release train owns upgrade qualification")
+    historical: set[str] = set()
+    if current_version != "0.57.0":
+        historical.update(
+            {
+                "test_release_057_hosted_upgrade_drill.py",
+                "test_release_057_hosted_systemd_upgrade.py",
+            }
+        )
+    if current_version != "0.58.0":
+        historical.update(
+            {
+                "test_release_058_hosted_upgrade_drill.py",
+                "test_release_058_hosted_systemd_upgrade.py",
+            }
+        )
+    marker = pytest.mark.skip(
+        reason="historical release-candidate deployment drill; current release train owns exact upgrade qualification"
+    )
     for item in items:
-        if item.path.name in historical_057:
+        if item.path.name in historical:
             item.add_marker(marker)
 
 
 @pytest.fixture(autouse=True)
-def isolate_release_058_real_systemd_test(request: pytest.FixtureRequest):
-    """Remove only empty directories left by the preceding 0.58 shim drill.
+def isolate_real_systemd_release_test(request: pytest.FixtureRequest):
+    """Remove only empty state/config parents before the active systemd drill."""
 
-    The hosted 0.57 -> 0.58 shim qualification intentionally leaves the parent
-    configuration/state directories in place after deleting its files.  The
-    real-systemd qualification requires a clean node boundary and must not
-    accept or delete non-empty state, so normalize only those known-empty
-    parents immediately before that one test.
-    """
-
-    if request.node.name != "test_release_058_real_systemd_upgrade_health_and_rollback":
+    if request.node.name not in {
+        "test_release_058_real_systemd_upgrade_health_and_rollback",
+        "test_release_059_real_systemd_upgrade_health_and_rollback",
+    }:
         yield
         return
 
