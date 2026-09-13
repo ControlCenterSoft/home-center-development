@@ -26,6 +26,9 @@ def test_production_runtime_wires_qr_to_canonical_state_store_without_self_migra
     assert "self.store._connection" in production
     assert "self.store._lock" in production
     assert "self.qr_onboarding = QrOnboardingRuntimeService(" in production
+    assert "self.qr_effect_execution = QrOnboardingEffectExecutionService(self.store)" in production
+    assert "QrOnboardingProductStateAdapter(self.store)" in production
+    assert "self.qr_effect_worker = QrOnboardingEffectWorkerService(self.store, self.qr_effect_execution)" in production
     assert "executescript" not in production
     assert "schema_sql" not in production
 

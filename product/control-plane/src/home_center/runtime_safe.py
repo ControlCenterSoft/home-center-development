@@ -9,6 +9,7 @@ its own production schema mutation.
 from __future__ import annotations
 
 from .qr_onboarding_effect_execution import QrOnboardingEffectExecutionService
+from .qr_onboarding_effect_worker import QrOnboardingEffectWorkerService
 from .qr_onboarding_product_state import QrOnboardingProductStateAdapter, SUPPORTED_JOB_TYPES
 from .qr_onboarding_runtime import QrOnboardingRuntimeService, SQLiteQrOnboardingRuntimeRepository
 from .role_identity_provisioning_runtime_safe import SafeRoleIdentityProvisioningRuntimeService
@@ -31,3 +32,4 @@ class ProductionRuntime(Runtime):
         qr_product_state = QrOnboardingProductStateAdapter(self.store)
         for job_type in SUPPORTED_JOB_TYPES:
             self.qr_effect_execution.register(job_type, qr_product_state)
+        self.qr_effect_worker = QrOnboardingEffectWorkerService(self.store, self.qr_effect_execution)
