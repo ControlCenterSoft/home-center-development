@@ -62,6 +62,7 @@ def isolate_real_systemd_release_test(request: pytest.FixtureRequest):
         "test_release_059_real_systemd_upgrade_health_and_rollback",
         "test_release_060_real_systemd_upgrade_health_and_rollback",
         "test_release_061_real_systemd_upgrade_health_and_rollback",
+        "test_release_062_real_systemd_upgrade_health_and_rollback",
     }:
         yield
         return
