@@ -3,16 +3,17 @@
   "info": {
     "title": "Home Center 0.60 Parental Internet Policy Change API",
     "version": "0.60.0-development",
-    "description": "Authenticated same-origin parental Desired State lifecycle: plan, exact-plan credential re-auth, and explicit confirmation. Confirmation commits protected Desired State only. It never invokes DNS/proxy enforcement, never claims Actual State success, and never grants infrastructure or external-publication authority."
+    "description": "Authenticated same-origin parental Desired State lifecycle: source-identity-free UI plan, exact-plan credential re-auth, and explicit confirmation. The server derives content-addressed local rule-source identity from user-visible rule facts. Confirmation commits protected Desired State only and never invokes DNS/proxy enforcement or grants infrastructure/publication authority."
   },
   "paths": {
     "/api/v1/household/parental-internet/plan": {
       "post": {
         "operationId": "planParentalInternetPolicyChange",
         "security": [{"sessionCookie": []}],
+        "description": "The browser supplies only user-visible rule facts. rule_source_id/version/SHA-256 are derived server-side and cannot be selected by the client.",
         "requestBody": {
           "required": true,
-          "content": {"application/json": {"schema": {"$ref": "../household/parental-internet-policy-plan-request.v1.schema.json"}}}
+          "content": {"application/json": {"schema": {"$ref": "../household/parental-internet-policy-http-plan-request.v1.schema.json"}}}
         },
         "responses": {
           "200": {
