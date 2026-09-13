@@ -25,12 +25,13 @@ def _snapshot():
     return household_store.read("home-main")
 
 
-def test_qr_runtime_schema_is_canonical_migration_4_and_matches_adapter_contract() -> None:
-    assert [version for version, _ in MIGRATIONS] == [1, 2, 3, 4]
+def test_qr_runtime_schema_remains_canonical_migration_4_and_matches_adapter_contract() -> None:
+    versions = [version for version, _ in MIGRATIONS]
+    assert versions[:4] == [1, 2, 3, 4]
     assert MIGRATIONS[3][1].strip() == SQLiteQrOnboardingRuntimeRepository.schema_sql().strip()
 
 
-def test_fresh_state_store_installs_qr_schema_without_repository_self_migration(tmp_path: Path) -> None:
+def test_fresh_state_store_keeps_qr_schema_after_later_additive_migrations(tmp_path: Path) -> None:
     store = StateStore(tmp_path / "fresh" / "state.db", b"m" * 32, "cluster-test")
     try:
         versions = [
@@ -39,7 +40,7 @@ def test_fresh_state_store_installs_qr_schema_without_repository_self_migration(
                 "SELECT version FROM schema_migrations ORDER BY version"
             ).fetchall()
         ]
-        assert versions == [1, 2, 3, 4]
+        assert versions[:4] == [1, 2, 3, 4]
         tables = {
             row[0]
             for row in store._connection.execute(  # noqa: SLF001
@@ -70,7 +71,7 @@ def test_fresh_state_store_installs_qr_schema_without_repository_self_migration(
         store.close()
 
 
-def test_upgrade_from_canonical_v3_preserves_existing_state_and_applies_only_qr_migration(
+def test_upgrade_from_canonical_v3_preserves_existing_state_and_qr_migration_identity(
     tmp_path: Path,
 ) -> None:
     path = tmp_path / "upgrade" / "state.db"
@@ -103,7 +104,7 @@ def test_upgrade_from_canonical_v3_preserves_existing_state_and_applies_only_qr_
                 "SELECT version FROM schema_migrations ORDER BY version"
             ).fetchall()
         ]
-        assert versions == [1, 2, 3, 4]
+        assert versions[:4] == [1, 2, 3, 4]
         for table in ("qr_onboarding_runtime", "qr_onboarding_runtime_operations"):
             assert store._connection.execute(  # noqa: SLF001
                 "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
