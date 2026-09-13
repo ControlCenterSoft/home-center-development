@@ -9,8 +9,8 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-BASE_SHA = "88634f6bf5e35d432581d58327bdb277b9b71140"
-BASELINE_VERSION = "0.60.0"
+BASE_SHA = "9376f16eaaf109085dc0e097e1a306cf6fa18468"
+BASELINE_VERSION = "0.61.0"
 CANDIDATE_VERSION = "0.61.1"
 
 
@@ -25,10 +25,10 @@ def _load_060_systemd_drill():
 
 @pytest.mark.skipif(
     os.environ.get("GITHUB_ACTIONS") != "true" or sys.version_info[:2] != (3, 12),
-    reason="real systemd 0.60 -> 0.61.1 qualification runs once on the hosted Python 3.12 leg",
+    reason="real systemd 0.61.0 -> 0.61.1 qualification runs once on the hosted Python 3.12 leg",
 )
 def test_release_061_real_systemd_upgrade_health_and_rollback(tmp_path: Path) -> None:
-    """Run the proven real-systemd drill against exact 0.60 Stable and exact 0.61.1."""
+    """Run the proven real-systemd drill against exact 0.61.0 Stable and exact 0.61.1."""
 
     module = _load_060_systemd_drill()
     module.BASE_SHA = BASE_SHA
