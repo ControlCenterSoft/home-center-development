@@ -84,6 +84,7 @@ class IdentityProviderQualificationDecision:
     portable_home_supported: bool
     portable_profile_supported: bool
     secret_reference_supported: bool
+    adapter_artifact_sha256: str
     evidence_sha256: str
     qualified: bool
     blockers: tuple[str, ...]
@@ -106,6 +107,7 @@ class IdentityProviderQualificationDecision:
             "portable_home_supported": self.portable_home_supported,
             "portable_profile_supported": self.portable_profile_supported,
             "secret_reference_supported": self.secret_reference_supported,
+            "adapter_artifact_sha256": self.adapter_artifact_sha256,
             "evidence_sha256": self.evidence_sha256,
             "qualified": self.qualified,
             "blockers": list(self.blockers),
@@ -276,6 +278,7 @@ def evaluate_identity_provider_qualification(
         portable_home_supported=evidence.portable_home_supported,
         portable_profile_supported=evidence.portable_profile_supported,
         secret_reference_supported=evidence.secret_reference_supported,
+        adapter_artifact_sha256=evidence.adapter_artifact_sha256,
         evidence_sha256=evidence_sha256,
         qualified=not blockers,
         blockers=tuple(blockers),
