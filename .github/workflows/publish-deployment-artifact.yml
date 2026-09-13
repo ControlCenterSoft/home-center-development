@@ -11,13 +11,6 @@ on:
         description: Type PROMOTE to publish the deployment artifact
         required: true
         type: string
-  workflow_run:
-    workflows:
-      - Publish official release
-    types:
-      - completed
-    branches:
-      - main
 
 permissions:
   contents: write
@@ -28,14 +21,12 @@ concurrency:
 
 jobs:
   promote:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Checkout release-event context
+      - name: Checkout dispatch context
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -43,19 +34,12 @@ jobs:
         id: release
         shell: bash
         env:
-          EVENT_NAME: ${{ github.event_name }}
           REQUESTED_RELEASE_TAG: ${{ inputs.release_tag }}
           CONFIRMATION: ${{ inputs.confirmation }}
         run: |
           set -Eeuo pipefail
-          if [[ "$EVENT_NAME" == workflow_dispatch ]]; then
-            [[ "$CONFIRMATION" == PROMOTE ]] || { echo 'confirmation must be PROMOTE' >&2; exit 64; }
-            release_tag="$REQUESTED_RELEASE_TAG"
-          else
-            version="$(tr -d '[:space:]' < VERSION)"
-            [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'VERSION must be MAJOR.MINOR.PATCH' >&2; exit 64; }
-            release_tag="v${version}"
-          fi
+          [[ "$CONFIRMATION" == PROMOTE ]] || { echo 'confirmation must be PROMOTE' >&2; exit 64; }
+          release_tag="$REQUESTED_RELEASE_TAG"
           [[ "$release_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'release_tag must be vMAJOR.MINOR.PATCH' >&2; exit 64; }
           echo "tag=$release_tag" >> "$GITHUB_OUTPUT"
 
