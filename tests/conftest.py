@@ -29,6 +29,10 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
             "test_release_058_hosted_upgrade_drill.py",
             "test_release_058_hosted_systemd_upgrade.py",
         },
+        "0.59.0": {
+            "test_release_059_hosted_upgrade_drill.py",
+            "test_release_059_hosted_systemd_upgrade.py",
+        },
     }
     for release, files in historical.items():
         if current_version == release:
@@ -52,6 +56,7 @@ def isolate_real_systemd_release_test(request: pytest.FixtureRequest):
     if request.node.name not in {
         "test_release_058_real_systemd_upgrade_health_and_rollback",
         "test_release_059_real_systemd_upgrade_health_and_rollback",
+        "test_release_060_real_systemd_upgrade_health_and_rollback",
     }:
         yield
         return
