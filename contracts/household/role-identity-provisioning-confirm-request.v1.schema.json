@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/role-identity-provisioning-confirm-request.v1.schema.json",
+  "title": "Home Center role identity provisioning confirm request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "plan", "preflight", "confirmed"],
+  "properties": {
+    "schema": {"const": "home-center.role-identity-provisioning-confirm-request.v1"},
+    "plan": {"$ref": "role-identity-provisioning-plan.v1.schema.json"},
+    "preflight": {"$ref": "role-identity-account-preflight.v1.schema.json"},
+    "confirmed": {"const": true}
+  }
+}
