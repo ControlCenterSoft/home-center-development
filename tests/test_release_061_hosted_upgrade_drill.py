@@ -12,7 +12,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 BASE_SHA = "9376f16eaaf109085dc0e097e1a306cf6fa18468"
 BASELINE_VERSION = "0.61.0"
-CANDIDATE_VERSION = "0.61.1"
+CANDIDATE_VERSION = "0.61.2"
 
 
 def _load_060_drill():
@@ -26,10 +26,10 @@ def _load_060_drill():
 
 @pytest.mark.skipif(
     os.environ.get("GITHUB_ACTIONS") != "true" or sys.version_info[:2] != (3, 12),
-    reason="0.61.0 -> 0.61.1 hosted upgrade/rollback drill runs once on the Python 3.12 leg",
+    reason="0.61.0 -> 0.61.2 hosted upgrade/rollback drill runs once on the Python 3.12 leg",
 )
 def test_release_061_hosted_upgrade_from_0610_and_rollback(tmp_path: Path) -> None:
-    """Reuse the proven node drill with exact 0.61.0 Stable and exact 0.61.1 HEAD."""
+    """Reuse the proven node drill with exact 0.61.0 Stable and exact 0.61.2 HEAD."""
 
     module = _load_060_drill()
     module.BASE_SHA = BASE_SHA
@@ -43,7 +43,7 @@ def test_release_061_hosted_upgrade_from_0610_and_rollback(tmp_path: Path) -> No
                 "sudo",
                 "bash",
                 "-ceu",
-                "find /opt/home-center/releases -maxdepth 1 -type d -name '0.61.1-*' -exec rm -rf {} + 2>/dev/null || true",
+                "find /opt/home-center/releases -maxdepth 1 -type d -name '0.61.2-*' -exec rm -rf {} + 2>/dev/null || true",
             ],
             text=True,
             capture_output=True,
