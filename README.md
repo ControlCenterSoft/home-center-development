@@ -1,36 +1,40 @@
 # Home Center
 
-Home Center is an infrastructure-neutral platform for managing home and small-server infrastructure through a unified Web UI and API.
+Home Center — infrastructure-neutral локальная платформа управления домашней и малой серверной инфраструктурой через единый Web UI и API.
 
-## Active development repository
+## Текущий статус
 
-This repository is the authoritative workspace for active Home Center product development.
+- Текущий официальный **PUBLIC STABLE — 0.63.0**, опубликованный в `ControlCenterSoft/home-center-stable` как `v0.63.0`.
+- Текущая development-линия **0.64.0 — COMMITTED**: Recommendations и safe auto-repair. Реализуемые foundation-срезы не дают автоматическую mutation authority сами по себе; пользовательский успех допустим только после точной revalidation, типизированного исполнения и authoritative post-condition verification.
+- Функции, разработанные после 0.63.0, не считаются доступными пользователю до собственной qualification и отдельной публикации соответствующего Stable release.
 
-Home Center must be installable on a new or existing supported infrastructure without any dependency on a particular deployment. Product source must not hard-code real node names, domain names, directory identifiers, network addresses, credentials, certificates, or topology from an operator environment.
+## Граница продукта
 
-Runtime identity and topology are supplied by discovery, enrollment and deployment profiles. Directory integration is optional and configured by the administrator. Compute, storage, device, automation, certificate and remote-access providers are selected through capabilities and provider profiles rather than fixed hosts.
+Home Center должен устанавливаться на новую или существующую поддерживаемую инфраструктуру без зависимости от конкретного deployment. Product source не должен содержать жёстко заданные реальные имена узлов, доменные имена, directory identifiers, сетевые адреса, credentials, сертификаты или topology конкретной среды оператора.
 
-## Repository boundary
+Runtime identity и topology задаются discovery, enrollment и deployment profiles. Directory integration является опциональной и настраивается администратором. Compute, storage, device, automation, certificate и remote-access providers выбираются через capabilities и provider profiles, а не через фиксированные hosts.
 
-Allowed here:
+## Допустимое содержимое репозитория
 
-- product source and Web UI;
-- portable deployment and enrollment logic;
-- schemas and API contracts;
-- tests and GitHub Actions CI;
-- infrastructure-neutral documentation and examples;
-- release and feature branches for active development.
+- product source и Web UI;
+- переносимая deployment/enrollment логика;
+- schemas и API contracts;
+- infrastructure-neutral tests и проверки качества;
+- infrastructure-neutral документация и примеры;
+- release и feature implementation, не содержащая данных конкретной операторской среды.
 
-Not allowed here:
+## Недопустимое содержимое
 
-- credentials, private keys or production certificates;
-- real deployment IP addresses, host names, directory SIDs or private realms;
+- credentials, private keys и production certificates;
+- реальные deployment IP-адреса, host names, directory SIDs и private realms;
 - operator-specific deployment overlays;
-- production acceptance evidence containing private infrastructure details;
-- internal server-only operational data.
+- production acceptance evidence с приватными деталями инфраструктуры;
+- внутренние server-only operational данные.
 
-Those restricted operational materials remain outside the public product-development repository.
+Такие operational materials должны храниться вне публичной продуктовой документации и публичного product-development контента.
 
-## Development model
+## Требования к документации
 
-`main` is the infrastructure-neutral integration baseline. Active versions are developed in parallel release and feature branches. Every push and pull request is checked by the infrastructure-neutrality gate on GitHub-hosted runners.
+Пользовательская и продуктовая документация ведётся на русском языке и должна соответствовать фактически опубликованному Stable состоянию. Целевые и development-возможности обозначаются отдельно и не описываются как доступные пользователю до qualification/promotion.
+
+Публичная документация не раскрывает внутреннюю методологию разработки и сборки, служебную инфраструктуру, внутренние адреса, секреты, рабочие репозитории/ветки, модели AI или иные внутренние сведения, не требующиеся пользователю и администратору Home Center.
