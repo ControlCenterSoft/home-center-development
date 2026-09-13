@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/smart-home/zigbee-mqtt-backup-evidence.v1.schema.json",
+  "title": "Home Center ZigBee/MQTT backup evidence v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "backup_id",
+    "coordinator_id",
+    "inventory_sha256",
+    "configuration_sha256",
+    "artifact_sha256",
+    "created_at_epoch",
+    "verified_at_epoch",
+    "verification",
+    "restore_eligible",
+    "contains_secret_values",
+    "restore_execution_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.zigbee-mqtt-backup-evidence.v1"},
+    "backup_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "coordinator_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "inventory_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "configuration_sha256": {"oneOf": [{"type": "string", "pattern": "^[0-9a-f]{64}$"}, {"type": "null"}]},
+    "artifact_sha256": {"oneOf": [{"type": "string", "pattern": "^[0-9a-f]{64}$"}, {"type": "null"}]},
+    "created_at_epoch": {"type": "integer", "minimum": 0},
+    "verified_at_epoch": {"oneOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]},
+    "verification": {"enum": ["verified", "failed", "unknown"]},
+    "restore_eligible": {"type": "boolean"},
+    "contains_secret_values": {"const": false},
+    "restore_execution_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"verification": {"const": "verified"}}, "required": ["verification"]},
+      "then": {"properties": {"configuration_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "verified_at_epoch": {"type": "integer", "minimum": 0}, "restore_eligible": {"const": true}}}
+    },
+    {
+      "if": {"properties": {"verification": {"enum": ["failed", "unknown"]}}, "required": ["verification"]},
+      "then": {"properties": {"restore_eligible": {"const": false}}}
+    }
+  ]
+}
