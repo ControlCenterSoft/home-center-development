@@ -1,24 +1,49 @@
 from __future__ import annotations
 
 import json
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+VERSION = "0.62.0"
+BASELINE_VERSION = "0.61.2"
 
 
 def _contract(name: str) -> dict[str, object]:
     return json.loads((ROOT / "contracts/household" / name).read_text(encoding="utf-8"))
 
 
-def test_062_source_preparation_does_not_preempt_release_identity() -> None:
-    assert (ROOT / "VERSION").read_text(encoding="ascii").strip() == "0.61.0"
+def test_062_exact_release_identity_is_consistent() -> None:
+    assert (ROOT / "VERSION").read_text(encoding="ascii").strip() == VERSION
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    assert project["version"] == VERSION
+    runtime_init = (ROOT / "product/control-plane/src/home_center/__init__.py").read_text(encoding="utf-8")
+    assert f'__version__ = "{VERSION}"' in runtime_init
+    html = (ROOT / "product/web/static/index.html").read_text(encoding="utf-8")
+    assert f'<small id="version">{VERSION}</small>' in html
+
+
+def test_062_release_notes_are_official_bounded_and_truthful() -> None:
     notes = (ROOT / "docs/releases/0.62.0.md").read_text(encoding="utf-8")
-    assert "not Release Candidate and not Public Stable" in notes
-    assert "Current Public Stable is 0.61.2." in notes
+    assert notes.startswith("# Home Center 0.62.0\n\nStatus: official release.")
+    assert "Release profile: `single-node-core`." in notes
+    assert "Provider-specific execution" in notes
+    assert "disabled/fail-closed" in notes
+    assert "multi-node HA / automatic failover" in notes
+    assert "commercial-launch clearance" in notes
+    assert f"{BASELINE_VERSION} → {VERSION} → {BASELINE_VERSION}" in notes
 
 
 def test_062_role_identity_runtime_source_is_present() -> None:
-    assert (ROOT / "product/control-plane/src/home_center/role_identity_provisioning.py").is_file()
+    for relative in (
+        "product/control-plane/src/home_center/role_identity_provisioning.py",
+        "product/control-plane/src/home_center/role_identity_provisioning_runtime_safe.py",
+        "product/control-plane/src/home_center/role_identity_provider_qualification.py",
+        "product/control-plane/src/home_center/role_identity_binding_transition.py",
+        "product/control-plane/src/home_center/role_identity_binding_api_runtime.py",
+        "product/control-plane/src/home_center/api_v9.py",
+    ):
+        assert (ROOT / relative).is_file()
 
 
 def test_062_provider_contract_is_closed_and_non_authorizing() -> None:
@@ -43,6 +68,15 @@ def test_062_plan_contract_requires_confirmation_and_preserves_emergency_admin()
     assert props["execution_authorized"] == {"const": False}
     assert props["infrastructure_mutation_authorized"] == {"const": False}
     assert props["external_publication_authorized"] == {"const": False}
+
+
+def test_062_api_bind_contract_cannot_accept_provider_receipt() -> None:
+    bind = _contract("role-identity-provisioning-api-bind-request.v1.schema.json")
+    assert bind["additionalProperties"] is False
+    assert set(bind["required"]) == {"schema", "plan_id", "execution_job_id", "confirmed"}
+    assert bind["properties"]["confirmed"] == {"const": True}
+    assert "execution_receipt" not in bind["properties"]
+    assert "provider_evidence" not in json.dumps(bind, sort_keys=True)
 
 
 def test_062_architecture_rejects_privilege_equivalence() -> None:
