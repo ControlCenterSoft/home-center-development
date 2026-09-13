@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/automation/safe-auto-repair-admission.v1.schema.json",
+  "title": "Home Center safe auto-repair admission v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "job_id",
+    "recommendation_id",
+    "required_job_type",
+    "household_id",
+    "resource_id",
+    "resource_generation",
+    "action",
+    "policy_id",
+    "policy_sha256",
+    "state",
+    "execution_authorized",
+    "post_condition_verified",
+    "repair_success_claimed",
+    "provider_execution_authorized",
+    "infrastructure_mutation_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.safe-auto-repair-admission.v1"},
+    "job_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "recommendation_id": {"type": "string", "pattern": "^hcrpr-[0-9a-f]{24}$"},
+    "required_job_type": {
+      "enum": [
+        "safe-auto-repair-reconcile-derived-state-job",
+        "safe-auto-repair-rebuild-derived-index-job",
+        "safe-auto-repair-refresh-local-read-model-job"
+      ]
+    },
+    "household_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "resource_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "resource_generation": {"type": "integer", "minimum": 0},
+    "action": {
+      "enum": ["reconcile-derived-state", "rebuild-derived-index", "refresh-local-read-model"]
+    },
+    "policy_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "state": {"const": "preflight"},
+    "execution_authorized": {"const": false},
+    "post_condition_verified": {"const": false},
+    "repair_success_claimed": {"const": false},
+    "provider_execution_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
