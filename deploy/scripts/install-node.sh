@@ -151,7 +151,7 @@ rollback() {
   systemctl stop home-center-backup.timer home-center-backup.service home-center.service >/dev/null 2>&1 || true
   if [[ -f "$BACKUP/state-db.path" && -f "$BACKUP/state.sqlite3" ]]; then
     restore_state=$(cat "$BACKUP/state-db.path")
-    install -m 0640 -o home-center -g home-center "$BACKUP/state.sqlite3" "$restore_state" >/dev/null 2>&1 || true
+    install -m 0600 -o home-center -g home-center "$BACKUP/state.sqlite3" "$restore_state" >/dev/null 2>&1 || true
     rm -f "${restore_state}-wal" "${restore_state}-shm" >/dev/null 2>&1 || true
   fi
   for unit in home-center.service home-center-backup.service home-center-backup.timer; do

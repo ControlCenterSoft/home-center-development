@@ -35,7 +35,7 @@ systemctl stop home-center-backup.timer home-center-backup.service home-center.s
 if [[ -f "$ROLLBACK_POINT/state-db.path" && -f "$ROLLBACK_POINT/state.sqlite3" ]]; then
   state_db=$(tr -d '\r\n' <"$ROLLBACK_POINT/state-db.path")
   [[ "$state_db" == /* ]] || { echo STATE_DB_PATH_INVALID >&2; exit 66; }
-  install -m 0640 -o home-center -g home-center "$ROLLBACK_POINT/state.sqlite3" "$state_db"
+  install -m 0600 -o home-center -g home-center "$ROLLBACK_POINT/state.sqlite3" "$state_db"
   rm -f "${state_db}-wal" "${state_db}-shm"
 fi
 
