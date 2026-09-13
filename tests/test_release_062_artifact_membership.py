@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_MEMBERS = {
     "home_center/role_identity_provisioning.py",
     "home_center/role_identity_provisioning_confirmation.py",
+    "home_center/role_identity_provisioning_confirmation_api.py",
 }
 CONTRACT_MEMBERS = {
     "contracts/household/role-identity-provider-capability.v1.schema.json",
