@@ -24,6 +24,7 @@ from .role_identity_provisioning import (
 EXECUTION_REQUEST_SCHEMA = "home-center.role-identity-provisioning-execution-request.v1"
 ADAPTER_RESULT_SCHEMA = "home-center.role-identity-provisioning-adapter-result.v1"
 _PLAN_ID = re.compile(r"hcidp-[0-9a-f]{24}\Z")
+_JOB_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\Z")
 _SECRET_REFERENCE = re.compile(r"secret://[A-Za-z0-9][A-Za-z0-9._/-]{0,239}\Z")
 _PROVIDER_OPERATION_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\Z")
 _MAX_SECRET_REFERENCES = 8
@@ -129,6 +130,14 @@ def _identifier_value(value: object, code: str) -> str:
         raise IdentityProvisioningExecutionError(exc.code) from exc
 
 
+def _job_id_value(value: object) -> str:
+    """Accept the bounded durable Job IDs emitted by StateStore, including UUIDs."""
+
+    if not isinstance(value, str) or _JOB_ID.fullmatch(value) is None:
+        raise IdentityProvisioningExecutionError("identity_execution_job_id_invalid")
+    return value
+
+
 def normalize_secret_references(value: object) -> tuple[IdentitySecretReference, ...]:
     if not isinstance(value, list) or len(value) > _MAX_SECRET_REFERENCES:
         raise IdentityProvisioningExecutionError("identity_secret_references_invalid")
@@ -187,7 +196,7 @@ def build_identity_execution_request(
         raise IdentityProvisioningExecutionError("identity_provider_secret_reference_unsupported")
 
     return RoleIdentityProvisioningExecutionRequest(
-        job_id=_identifier_value(job_id, "identity_execution_job_id_invalid"),
+        job_id=_job_id_value(job_id),
         plan_id=plan.plan_id,
         household_id=plan.household_id,
         member_id=plan.member_id,
@@ -225,7 +234,7 @@ def execution_request_from_dict(value: object) -> RoleIdentityProvisioningExecut
             raise IdentityProvisioningExecutionError("identity_execution_request_rejected")
     try:
         request = RoleIdentityProvisioningExecutionRequest(
-            job_id=_identifier_value(value["job_id"], "identity_execution_job_id_invalid"),
+            job_id=_job_id_value(value["job_id"]),
             plan_id=value["plan_id"],
             household_id=_identifier_value(value["household_id"], "identity_household_id_invalid"),
             member_id=_identifier_value(value["member_id"], "identity_member_id_invalid"),
