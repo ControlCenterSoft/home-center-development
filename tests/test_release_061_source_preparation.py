@@ -5,7 +5,7 @@ import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.61.0"
+VERSION = "0.61.1"
 BASE_SHA = "88634f6bf5e35d432581d58327bdb277b9b71140"
 
 
@@ -24,14 +24,15 @@ def test_061_exact_release_identity_is_consistent() -> None:
 
 
 def test_061_notes_are_official_bounded_and_truthful() -> None:
-    notes = (ROOT / "docs/releases/0.61.0.md").read_text(encoding="utf-8")
-    assert notes.startswith("# Home Center 0.61.0\n\nStatus: official release.")
+    notes = (ROOT / f"docs/releases/{VERSION}.md").read_text(encoding="utf-8")
+    assert notes.startswith(f"# Home Center {VERSION}\n\nStatus: official release.")
     assert "Release profile: `single-node-core`." in notes
     assert "Provider selection is not VPN activation." in notes
     assert "concrete production VPN adapter execution" in notes
     assert "Multi-node HA / automatic failover" in notes
     assert "commercial launch clearance" in notes
-    assert "0.60.0 → 0.61.0" in notes
+    assert "0.60.0 → 0.61.1" in notes
+    assert "split-route direct egress" in notes
 
 
 def test_061_vpn_runtime_source_is_present() -> None:
@@ -86,7 +87,7 @@ def test_061_upgrade_drills_bind_exact_060_stable_without_source_rewrite() -> No
         source = (ROOT / "tests" / name).read_text(encoding="utf-8")
         assert f'BASE_SHA = "{BASE_SHA}"' in source
         assert 'BASELINE_VERSION = "0.60.0"' in source
-        assert 'CANDIDATE_VERSION = "0.61.0"' in source
+        assert 'CANDIDATE_VERSION = "0.61.1"' in source
         assert "SOURCE_VERSION" not in source
         assert "replace(source_marker" not in source
 
