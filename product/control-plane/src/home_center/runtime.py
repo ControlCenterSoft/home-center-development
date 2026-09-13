@@ -34,6 +34,8 @@ from .local_admin_auth import LocalAdminCredentialStore
 from .local_admin_change import LocalAdminPasswordChangeClient
 from .node_inventory_api import NodeInventoryService
 from .reconcile import Reconciler
+from .role_identity_provisioning_api_runtime import RoleIdentityProvisioningApiRuntimeService
+from .role_identity_provisioning_runtime import RoleIdentityProvisioningRuntimeService
 from .step_up import StepUpGrantManager
 from .store import StateStore
 from .util import sha256_file, utc_now
@@ -87,6 +89,11 @@ class Runtime:
             self.store,
             self.household_policy_reconciliation,
         )
+        self.role_identity_provisioning = RoleIdentityProvisioningRuntimeService(self.store)
+        self.role_identity_provisioning_api = RoleIdentityProvisioningApiRuntimeService(
+            self.store,
+            self.role_identity_provisioning,
+        )
         self.device_management_providers = DeviceManagementProviderRuntimeService(self.store)
         self.device_management_provider_selection = DeviceManagementProviderSelectionRuntimeService(self.store)
         self.device_management_enrollment_execution = RecoverableDeviceManagementEnrollmentExecutionRuntimeService(self.store)
@@ -108,14 +115,10 @@ class Runtime:
         self.reconciler = Reconciler(config, self.store)
 
     def actor_requires_password_change(self, actor: str) -> bool:
-        return (
-            actor == f"local-admin:{self.local_admin.username}"
-            and self.local_admin.password_change_required
-        )
+        return actor == f"local-admin:{self.local_admin.username}" and self.local_admin.password_change_required
 
     def change_local_admin_password(self, username: str, current_password: str, new_password: str) -> None:
         """Rotate through the root helper and reload the committed verifier."""
-
         self.local_admin_password_changer.change(username, current_password, new_password)
         self.local_admin = LocalAdminCredentialStore(
             self.config.local_admin_credentials_file,
@@ -132,11 +135,7 @@ class Runtime:
             target=self.config.node_id,
             outcome="accepted",
             correlation_id=f"runtime-{self.config.node_id}",
-            details={
-                "version": __version__,
-                "role": self.config.role,
-                "post_condition_recoveries": recovered,
-            },
+            details={"version": __version__, "role": self.config.role, "post_condition_recoveries": recovered},
         )
         self.reconciler.start()
 
@@ -217,7 +216,6 @@ class Runtime:
     @staticmethod
     def _profile_details(value: dict[str, Any]) -> tuple[str, str | int, list[dict[str, Any]]]:
         """Return the common runtime view for legacy v1 and portable v2 profiles."""
-
         if value.get("schema") == "home-center.deployment-profile.v2":
             profile_name = value.get("profile_id")
             profile_version: str | int = 2
@@ -230,7 +228,6 @@ class Runtime:
             profile_name = metadata.get("name")
             profile_version = metadata.get("version")
             nodes = specification.get("nodes")
-
         if not isinstance(profile_name, str) or not profile_name.strip():
             raise ValueError("deployment profile name is required")
         if isinstance(profile_version, bool) or not isinstance(profile_version, (str, int)):
