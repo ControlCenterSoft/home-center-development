@@ -67,15 +67,24 @@ def test_release_059_enforcement_openapi_preserves_fail_closed_authority() -> No
         )
     )
     assert document["openapi"] == "3.1.0"
+    assert "Backend acceptance never constitutes verified enforcement" in document["info"]["description"]
     paths = document["paths"]
-    assert {
+    required = {
         "/api/v1/household/policy/enforcement/plan",
         "/api/v1/household/policy/enforcement/confirm",
         "/api/v1/household/policy/enforcement/execute",
-    } <= set(paths)
-    serialized = json.dumps(document, sort_keys=True)
-    assert "external_publication_authorized" in serialized
-    assert "automatic_retry_authorized" in serialized
+    }
+    assert required <= set(paths)
+    for path in required:
+        operation = paths[path]["post"]
+        assert operation["security"] == [{"sessionCookie": []}]
+        assert operation["requestBody"]["required"] is True
+    confirm_description = paths["/api/v1/household/policy/enforcement/confirm"]["post"]["responses"]["200"]["description"]
+    execute = paths["/api/v1/household/policy/enforcement/execute"]["post"]
+    assert "no automatic retry or success claim is authorized" in confirm_description
+    assert "does not authorize retry after an ambiguous backend outcome" in execute["parameters"][0]["description"]
+    assert "remain unverified and require reconciliation" in execute["responses"]["200"]["description"]
+    assert "backend outcome ambiguous" in execute["responses"]["503"]["description"]
 
 
 def test_release_059_upgrade_drills_are_exact_and_do_not_rewrite_identity() -> None:
