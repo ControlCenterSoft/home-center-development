@@ -11,7 +11,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 BASE_SHA = "ff5ef0c7fb878ee28ff314cd5809c8cb0df2f726"
 BASELINE_VERSION = "0.61.2"
-CANDIDATE_VERSION = "0.62.0"
+CANDIDATE_VERSION = "0.62.1"
 
 
 def _load_060_systemd_drill():
@@ -45,7 +45,7 @@ rm -rf /var/backups/home-center /var/backups/home-center-deploy /run/home-center
 
 @pytest.mark.skipif(
     os.environ.get("GITHUB_ACTIONS") != "true" or sys.version_info[:2] != (3, 12),
-    reason="real-systemd 0.61.2 -> 0.62.0 qualification runs once on Python 3.12",
+    reason="real-systemd 0.61.2 -> 0.62.1 qualification runs once on Python 3.12",
 )
 def test_release_062_real_systemd_upgrade_health_and_rollback(tmp_path: Path) -> None:
     _prepare_clean_systemd_sandbox()

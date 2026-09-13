@@ -11,7 +11,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 BASE_SHA = "ff5ef0c7fb878ee28ff314cd5809c8cb0df2f726"
 BASELINE_VERSION = "0.61.2"
-CANDIDATE_VERSION = "0.62.0"
+CANDIDATE_VERSION = "0.62.1"
 
 
 def _load_060_drill():
@@ -25,7 +25,7 @@ def _load_060_drill():
 
 @pytest.mark.skipif(
     os.environ.get("GITHUB_ACTIONS") != "true" or sys.version_info[:2] != (3, 12),
-    reason="0.61.2 -> 0.62.0 hosted upgrade/rollback drill runs once on Python 3.12",
+    reason="0.61.2 -> 0.62.1 hosted upgrade/rollback drill runs once on Python 3.12",
 )
 def test_release_062_hosted_upgrade_from_0612_and_rollback(tmp_path: Path) -> None:
     module = _load_060_drill()
@@ -40,7 +40,7 @@ def test_release_062_hosted_upgrade_from_0612_and_rollback(tmp_path: Path) -> No
                 "sudo",
                 "bash",
                 "-ceu",
-                "find /opt/home-center/releases -maxdepth 1 -type d -name '0.62.0-*' -exec rm -rf {} + 2>/dev/null || true",
+                "find /opt/home-center/releases -maxdepth 1 -type d -name '0.62.1-*' -exec rm -rf {} + 2>/dev/null || true",
             ],
             text=True,
             capture_output=True,
