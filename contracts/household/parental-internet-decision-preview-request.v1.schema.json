@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/parental-internet-decision-preview-request.v1.schema.json",
+  "title": "Home Center parental Internet decision preview request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "member_id", "domain", "category", "weekday", "minute_of_day",
+    "daily_used_minutes", "weekly_used_minutes", "continuous_used_minutes", "view"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.parental-internet-decision-preview-request.v1"},
+    "member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "domain": {"type": "string", "minLength": 1, "maxLength": 253},
+    "category": {"type": ["string", "null"], "minLength": 1, "maxLength": 128},
+    "weekday": {"type": "integer", "minimum": 0, "maximum": 6},
+    "minute_of_day": {"type": "integer", "minimum": 0, "maximum": 1439},
+    "daily_used_minutes": {"type": "integer", "minimum": 0, "maximum": 10080},
+    "weekly_used_minutes": {"type": "integer", "minimum": 0, "maximum": 10080},
+    "continuous_used_minutes": {"type": "integer", "minimum": 0, "maximum": 10080},
+    "view": {"enum": ["cozy", "full"]}
+  }
+}
