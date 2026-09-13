@@ -2,7 +2,9 @@
 
 This boundary converts an exact verified QR effect handoff into a durable typed
 Job only after revalidating the current Household snapshot. Admission itself does
-not execute the effect and never claims post-condition success.
+not execute the effect and never claims post-condition success. The exact closed
+handoff is persisted inside the Job preflight so a restarted process can recover
+the same admission/effect identity without inventing or reissuing QR evidence.
 """
 from __future__ import annotations
 
@@ -13,7 +15,12 @@ from dataclasses import dataclass, field
 from .household import HouseholdRole
 from .household_store import HouseholdSnapshot
 from .qr_onboarding import OnboardingSubject
-from .qr_onboarding_effect_handoff import QrOnboardingEffectHandoff, QrOnboardingEffectKind
+from .qr_onboarding_effect_handoff import (
+    QrOnboardingEffectHandoff,
+    QrOnboardingEffectKind,
+    QrOnboardingEffectHandoffError,
+    qr_onboarding_effect_handoff_from_dict,
+)
 from .store import IdempotencyConflict, StateStore
 from .util import canonical_json
 
@@ -115,9 +122,71 @@ def _revalidate_snapshot(handoff: QrOnboardingEffectHandoff, snapshot: Household
         raise QrOnboardingEffectAdmissionError("qr_effect_admission_effect_kind_invalid")
 
 
+def _receipt_from_persisted_job(job: dict[str, object], handoff: QrOnboardingEffectHandoff) -> QrOnboardingEffectAdmission:
+    preflight = job.get("preflight")
+    if not isinstance(preflight, dict):
+        raise QrOnboardingEffectAdmissionError("qr_effect_admission_recovery_preflight_missing")
+    exact = (
+        preflight.get("schema") == "home-center.qr-onboarding-effect-admission-preflight.v1"
+        and preflight.get("handoff_id") == handoff.handoff_id
+        and preflight.get("handoff_sha256") == _handoff_sha256(handoff)
+        and preflight.get("effect_kind") == handoff.effect_kind.value
+        and preflight.get("required_job_type") == handoff.required_job_type
+        and preflight.get("household_id") == handoff.household_id
+        and preflight.get("household_snapshot_id") == handoff.household_snapshot_id
+        and preflight.get("household_resource_version") == handoff.household_resource_version
+        and preflight.get("household_generation") == handoff.household_generation
+        and preflight.get("target_member_id") == handoff.target_member_id
+        and preflight.get("device_id") == handoff.device_id
+        and preflight.get("execution_authorized") is False
+        and preflight.get("post_condition_verification_required") is True
+        and preflight.get("provider_execution_authorized") is False
+        and preflight.get("infrastructure_mutation_authorized") is False
+        and preflight.get("external_publication_authorized") is False
+        and preflight.get("handoff") == handoff.to_dict()
+        and job.get("job_type") == handoff.required_job_type
+    )
+    if not exact:
+        raise QrOnboardingEffectAdmissionError("qr_effect_admission_recovery_binding_mismatch")
+    job_id = job.get("job_id")
+    if not isinstance(job_id, str) or not job_id:
+        raise QrOnboardingEffectAdmissionError("qr_effect_admission_recovery_job_invalid")
+    return QrOnboardingEffectAdmission(
+        job_id=job_id,
+        handoff_id=handoff.handoff_id,
+        required_job_type=handoff.required_job_type,
+        household_id=handoff.household_id,
+        household_snapshot_id=handoff.household_snapshot_id,
+        household_resource_version=handoff.household_resource_version,
+        household_generation=handoff.household_generation,
+        target_member_id=handoff.target_member_id,
+        device_id=handoff.device_id,
+    )
+
+
 class QrOnboardingEffectAdmissionService:
     def __init__(self, store: StateStore) -> None:
         self.store = store
+
+    def recover(self, job_id: str) -> tuple[QrOnboardingEffectAdmission, QrOnboardingEffectHandoff]:
+        """Recover exact durable admission/handoff evidence after process restart.
+
+        This is read-only. It never recreates a Job, replays QR redemption or grants
+        execution authority. Any missing/tampered preflight evidence fails closed.
+        """
+        if not isinstance(job_id, str) or not job_id:
+            raise QrOnboardingEffectAdmissionError("qr_effect_admission_recovery_job_invalid")
+        job = self.store.job(job_id)
+        if job is None:
+            raise QrOnboardingEffectAdmissionError("qr_effect_admission_recovery_job_missing")
+        preflight = job.get("preflight")
+        if not isinstance(preflight, dict):
+            raise QrOnboardingEffectAdmissionError("qr_effect_admission_recovery_preflight_missing")
+        try:
+            handoff = qr_onboarding_effect_handoff_from_dict(preflight.get("handoff"))
+        except QrOnboardingEffectHandoffError as exc:
+            raise QrOnboardingEffectAdmissionError("qr_effect_admission_recovery_handoff_rejected") from exc
+        return _receipt_from_persisted_job(job, handoff), handoff
 
     def admit(
         self,
@@ -150,6 +219,7 @@ class QrOnboardingEffectAdmissionService:
             "schema": "home-center.qr-onboarding-effect-admission-preflight.v1",
             "handoff_id": handoff.handoff_id,
             "handoff_sha256": handoff_sha256,
+            "handoff": handoff.to_dict(),
             "effect_kind": handoff.effect_kind.value,
             "required_job_type": handoff.required_job_type,
             "household_id": handoff.household_id,
