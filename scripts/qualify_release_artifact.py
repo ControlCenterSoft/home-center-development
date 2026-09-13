@@ -70,6 +70,7 @@ REQUIRED_MEMBERS = frozenset(
         "home_center/qr_onboarding_effect_handoff.py",
         "home_center/qr_onboarding_effect_verification.py",
         "home_center/qr_onboarding_effect_admission.py",
+        "home_center/qr_onboarding_effect_execution.py",
         "home_center/api_v3.py",
         "home_center/api_v4.py",
         "home_center/api_v5.py",
