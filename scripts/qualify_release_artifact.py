@@ -91,6 +91,7 @@ REQUIRED_MEMBERS = frozenset(
         "home_center/parental_internet_policy_validation.py",
         "home_center/parental_internet_verified_base.py",
         "home_center/parental_internet_policy_runtime.py",
+        "home_center/parental_internet_policy_runtime_safe.py",
         "home_center/parental_internet_policy_change_api.py",
         "home_center/parental_internet_policy_api.py",
         "home_center/parental_internet_policy_read_api.py",
