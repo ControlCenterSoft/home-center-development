@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+import stat
 from pathlib import Path
 
 from home_center.household import FamilyMember, Household, HouseholdRole
@@ -9,6 +10,9 @@ from home_center.qr_onboarding import GuestScope, OnboardingSubject
 from home_center.qr_onboarding_runtime import QrOnboardingRuntimeService, SQLiteQrOnboardingRuntimeRepository
 from home_center.store import MIGRATIONS, StateStore
 from home_center.util import canonical_json, utc_now
+
+
+RELEASE_063_MIGRATION_VERSIONS = (1, 2, 3, 4)
 
 
 def _snapshot():
@@ -25,8 +29,8 @@ def _snapshot():
     return household_store.read("home-main")
 
 
-def test_qr_runtime_schema_is_canonical_migration_4_and_matches_adapter_contract() -> None:
-    assert [version for version, _ in MIGRATIONS] == [1, 2, 3, 4]
+def test_qr_runtime_schema_remains_canonical_migration_4_and_matches_adapter_contract() -> None:
+    assert tuple(version for version, _ in MIGRATIONS[:4]) == RELEASE_063_MIGRATION_VERSIONS
     assert MIGRATIONS[3][1].strip() == SQLiteQrOnboardingRuntimeRepository.schema_sql().strip()
 
 
@@ -39,7 +43,8 @@ def test_fresh_state_store_installs_qr_schema_without_repository_self_migration(
                 "SELECT version FROM schema_migrations ORDER BY version"
             ).fetchall()
         ]
-        assert versions == [1, 2, 3, 4]
+        assert versions == [version for version, _ in MIGRATIONS]
+        assert tuple(versions[:4]) == RELEASE_063_MIGRATION_VERSIONS
         tables = {
             row[0]
             for row in store._connection.execute(  # noqa: SLF001
@@ -70,7 +75,17 @@ def test_fresh_state_store_installs_qr_schema_without_repository_self_migration(
         store.close()
 
 
-def test_upgrade_from_canonical_v3_preserves_existing_state_and_applies_only_qr_migration(
+def test_state_store_restricts_state_directory_and_database_to_owner(tmp_path: Path) -> None:
+    path = tmp_path / "permissions" / "state.db"
+    store = StateStore(path, b"m" * 32, "cluster-test")
+    try:
+        assert stat.S_IMODE(path.parent.stat().st_mode) == 0o700
+        assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    finally:
+        store.close()
+
+
+def test_upgrade_from_canonical_v3_preserves_existing_state_and_applies_registered_migrations(
     tmp_path: Path,
 ) -> None:
     path = tmp_path / "upgrade" / "state.db"
@@ -103,7 +118,8 @@ def test_upgrade_from_canonical_v3_preserves_existing_state_and_applies_only_qr_
                 "SELECT version FROM schema_migrations ORDER BY version"
             ).fetchall()
         ]
-        assert versions == [1, 2, 3, 4]
+        assert versions == [version for version, _ in MIGRATIONS]
+        assert tuple(versions[:4]) == RELEASE_063_MIGRATION_VERSIONS
         for table in ("qr_onboarding_runtime", "qr_onboarding_runtime_operations"):
             assert store._connection.execute(  # noqa: SLF001
                 "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
