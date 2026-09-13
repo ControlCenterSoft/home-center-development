@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/qr-onboarding-effect-handoff.v1.schema.json",
+  "title": "Home Center QR onboarding effect handoff v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "handoff_id", "effect_kind", "source_operation", "source_receipt_id",
+    "source_receipt_sha256", "runtime_record_id", "invitation_id",
+    "invitation_evidence_sha256", "household_id", "household_snapshot_id",
+    "household_resource_version", "household_generation", "target_member_id",
+    "subject", "device_id", "guest_scope", "source_record_version", "required_job_type",
+    "explicit_change_job_required", "post_condition_verification_required",
+    "effect_execution_authorized", "account_creation_authorized",
+    "device_registration_authorized", "managed_state_change_authorized",
+    "provider_execution_authorized", "infrastructure_mutation_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.qr-onboarding-effect-handoff.v1"},
+    "handoff_id": {"type": "string", "pattern": "^hcqeh-[0-9a-f]{24}$"},
+    "effect_kind": {"enum": ["guest-access-grant", "device-binding", "access-revocation"]},
+    "source_operation": {"enum": ["consume", "revoke"]},
+    "source_receipt_id": {"type": "string", "pattern": "^hcqro-[0-9a-f]{24}$"},
+    "source_receipt_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "runtime_record_id": {"type": "string", "pattern": "^hcqrr-[0-9a-f]{24}$"},
+    "invitation_id": {"type": "string", "pattern": "^hcqri-[0-9a-f]{24}$"},
+    "invitation_evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "household_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "household_snapshot_id": {"type": "string", "pattern": "^hsnap-[0-9a-f]{24}$"},
+    "household_resource_version": {"type": "string", "pattern": "^hrv-[0-9a-f]{24}$"},
+    "household_generation": {"type": "integer", "minimum": 1},
+    "target_member_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "subject": {"enum": ["guest", "device"]},
+    "device_id": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"}
+      ]
+    },
+    "guest_scope": {
+      "type": "array",
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": {"enum": ["internet.guest", "home.status.read"]}
+    },
+    "source_record_version": {"type": "integer", "minimum": 1},
+    "required_job_type": {
+      "enum": [
+        "typed-guest-access-change-job",
+        "typed-device-binding-change-job",
+        "typed-access-revocation-change-job"
+      ]
+    },
+    "explicit_change_job_required": {"const": true},
+    "post_condition_verification_required": {"const": true},
+    "effect_execution_authorized": {"const": false},
+    "account_creation_authorized": {"const": false},
+    "device_registration_authorized": {"const": false},
+    "managed_state_change_authorized": {"const": false},
+    "provider_execution_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"effect_kind": {"const": "guest-access-grant"}}, "required": ["effect_kind"]},
+      "then": {
+        "properties": {
+          "source_operation": {"const": "consume"},
+          "subject": {"const": "guest"},
+          "device_id": {"type": "null"},
+          "guest_scope": {"minItems": 1},
+          "required_job_type": {"const": "typed-guest-access-change-job"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"effect_kind": {"const": "device-binding"}}, "required": ["effect_kind"]},
+      "then": {
+        "properties": {
+          "source_operation": {"const": "consume"},
+          "subject": {"const": "device"},
+          "device_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+          "guest_scope": {"maxItems": 0},
+          "required_job_type": {"const": "typed-device-binding-change-job"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"effect_kind": {"const": "access-revocation"}}, "required": ["effect_kind"]},
+      "then": {
+        "properties": {
+          "source_operation": {"const": "revoke"},
+          "required_job_type": {"const": "typed-access-revocation-change-job"}
+        }
+      }
+    }
+  ]
+}

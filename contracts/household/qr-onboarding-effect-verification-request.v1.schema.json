@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/qr-onboarding-effect-verification-request.v1.schema.json",
+  "title": "Home Center QR onboarding effect verification request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "request_id", "handoff_id", "handoff_sha256", "effect_job_id",
+    "required_job_type", "effect_kind", "household_id", "household_snapshot_id",
+    "household_resource_version", "household_generation", "target_member_id",
+    "subject", "device_id", "expected_post_condition", "authoritative_readback_required",
+    "post_condition_verified", "effect_success_claimed", "provider_execution_authorized",
+    "infrastructure_mutation_authorized", "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.qr-onboarding-effect-verification-request.v1"},
+    "request_id": {"type": "string", "pattern": "^hcqev-[0-9a-f]{24}$"},
+    "handoff_id": {"type": "string", "pattern": "^hcqeh-[0-9a-f]{24}$"},
+    "handoff_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "effect_job_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "required_job_type": {
+      "enum": [
+        "typed-guest-access-change-job",
+        "typed-device-binding-change-job",
+        "typed-access-revocation-change-job"
+      ]
+    },
+    "effect_kind": {"enum": ["guest-access-grant", "device-binding", "access-revocation"]},
+    "household_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "household_snapshot_id": {"type": "string", "pattern": "^hsnap-[0-9a-f]{24}$"},
+    "household_resource_version": {"type": "string", "pattern": "^hrv-[0-9a-f]{24}$"},
+    "household_generation": {"type": "integer", "minimum": 1},
+    "target_member_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "subject": {"enum": ["guest", "device"]},
+    "device_id": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"}
+      ]
+    },
+    "expected_post_condition": {
+      "enum": ["guest-access-effective", "device-binding-effective", "access-revoked"]
+    },
+    "authoritative_readback_required": {"const": true},
+    "post_condition_verified": {"const": false},
+    "effect_success_claimed": {"const": false},
+    "provider_execution_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"effect_kind": {"const": "guest-access-grant"}}, "required": ["effect_kind"]},
+      "then": {
+        "properties": {
+          "subject": {"const": "guest"},
+          "device_id": {"type": "null"},
+          "required_job_type": {"const": "typed-guest-access-change-job"},
+          "expected_post_condition": {"const": "guest-access-effective"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"effect_kind": {"const": "device-binding"}}, "required": ["effect_kind"]},
+      "then": {
+        "properties": {
+          "subject": {"const": "device"},
+          "device_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+          "required_job_type": {"const": "typed-device-binding-change-job"},
+          "expected_post_condition": {"const": "device-binding-effective"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"effect_kind": {"const": "access-revocation"}}, "required": ["effect_kind"]},
+      "then": {
+        "properties": {
+          "required_job_type": {"const": "typed-access-revocation-change-job"},
+          "expected_post_condition": {"const": "access-revoked"}
+        }
+      }
+    }
+  ]
+}
