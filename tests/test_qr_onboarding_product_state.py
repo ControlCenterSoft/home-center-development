@@ -106,6 +106,7 @@ def test_guest_access_effect_is_durable_bounded_product_state(tmp_path) -> None:
     handoff = _handoff(snapshot, subject=OnboardingSubject.GUEST)
     path = tmp_path / "state.db"
     store = StateStore(path, b"g" * 32, "cluster-test")
+    expected_state = None
     try:
         adapter, job = _execute(store, snapshot, handoff)
         state = adapter.state(handoff.handoff_id)
@@ -122,6 +123,7 @@ def test_guest_access_effect_is_durable_bounded_product_state(tmp_path) -> None:
         assert state["provider_execution_authorized"] is False
         assert state["infrastructure_mutation_authorized"] is False
         assert state["external_publication_authorized"] is False
+        expected_state = state
         store.verify_audit_chain()
     finally:
         store.close()
@@ -129,9 +131,7 @@ def test_guest_access_effect_is_durable_bounded_product_state(tmp_path) -> None:
     reopened = StateStore(path, b"g" * 32, "cluster-test")
     try:
         persisted = QrOnboardingProductStateAdapter(reopened).state(handoff.handoff_id)
-        assert persisted is not None
-        assert persisted["state"] == "effective"
-        assert persisted["handoff_sha256"] == job["result"]["request_id"][:0] + persisted["handoff_sha256"]
+        assert persisted == expected_state
         reopened.verify_audit_chain()
     finally:
         reopened.close()
