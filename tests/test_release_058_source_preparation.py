@@ -1,27 +1,15 @@
 from __future__ import annotations
 
 import json
-import tomllib
 from pathlib import Path
 
 from scripts.qualify_release_artifact import REQUIRED_MEMBERS
 
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.58.0"
 
 
-def test_release_058_exact_identity_is_consistent() -> None:
-    assert (ROOT / "VERSION").read_text(encoding="ascii").strip() == VERSION
-    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
-    assert project["version"] == VERSION
-    runtime_init = (ROOT / "product/control-plane/src/home_center/__init__.py").read_text(encoding="utf-8")
-    assert f'__version__ = "{VERSION}"' in runtime_init
-    html = (ROOT / "product/web/static/index.html").read_text(encoding="utf-8")
-    assert f'<small id="version">{VERSION}</small>' in html
-
-
-def test_release_058_notes_are_official_bounded_and_truthful() -> None:
+def test_release_058_release_notes_remain_historical_and_documented() -> None:
     notes = (ROOT / "docs/releases/0.58.0.md").read_text(encoding="utf-8")
     assert notes.startswith("# Home Center 0.58.0\n\nStatus: official release.")
     assert "`single-node-core`" in notes
