@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/vpn-egress-observation.v1.schema.json",
+  "title": "Home Center VPN egress observation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "provider_id", "provider_version", "location_id", "reachable", "latency_ms",
+    "stability_bps", "evidence_sha256", "read_only", "execution_authorized",
+    "infrastructure_mutation_authorized", "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.vpn-egress-observation.v1"},
+    "provider_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "provider_version": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,63}$"},
+    "location_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "reachable": {"type": "boolean"},
+    "latency_ms": {"type": "integer", "minimum": 0, "maximum": 5000},
+    "stability_bps": {"type": "integer", "minimum": 0, "maximum": 10000},
+    "evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "read_only": {"const": true},
+    "execution_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
