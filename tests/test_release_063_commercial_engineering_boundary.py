@@ -19,6 +19,8 @@ QR_RUNTIME_MODULES = (
     "qr_onboarding_effect_source.py",
     "qr_onboarding_effect_worker.py",
     "qr_onboarding_effect_api.py",
+    "api_v10.py",
+    "api_v11.py",
 )
 
 
@@ -43,10 +45,12 @@ def test_063_qr_train_adds_no_third_party_runtime_dependency() -> None:
     assert external_imports == set()
 
 
-def test_063_release_boundary_does_not_claim_commercial_or_provider_clearance() -> None:
+def test_063_official_release_keeps_commercial_provider_and_ha_claims_separate() -> None:
     notes = (ROOT / "docs/releases/0.63.0.md").read_text(encoding="utf-8")
-    assert "not Release Candidate and not Public Stable" in notes
-    assert "Concrete provider/HA/commercial-launch claims remain separate qualification boundaries" in notes
+    assert "Status: official release." in notes
+    assert "Commercial-launch clearance remains a separate business/legal boundary" in notes
+    assert "Concrete provider execution remains fail-closed unless separately qualified" in notes
+    assert "HA/automatic failover is not claimed" in notes
     assert "Technical Public Stable qualification must remain distinct" in notes
 
 
