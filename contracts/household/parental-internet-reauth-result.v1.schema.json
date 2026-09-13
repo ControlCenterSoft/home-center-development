@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/parental-internet-reauth-result.v1.schema.json",
+  "title": "Home Center parental Internet re-auth result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "state", "plan_id", "scope", "step_up_token",
+    "expires_in_seconds", "single_use"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.parental-internet-reauth-result.v1"},
+    "state": {"const": "verified"},
+    "plan_id": {"type": "string", "pattern": "^hpip-[0-9a-f]{24}$"},
+    "scope": {"type": "string", "pattern": "^household\\.parental-internet\\.policy:hpip-[0-9a-f]{24}$"},
+    "step_up_token": {"type": "string", "minLength": 16, "maxLength": 256},
+    "expires_in_seconds": {"type": "integer", "minimum": 1, "maximum": 3600},
+    "single_use": {"const": true}
+  }
+}
