@@ -144,7 +144,27 @@ def test_observation_cannot_claim_write_authority() -> None:
 
 def test_non_vpn_route_cannot_smuggle_provider_selection() -> None:
     raw = evaluate_vpn_route(policy=_policy(), observation=_observation(), domain="other.net").to_dict()
-    assert raw["route"] == "direct"
+    assert raw["route"] == "deny"
     raw["provider_id"] = "provider-a"
+    with pytest.raises(VpnEgressEvidenceValidationError, match="vpn_route_decision_rejected"):
+        route_decision_from_dict(raw)
+
+
+def test_route_reason_cannot_be_relabelled_across_direct_and_deny_states() -> None:
+    raw = evaluate_vpn_route(policy=_policy(), observation=_observation(), domain="other.net").to_dict()
+    assert raw["route"] == "deny"
+    assert raw["reason"] == "split_route_direct_not_authorized"
+    raw["reason"] = "split_route_direct"
+    with pytest.raises(VpnEgressEvidenceValidationError, match="vpn_route_decision_rejected"):
+        route_decision_from_dict(raw)
+
+
+def test_route_decision_requires_exact_observation_evidence_digest() -> None:
+    raw = evaluate_vpn_route(
+        policy=_policy(),
+        observation=_observation(),
+        domain="api.example.com",
+    ).to_dict()
+    raw["observation_evidence_sha256"] = None
     with pytest.raises(VpnEgressEvidenceValidationError, match="vpn_route_decision_rejected"):
         route_decision_from_dict(raw)

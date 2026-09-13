@@ -482,6 +482,13 @@ def evaluate_vpn_route(
         except VpnEgressPolicyError:
             return out(RouteMode.DENY, "split_route_domain_invalid")
         if not any(_domain_matches(normalized, rule) for rule in policy.split_domains):
-            return out(RouteMode.DIRECT, "split_route_direct")
+            # A split-route non-match is a request to leave the VPN path. It
+            # may use direct egress only when the policy explicitly permits
+            # direct fallback. A kill-switch/deny policy must never leak
+            # traffic to direct egress merely because the domain is outside
+            # the VPN split set.
+            if not policy.kill_switch and policy.fallback_mode is FallbackMode.DIRECT:
+                return out(RouteMode.DIRECT, "split_route_direct")
+            return out(RouteMode.DENY, "split_route_direct_not_authorized")
 
     return out(RouteMode.VPN, "vpn_route_selected", provider=True)
