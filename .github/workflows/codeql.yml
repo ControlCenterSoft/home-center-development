@@ -57,7 +57,7 @@ jobs:
               (
                   "py/overly-permissive-file",
                   "product/control-plane/src/home_center/store.py",
-                  162,
+                  170,
               ): (
                   "os.chmod(path.parent, 0o750)",
                   "dedicated home-center state directory; group traversal is bounded to the service group",
@@ -65,7 +65,7 @@ jobs:
               (
                   "py/overly-permissive-file",
                   "product/control-plane/src/home_center/store.py",
-                  169,
+                  177,
               ): (
                   "os.chmod(path, 0o640)",
                   "state database remains writable only by its owner; read access is bounded to the service group",
