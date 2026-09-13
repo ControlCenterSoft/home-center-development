@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/qr-onboarding-invitation.v1.schema.json",
+  "title": "Home Center QR onboarding invitation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "invitation_id", "household_id", "issuer_member_id", "issuer_role", "subject",
+    "device_id", "guest_scope", "token_sha256", "created_at_epoch", "expires_at_epoch",
+    "single_use", "max_uses", "revocation_supported", "administrative_credential_included",
+    "long_lived_credential_included", "account_creation_authorized", "device_binding_authorized",
+    "execution_authorized", "infrastructure_mutation_authorized", "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.qr-onboarding-invitation.v1"},
+    "invitation_id": {"type": "string", "pattern": "^hcqri-[0-9a-f]{24}$"},
+    "household_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "issuer_member_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "issuer_role": {"const": "parent"},
+    "subject": {"enum": ["guest", "device"]},
+    "device_id": {"type": ["string", "null"], "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "guest_scope": {
+      "type": "array",
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": {"enum": ["internet.guest", "home.status.read"]}
+    },
+    "token_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "created_at_epoch": {"type": "integer", "minimum": 0},
+    "expires_at_epoch": {"type": "integer", "minimum": 0},
+    "single_use": {"const": true},
+    "max_uses": {"const": 1},
+    "revocation_supported": {"const": true},
+    "administrative_credential_included": {"const": false},
+    "long_lived_credential_included": {"const": false},
+    "account_creation_authorized": {"const": false},
+    "device_binding_authorized": {"const": false},
+    "execution_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"subject": {"const": "guest"}}, "required": ["subject"]},
+      "then": {
+        "properties": {
+          "device_id": {"type": "null"},
+          "guest_scope": {"minItems": 1}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"subject": {"const": "device"}}, "required": ["subject"]},
+      "then": {
+        "properties": {
+          "device_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+          "guest_scope": {"maxItems": 0}
+        }
+      }
+    }
+  ]
+}

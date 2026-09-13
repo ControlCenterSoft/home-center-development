@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/qr-onboarding-redemption-plan.v1.schema.json",
+  "title": "Home Center QR onboarding redemption plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "plan_id", "invitation_id", "household_id", "subject", "device_id",
+    "guest_scope", "presented_at_epoch", "explicit_confirmation_required",
+    "account_creation_authorized", "device_binding_authorized", "execution_authorized",
+    "infrastructure_mutation_authorized", "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.qr-onboarding-redemption-plan.v1"},
+    "plan_id": {"type": "string", "pattern": "^hcqrp-[0-9a-f]{24}$"},
+    "invitation_id": {"type": "string", "pattern": "^hcqri-[0-9a-f]{24}$"},
+    "household_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "subject": {"enum": ["guest", "device"]},
+    "device_id": {"type": ["string", "null"], "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "guest_scope": {
+      "type": "array",
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": {"enum": ["internet.guest", "home.status.read"]}
+    },
+    "presented_at_epoch": {"type": "integer", "minimum": 0},
+    "explicit_confirmation_required": {"const": true},
+    "account_creation_authorized": {"const": false},
+    "device_binding_authorized": {"const": false},
+    "execution_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
