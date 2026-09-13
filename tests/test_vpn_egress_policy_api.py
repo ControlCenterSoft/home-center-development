@@ -89,3 +89,15 @@ def test_invalid_vpn_route_shape_is_rejected() -> None:
     )
     with pytest.raises(VpnEgressPolicyAPIError, match="invalid_vpn_route_decision"):
         cozy_vpn_route_projection(bad)
+
+
+def test_direct_route_cannot_use_fail_closed_deny_reason() -> None:
+    bad = _decision(route=RouteMode.DIRECT, reason="split_route_direct_not_authorized")
+    with pytest.raises(VpnEgressPolicyAPIError, match="invalid_vpn_route_decision"):
+        cozy_vpn_route_projection(bad)
+
+
+def test_deny_route_cannot_use_direct_fallback_reason() -> None:
+    bad = _decision(route=RouteMode.DENY, reason="split_route_direct")
+    with pytest.raises(VpnEgressPolicyAPIError, match="invalid_vpn_route_decision"):
+        full_vpn_route_projection(bad)
