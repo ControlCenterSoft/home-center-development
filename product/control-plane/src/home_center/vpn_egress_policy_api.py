@@ -73,6 +73,21 @@ _REASON_TEXT = {
     ),
 }
 
+_DIRECT_REASONS = frozenset({"vpn_unhealthy_direct_fallback", "split_route_direct"})
+_DENY_REASONS = frozenset(
+    {
+        "parental_decision_required",
+        "parental_decision_binding_mismatch",
+        "parental_deny",
+        "parental_decision_unknown",
+        "provider_observation_binding_mismatch",
+        "vpn_unhealthy_fail_closed",
+        "split_route_domain_required",
+        "split_route_domain_invalid",
+        "split_route_direct_not_authorized",
+    }
+)
+
 
 def _validate(decision: VpnRouteDecision) -> None:
     if not isinstance(decision, VpnRouteDecision):
@@ -91,8 +106,17 @@ def _validate(decision: VpnRouteDecision) -> None:
             or decision.reason != "vpn_route_selected"
         ):
             raise VpnEgressPolicyAPIError("invalid_vpn_route_decision")
-    elif decision.provider_id is not None or decision.location_id is not None or decision.dns_strategy is not None:
+        return
+
+    if decision.provider_id is not None or decision.location_id is not None or decision.dns_strategy is not None:
         raise VpnEgressPolicyAPIError("invalid_vpn_route_decision")
+    if decision.route is RouteMode.DIRECT:
+        if decision.reason not in _DIRECT_REASONS:
+            raise VpnEgressPolicyAPIError("invalid_vpn_route_decision")
+        return
+    if decision.route is RouteMode.DENY and decision.reason in _DENY_REASONS:
+        return
+    raise VpnEgressPolicyAPIError("invalid_vpn_route_decision")
 
 
 def cozy_vpn_route_projection(decision: VpnRouteDecision) -> dict[str, object]:
