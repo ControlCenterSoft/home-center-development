@@ -1,10 +1,10 @@
 """Fail-closed read-back verification for Home Center 0.62 identity provisioning.
 
-Provider command acceptance is never treated as account-creation success.  This
-module consumes an exact-bound, read-only provider observation and emits
-verification evidence only when the requested account, home directory and
-profile are all observed in the expected state within a bounded freshness
-window.  It grants no execution, privilege or publication authority.
+Provider command acceptance is never treated as account-creation success. This
+module consumes an exact-bound read-only provider observation and emits verified
+evidence only when the requested account, home directory and profile are all
+observed in the expected state inside a bounded freshness window. It grants no
+execution, privilege, durable-state mutation or publication authority.
 """
 from __future__ import annotations
 
@@ -18,7 +18,6 @@ from .role_identity_provisioning import (
     IdentityProviderCapability,
     IdentityProviderKind,
     RoleIdentityProvisioningPlan,
-    StorageMode,
 )
 from .role_identity_provisioning_execution import RoleIdentityProvisioningAdapterResult
 
@@ -169,12 +168,29 @@ class IdentityProvisioningVerification:
     verified: bool
     blockers: tuple[str, ...]
     schema: str = field(default=VERIFICATION_SCHEMA, init=False)
-    account_created_verified: bool = field(default=False, init=False)
-    home_directory_verified: bool = field(default=False, init=False)
-    profile_verified: bool = field(default=False, init=False)
     durable_state_change_authorized: bool = field(default=False, init=False)
     privilege_grant_authorized: bool = field(default=False, init=False)
     external_publication_authorized: bool = field(default=False, init=False)
+
+    def __post_init__(self) -> None:
+        if self.verified:
+            if self.blockers or self.account_identity_sha256 is None:
+                raise IdentityProvisioningVerificationError("identity_verification_result_inconsistent")
+            _sha(self.account_identity_sha256, "identity_verification_account_identity_invalid")
+        elif not self.blockers:
+            raise IdentityProvisioningVerificationError("identity_verification_result_inconsistent")
+
+    @property
+    def account_created_verified(self) -> bool:
+        return self.verified
+
+    @property
+    def home_directory_verified(self) -> bool:
+        return self.verified
+
+    @property
+    def profile_verified(self) -> bool:
+        return self.verified
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -186,9 +202,9 @@ class IdentityProvisioningVerification:
             "observation_evidence_sha256": self.observation_evidence_sha256,
             "verified": self.verified,
             "blockers": list(self.blockers),
-            "account_created_verified": self.verified,
-            "home_directory_verified": self.verified,
-            "profile_verified": self.verified,
+            "account_created_verified": self.account_created_verified,
+            "home_directory_verified": self.home_directory_verified,
+            "profile_verified": self.profile_verified,
             "durable_state_change_authorized": False,
             "privilege_grant_authorized": False,
             "external_publication_authorized": False,
@@ -304,6 +320,8 @@ def verify_identity_provisioning(
         and observation.home_directory_state is ResourceReadbackState.READY
         and observation.profile_state is ResourceReadbackState.READY
     )
+    if not verified and not blockers:
+        blockers.append("account_state_unknown")
     return IdentityProvisioningVerification(
         plan_id=plan.plan_id,
         provider_operation_id=accepted.provider_operation_id,
