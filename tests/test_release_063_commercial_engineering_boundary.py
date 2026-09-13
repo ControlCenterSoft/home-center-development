@@ -43,11 +43,12 @@ def test_063_qr_train_adds_no_third_party_runtime_dependency() -> None:
     assert external_imports == set()
 
 
-def test_063_release_boundary_does_not_claim_commercial_or_provider_clearance() -> None:
+def test_063_candidate_does_not_claim_commercial_or_provider_clearance() -> None:
     notes = (ROOT / "docs/releases/0.63.0.md").read_text(encoding="utf-8")
-    assert "not Release Candidate and not Public Stable" in notes
+    assert "Status: qualification candidate; not Public Stable." in notes
     assert "Concrete provider/HA/commercial-launch claims remain separate qualification boundaries" in notes
     assert "Technical Public Stable qualification must remain distinct" in notes
+    assert "commercial launch clearance unclaimed" in notes
 
 
 def test_063_qr_sources_do_not_embed_distribution_or_remote_service_clients() -> None:
