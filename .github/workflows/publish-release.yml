@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: official-release-${{ github.repository }}
@@ -54,6 +55,7 @@ jobs:
           echo "notes=$notes" >> "$GITHUB_OUTPUT"
 
       - name: Publish or repair metadata idempotently
+        id: publish
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -72,11 +74,12 @@ jobs:
             git merge-base --is-ancestor "$tag_sha" "$RELEASE_SHA" || return 1
             unexpected="$(git diff --name-only "$tag_sha" "$RELEASE_SHA" -- | grep -Ev "^(docs/releases/${RELEASE_VERSION}\.md|\.github/workflows/publish-release\.yml|\.github/workflows/publish-deployment-artifact\.yml)$" || true)"
             if [[ -n "$unexpected" ]]; then
-              echo "Existing tag differs from current SHA outside the guarded release-repair allowlist:" >&2
-              printf '%s\n' "$unexpected" >&2
-              return 1
+              echo "POST_RELEASE_PRODUCT_DELTA_DETECTED"
+              printf '%s\n' "$unexpected"
+              return 2
             fi
             echo "Keeping immutable product tag ${RELEASE_TAG} at ${tag_sha}; only guarded release metadata/automation changed"
+            return 0
           }
 
           release_exists=false
@@ -94,10 +97,20 @@ jobs:
               echo "Existing release ${RELEASE_TAG} has no matching Git tag" >&2
               exit 1
             fi
-            guarded_tag_delta "$tag_sha" || {
+
+            set +e
+            guarded_tag_delta "$tag_sha"
+            guard_status=$?
+            set -e
+            if (( guard_status == 2 )); then
+              echo "POST_RELEASE_DEVELOPMENT_SKIP: ${RELEASE_TAG} remains immutable while main contains newer product development"
+              echo "promote=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            if (( guard_status != 0 )); then
               echo "Existing tag ${RELEASE_TAG} is incompatible with current release SHA ${RELEASE_SHA}" >&2
               exit 1
-            }
+            fi
 
             gh release edit "$RELEASE_TAG" \
               --repo "$GITHUB_REPOSITORY" \
@@ -105,10 +118,14 @@ jobs:
               --notes-file "$RELEASE_NOTES"
           else
             if [[ -n "$tag_sha" ]]; then
-              guarded_tag_delta "$tag_sha" || {
+              set +e
+              guarded_tag_delta "$tag_sha"
+              guard_status=$?
+              set -e
+              if (( guard_status != 0 )); then
                 echo "${RELEASE_TAG} already points to ${tag_sha}, incompatible with ${RELEASE_SHA}" >&2
                 exit 1
-              }
+              fi
             else
               gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
                 -f ref="refs/tags/${RELEASE_TAG}" \
@@ -137,3 +154,17 @@ jobs:
           [[ "$actual_title" == "Home Center ${RELEASE_VERSION}" ]]
           [[ "$actual_tag" == "$RELEASE_TAG" ]]
           [[ "$actual_body" == "$expected_body" ]]
+          echo "promote=true" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch deployment artifact publication
+        if: steps.publish.outputs.promote == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh workflow run publish-deployment-artifact.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            -f release_tag="$RELEASE_TAG" \
+            -f confirmation=PROMOTE
