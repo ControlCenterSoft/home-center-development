@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/role-identity-provisioning-execution-request.v1.schema.json",
+  "title": "Home Center role identity provisioning execution request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "job_id", "plan_id", "household_id", "member_id", "provider_id",
+    "provider_version", "provider_kind", "provider_evidence_sha256", "account_name",
+    "home_directory_mode", "profile_mode", "credential_references",
+    "provider_execution_authorized", "credential_value_access_authorized",
+    "emergency_admin_mutation_authorized", "arbitrary_privilege_grant_authorized",
+    "unrelated_account_mutation_authorized", "post_condition_verification_required",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.role-identity-provisioning-execution-request.v1"},
+    "job_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "plan_id": {"type": "string", "pattern": "^hcidp-[0-9a-f]{24}$"},
+    "household_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "provider_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "provider_version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+    "provider_kind": {"enum": ["local", "directory"]},
+    "provider_evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "account_name": {"type": "string", "pattern": "^[a-z][a-z0-9._-]{0,31}$"},
+    "home_directory_mode": {"enum": ["local", "portable"]},
+    "profile_mode": {"enum": ["local", "portable"]},
+    "credential_references": {
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "reference"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1, "maxLength": 128},
+          "reference": {"type": "string", "pattern": "^secret://[A-Za-z0-9][A-Za-z0-9._/-]{0,239}$"}
+        }
+      }
+    },
+    "provider_execution_authorized": {"const": true},
+    "credential_value_access_authorized": {"const": false},
+    "emergency_admin_mutation_authorized": {"const": false},
+    "arbitrary_privilege_grant_authorized": {"const": false},
+    "unrelated_account_mutation_authorized": {"const": false},
+    "post_condition_verification_required": {"const": true},
+    "external_publication_authorized": {"const": false}
+  }
+}
