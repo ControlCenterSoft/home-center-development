@@ -6,6 +6,7 @@ bound provider registry. No provider is registered automatically.
 """
 from __future__ import annotations
 
+from .role_identity_provisioning_api_runtime import RoleIdentityProvisioningApiService
 from .role_identity_provisioning_runtime_safe import SafeRoleIdentityProvisioningRuntimeService
 from .runtime import Runtime
 
@@ -16,3 +17,8 @@ class ProductionRuntime(Runtime):
     def __init__(self, *args: object, **kwargs: object) -> None:
         super().__init__(*args, **kwargs)  # type: ignore[arg-type]
         self.role_identity_provisioning = SafeRoleIdentityProvisioningRuntimeService(self.store)
+        self.role_identity_provisioning_api = RoleIdentityProvisioningApiService(
+            self.store,
+            self.role_identity_provisioning,
+            self.role_identity_binding,
+        )
