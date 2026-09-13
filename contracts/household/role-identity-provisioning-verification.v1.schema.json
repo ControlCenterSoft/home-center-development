@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/role-identity-provisioning-verification.v1.schema.json",
+  "title": "Home Center role identity provisioning verification v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "plan_id", "provider_operation_id", "account_name", "account_identity_sha256",
+    "observation_evidence_sha256", "verified", "blockers", "account_created_verified",
+    "home_directory_verified", "profile_verified", "durable_state_change_authorized",
+    "privilege_grant_authorized", "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.role-identity-provisioning-verification.v1"},
+    "plan_id": {"type": "string", "pattern": "^hcidp-[0-9a-f]{24}$"},
+    "provider_operation_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "account_name": {"type": "string", "pattern": "^[a-z][a-z0-9._-]{0,31}$"},
+    "account_identity_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "observation_evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "verified": {"type": "boolean"},
+    "blockers": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "observation_from_future", "observation_expired",
+          "account_absent_after_provider_acceptance", "account_identity_conflict", "account_state_unknown",
+          "home_directory_missing", "home_directory_unknown", "profile_missing", "profile_unknown"
+        ]
+      }
+    },
+    "account_created_verified": {"type": "boolean"},
+    "home_directory_verified": {"type": "boolean"},
+    "profile_verified": {"type": "boolean"},
+    "durable_state_change_authorized": {"const": false},
+    "privilege_grant_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"verified": {"const": true}}},
+      "then": {
+        "properties": {
+          "blockers": {"maxItems": 0},
+          "account_identity_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "account_created_verified": {"const": true},
+          "home_directory_verified": {"const": true},
+          "profile_verified": {"const": true}
+        }
+      },
+      "else": {
+        "properties": {
+          "account_created_verified": {"const": false},
+          "home_directory_verified": {"const": false},
+          "profile_verified": {"const": false}
+        }
+      }
+    }
+  ]
+}
