@@ -129,6 +129,58 @@ def test_ambiguous_execution_requires_reconciliation_and_has_no_automatic_retry(
         )
 
 
+def test_transition_timestamps_never_move_backwards() -> None:
+    job = build_safe_repair_job(
+        admission=admission(), idempotency_key="repair-request-006", created_at_epoch=100
+    )
+    with pytest.raises(SafeRepairJobError, match="safe_repair_job_updated_at_non_monotonic"):
+        start_safe_repair_job(job, updated_at_epoch=99)
+
+    running = start_safe_repair_job(job, updated_at_epoch=110)
+    with pytest.raises(SafeRepairJobError, match="safe_repair_job_updated_at_non_monotonic"):
+        record_safe_repair_execution(
+            running,
+            outcome=RepairExecutionOutcome.ACCEPTED,
+            effect_receipt_sha256="c" * 64,
+            updated_at_epoch=109,
+        )
+
+    verifying = record_safe_repair_execution(
+        running,
+        outcome=RepairExecutionOutcome.ACCEPTED,
+        effect_receipt_sha256="c" * 64,
+        updated_at_epoch=120,
+    )
+    with pytest.raises(SafeRepairJobError, match="safe_repair_job_updated_at_non_monotonic"):
+        verify_safe_repair_post_condition(
+            verifying,
+            evidence_sha256="d" * 64,
+            verified=True,
+            updated_at_epoch=119,
+        )
+
+
+def test_equal_timestamp_is_allowed_for_deterministic_same_tick_transitions() -> None:
+    job = build_safe_repair_job(
+        admission=admission(), idempotency_key="repair-request-007", created_at_epoch=100
+    )
+    running = start_safe_repair_job(job, updated_at_epoch=100)
+    verifying = record_safe_repair_execution(
+        running,
+        outcome=RepairExecutionOutcome.ACCEPTED,
+        effect_receipt_sha256="c" * 64,
+        updated_at_epoch=100,
+    )
+    success = verify_safe_repair_post_condition(
+        verifying,
+        evidence_sha256="d" * 64,
+        verified=True,
+        updated_at_epoch=100,
+    )
+    assert success.state is RepairJobState.SUCCEEDED
+    assert success.updated_at_epoch == 100
+
+
 def test_job_contract_is_closed_and_authority_remains_false() -> None:
     job = build_safe_repair_job(
         admission=admission(), idempotency_key="repair-request-005", created_at_epoch=100
