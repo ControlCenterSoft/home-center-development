@@ -21,7 +21,7 @@
   ],
   "properties": {
     "schema": {"const": "home-center.role-identity-provider-capability.v1"},
-    "provider_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "provider_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
     "provider_version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
     "provider_kind": {"enum": ["local", "directory"]},
     "supported_roles": {
