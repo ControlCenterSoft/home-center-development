@@ -1,10 +1,10 @@
 """0.60 authenticated HTTP boundary for parental Internet policy.
 
-Read and preview routes remain non-authoritative.  Parental Desired State mutation is
-split into plan -> scoped credential re-auth -> explicit confirm.  The boundary never
-registers or invokes a DNS/proxy adapter and never grants infrastructure/publication
-authority.  The safe runtime repeats exact-state checks after the single-use re-auth
-grant is consumed, so state drift fails closed before any durable write.
+Read and preview routes remain non-authoritative. Parental Desired State mutation is
+split into plan -> scoped credential re-auth -> explicit confirm. No route in this
+handler registers or invokes DNS/proxy enforcement or grants infrastructure/publication
+authority. The safe runtime repeats exact-state checks after the single-use grant is
+consumed, so state drift fails closed before any durable write.
 """
 from __future__ import annotations
 
@@ -66,7 +66,6 @@ class RuntimeRequestHandlerV9(RuntimeRequestHandlerV8):
         if parsed.path != DESIRED_PATH:
             super().do_GET()
             return
-
         correlation_id = self._correlation_id()
         context = self._classify_request(correlation_id)
         if context is None:
@@ -77,13 +76,10 @@ class RuntimeRequestHandlerV9(RuntimeRequestHandlerV8):
         actor = self._require_actor(correlation_id)
         if not actor:
             return
-
         try:
             member_id, view = _desired_query(self.path)
             value = ParentalInternetPolicyReadAPIService(self.runtime.store).read_desired(
-                actor=actor,
-                member_id=member_id,
-                view=view,
+                actor=actor, member_id=member_id, view=view
             )
         except ParentalInternetPolicyReadAPIError as exc:
             self._read_error(exc.code, correlation_id)
@@ -96,7 +92,6 @@ class RuntimeRequestHandlerV9(RuntimeRequestHandlerV8):
                 correlation_id,
             )
             return
-
         self._json(HTTPStatus.OK, value)
 
     def do_POST(self) -> None:  # noqa: N802
@@ -104,7 +99,6 @@ class RuntimeRequestHandlerV9(RuntimeRequestHandlerV8):
         if path not in PARENTAL_POSTS:
             super().do_POST()
             return
-
         self._request_body_complete = False
         correlation_id = self._correlation_id()
         context = self._classify_request(correlation_id)
@@ -131,7 +125,6 @@ class RuntimeRequestHandlerV9(RuntimeRequestHandlerV8):
                 correlation_id,
             )
             return
-
         actor = self._require_actor(correlation_id)
         if not actor:
             return
@@ -143,8 +136,7 @@ class RuntimeRequestHandlerV9(RuntimeRequestHandlerV8):
             if path == PREVIEW_PATH:
                 body = self._read_json(max_bytes=4096)
                 value = ParentalInternetPolicyReadAPIService(self.runtime.store).preview(
-                    actor=actor,
-                    request=body,
+                    actor=actor, request=body
                 )
                 self._json(HTTPStatus.OK, value)
                 return
@@ -153,11 +145,7 @@ class RuntimeRequestHandlerV9(RuntimeRequestHandlerV8):
             if path == PLAN_PATH:
                 body = self._read_json(max_bytes=262_144)
                 request = parse_parental_internet_plan_request(body)
-                value = service.plan(
-                    actor=actor,
-                    request=request,
-                    correlation_id=correlation_id,
-                )
+                value = service.plan(actor=actor, request=request, correlation_id=correlation_id)
             else:
                 body = self._read_json(max_bytes=4096)
                 request = parse_parental_internet_confirm_request(body)
@@ -185,16 +173,15 @@ class RuntimeRequestHandlerV9(RuntimeRequestHandlerV8):
             )
             self._read_error(exc.code, correlation_id)
         except (ParentalInternetPolicyChangeAPIError, ParentalInternetPolicyRuntimeError) as exc:
-            code = exc.code
             self.runtime.store.audit(
                 actor=actor,
                 action="household.parental-internet.http",
                 target="household",
                 outcome="denied",
                 correlation_id=correlation_id,
-                details={"reason": code, "path": path},
+                details={"reason": exc.code, "path": path},
             )
-            self._change_error(code, correlation_id)
+            self._change_error(exc.code, correlation_id)
         except (ValueError, TypeError, json.JSONDecodeError):
             code = (
                 "invalid_parental_internet_preview_request"
@@ -227,6 +214,7 @@ class RuntimeRequestHandlerV9(RuntimeRequestHandlerV8):
                 headers={"Retry-After": "60"},
             )
             return
+
         try:
             body = self._read_json(max_bytes=4096)
             if set(body) != {"schema", "provider", "username", "password", "plan_id"}:
@@ -244,9 +232,6 @@ class RuntimeRequestHandlerV9(RuntimeRequestHandlerV8):
                 or not isinstance(plan_id, str)
             ):
                 raise ValueError("invalid parental reauth values")
-            scope = self._safe_parental().confirmation_scope(actor=actor, plan_id=plan_id)
-            if scope is None:
-                raise ParentalInternetPolicyRuntimeError("parental_internet_reauth_not_required")
         except (ValueError, TypeError, json.JSONDecodeError):
             self.runtime.store.audit(
                 actor=actor,
@@ -263,23 +248,10 @@ class RuntimeRequestHandlerV9(RuntimeRequestHandlerV8):
                 correlation_id,
             )
             return
-        except ParentalInternetPolicyRuntimeError as exc:
-            self.runtime.store.audit(
-                actor=actor,
-                action="session.reauth.parental-internet",
-                target=self.runtime.config.node_id,
-                outcome="denied",
-                correlation_id=correlation_id,
-                details={"reason": exc.code},
-            )
-            self._change_error(exc.code, correlation_id)
-            return
 
         expected_provider = (
-            "local"
-            if actor.startswith("local-admin:")
-            else "ad"
-            if actor.startswith("ad-admin:")
+            "local" if actor.startswith("local-admin:")
+            else "ad" if actor.startswith("ad-admin:")
             else None
         )
         expected_username = actor.split(":", 1)[1] if expected_provider is not None else None
@@ -308,7 +280,6 @@ class RuntimeRequestHandlerV9(RuntimeRequestHandlerV8):
                     correlation_id,
                 )
                 return
-
         if canonical_username is None or canonical_username != expected_username:
             self.runtime.store.audit(
                 actor=actor,
@@ -327,7 +298,21 @@ class RuntimeRequestHandlerV9(RuntimeRequestHandlerV8):
             return
 
         try:
+            scope = self._safe_parental().confirmation_scope(actor=actor, plan_id=plan_id)
+            if scope is None:
+                raise ParentalInternetPolicyRuntimeError("parental_internet_reauth_not_required")
             token, expires_in = self.runtime.step_up.issue(actor=actor, scope=scope)
+        except ParentalInternetPolicyRuntimeError as exc:
+            self.runtime.store.audit(
+                actor=actor,
+                action="session.reauth.parental-internet",
+                target=self.runtime.config.node_id,
+                outcome="denied",
+                correlation_id=correlation_id,
+                details={"reason": exc.code},
+            )
+            self._change_error(exc.code, correlation_id)
+            return
         except StepUpError as exc:
             self._error(
                 HTTPStatus.BAD_REQUEST,
@@ -336,6 +321,7 @@ class RuntimeRequestHandlerV9(RuntimeRequestHandlerV8):
                 correlation_id,
             )
             return
+
         self.runtime.login_limiter.clear(limiter_key)
         self.runtime.store.audit(
             actor=actor,
@@ -360,85 +346,61 @@ class RuntimeRequestHandlerV9(RuntimeRequestHandlerV8):
 
     def _read_error(self, code: str, correlation_id: str) -> None:
         forbidden = {
-            "household_actor_not_bound",
-            "household_member_disabled",
+            "household_actor_not_bound", "household_member_disabled",
             "parental_internet_change_not_authorized",
         }
         not_found = {
-            "household_not_configured",
-            "household_member_not_found",
+            "household_not_configured", "household_member_not_found",
             "parental_internet_desired_state_missing",
         }
         unavailable = {
-            "household_state_invalid",
-            "parental_internet_verified_base_missing",
+            "household_state_invalid", "parental_internet_verified_base_missing",
             "parental_internet_verified_base_binding_mismatch",
             "parental_internet_verified_base_stale",
-            "parental_internet_desired_state_invalid",
-            "parental_internet_desired_state_stale",
+            "parental_internet_desired_state_invalid", "parental_internet_desired_state_stale",
         }
-        if code in forbidden:
-            status = HTTPStatus.FORBIDDEN
-        elif code in not_found:
-            status = HTTPStatus.NOT_FOUND
-        elif code in unavailable:
-            status = HTTPStatus.SERVICE_UNAVAILABLE
-        else:
-            status = HTTPStatus.BAD_REQUEST
+        status = (
+            HTTPStatus.FORBIDDEN if code in forbidden
+            else HTTPStatus.NOT_FOUND if code in not_found
+            else HTTPStatus.SERVICE_UNAVAILABLE if code in unavailable
+            else HTTPStatus.BAD_REQUEST
+        )
         self._error(
-            status,
-            code,
-            "Семейные правила интернета не прошли безопасную проверку",
-            correlation_id,
+            status, code, "Семейные правила интернета не прошли безопасную проверку", correlation_id
         )
 
     def _change_error(self, code: str, correlation_id: str) -> None:
         forbidden = {
-            "household_actor_not_bound",
-            "household_member_disabled",
-            "parental_internet_change_not_authorized",
-            "parental_internet_actor_mismatch",
-            "step_up_required",
-            "step_up_expired",
-            "step_up_binding_mismatch",
-            "step_up_actor_invalid",
-            "step_up_scope_invalid",
+            "household_actor_not_bound", "household_member_disabled",
+            "parental_internet_change_not_authorized", "parental_internet_actor_mismatch",
+            "step_up_required", "step_up_expired", "step_up_binding_mismatch",
+            "step_up_actor_invalid", "step_up_scope_invalid",
         }
         not_found = {
-            "household_not_configured",
-            "household_member_not_found",
+            "household_not_configured", "household_member_not_found",
             "parental_internet_plan_not_found",
         }
         conflict = {
-            "parental_internet_subject_not_eligible",
-            "parental_internet_plan_state_invalid",
-            "parental_internet_plan_stale",
-            "parental_internet_verified_base_stale",
-            "parental_internet_desired_generation_stale",
-            "parental_internet_current_policy_stale",
-            "parental_internet_idempotency_conflict",
-            "parental_internet_job_in_progress",
-            "parental_internet_job_evidence_mismatch",
-            "parental_internet_reauth_not_required",
+            "parental_internet_subject_not_eligible", "parental_internet_plan_state_invalid",
+            "parental_internet_plan_stale", "parental_internet_verified_base_stale",
+            "parental_internet_desired_generation_stale", "parental_internet_current_policy_stale",
+            "parental_internet_idempotency_conflict", "parental_internet_job_in_progress",
+            "parental_internet_job_evidence_mismatch", "parental_internet_reauth_not_required",
             "parental_internet_http_idempotency_key_required",
         }
         unavailable = {
-            "household_state_invalid",
-            "parental_internet_verified_base_missing",
+            "household_state_invalid", "parental_internet_verified_base_missing",
             "parental_internet_verified_base_binding_mismatch",
             "parental_internet_desired_state_invalid",
             "parental_internet_desired_state_readback_failed",
         }
-        if code in forbidden:
-            status = HTTPStatus.FORBIDDEN
-        elif code in not_found:
-            status = HTTPStatus.NOT_FOUND
-        elif code in conflict:
-            status = HTTPStatus.CONFLICT
-        elif code in unavailable:
-            status = HTTPStatus.SERVICE_UNAVAILABLE
-        else:
-            status = HTTPStatus.BAD_REQUEST
+        status = (
+            HTTPStatus.FORBIDDEN if code in forbidden
+            else HTTPStatus.NOT_FOUND if code in not_found
+            else HTTPStatus.CONFLICT if code in conflict
+            else HTTPStatus.SERVICE_UNAVAILABLE if code in unavailable
+            else HTTPStatus.BAD_REQUEST
+        )
         self._error(
             status,
             code,
