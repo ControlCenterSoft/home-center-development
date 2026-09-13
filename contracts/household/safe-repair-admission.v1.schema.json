@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/safe-repair-admission.v1.schema.json",
+  "title": "Home Center safe repair admission v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "admission_id", "plan_id", "household_id", "household_sha256",
+    "evidence_id", "evidence_sha256", "actor_member_id", "subject_member_id",
+    "target_id", "recommendation_kind", "repair_action", "risk", "mode",
+    "confirmation_required", "confirmed", "automation_candidate", "durable_job_required",
+    "audit_required", "post_condition_verification_required", "recovery_evidence_required",
+    "mutation_authorized", "execution_authorized", "automatic_execution_authorized",
+    "provider_execution_authorized", "infrastructure_mutation_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.safe-repair-admission.v1"},
+    "admission_id": {"type": "string", "pattern": "^sra-[0-9a-f]{24}$"},
+    "plan_id": {"type": "string", "pattern": "^srp-[0-9a-f]{24}$"},
+    "household_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "household_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "evidence_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "evidence_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "actor_member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "subject_member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "target_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "recommendation_kind": {
+      "enum": ["managed-device-policy", "household-policy-reconciliation", "compatibility-evidence-refresh"]
+    },
+    "repair_action": {"type": "string", "minLength": 1, "maxLength": 240},
+    "risk": {"enum": ["low", "elevated"]},
+    "mode": {"enum": ["manual-confirmed", "automation-candidate"]},
+    "confirmation_required": {"type": "boolean"},
+    "confirmed": {"type": "boolean"},
+    "automation_candidate": {"type": "boolean"},
+    "durable_job_required": {"const": true},
+    "audit_required": {"const": true},
+    "post_condition_verification_required": {"const": true},
+    "recovery_evidence_required": {"const": true},
+    "mutation_authorized": {"const": false},
+    "execution_authorized": {"const": false},
+    "automatic_execution_authorized": {"const": false},
+    "provider_execution_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"mode": {"const": "manual-confirmed"}}, "required": ["mode"]},
+      "then": {
+        "properties": {
+          "confirmation_required": {"const": true},
+          "confirmed": {"const": true},
+          "automation_candidate": {"const": false}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"mode": {"const": "automation-candidate"}}, "required": ["mode"]},
+      "then": {
+        "properties": {
+          "confirmation_required": {"const": false},
+          "confirmed": {"const": false},
+          "automation_candidate": {"const": true}
+        }
+      }
+    }
+  ]
+}
