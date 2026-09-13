@@ -78,7 +78,7 @@ jobs:
               (
                   "py/log-injection",
                   "product/control-plane/src/home_center/api.py",
-                  164,
+                  162,
               ): (
                   "correlation_id,",
                   "correlation id is accepted from X-Correlation-ID only after a strict [A-Za-z0-9._:-]{1,96} full-match that excludes CR/LF and other log delimiters",
