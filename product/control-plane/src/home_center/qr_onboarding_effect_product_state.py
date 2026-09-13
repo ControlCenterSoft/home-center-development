@@ -5,6 +5,8 @@ the existing durable ``desired_state`` store. It does not call a provider, creat
 OS/directory accounts, change managed-device state, mutate network infrastructure
 or publish anything externally.
 
+Each durable product-state record is keyed by the exact effect handoff identity,
+so one invitation cannot revoke or overwrite another invitation's effect evidence.
 The operation identity is deterministic and replay-safe. Authoritative read-back
 is performed from durable product state and is the only source for a positive
 post-condition observation used by the effect execution service.
@@ -42,41 +44,20 @@ def _operation_id(request: QrOnboardingEffectExecutionRequest) -> str:
 
 
 def _shape(request: QrOnboardingEffectExecutionRequest) -> tuple[str, str, list[str], str]:
+    resource_key = f"{KEY_PREFIX}{request.handoff_id}"
     expected = request.expected_post_condition
     if expected is QrOnboardingPostCondition.GUEST_ACCESS_EFFECTIVE:
         if request.required_job_type != "typed-guest-access-change-job" or request.device_id is not None:
             raise QrOnboardingEffectProductStateError("qr_effect_product_state_guest_shape_invalid")
-        return (
-            f"{KEY_PREFIX}{request.household_id}:guest:{request.target_member_id}",
-            "guest",
-            ["internet.guest"],
-            "active",
-        )
+        return resource_key, "guest", ["internet.guest"], "active"
     if expected is QrOnboardingPostCondition.DEVICE_BINDING_EFFECTIVE:
         if request.required_job_type != "typed-device-binding-change-job" or not isinstance(request.device_id, str):
             raise QrOnboardingEffectProductStateError("qr_effect_product_state_device_shape_invalid")
-        return (
-            f"{KEY_PREFIX}{request.household_id}:device:{request.device_id}",
-            "device",
-            [],
-            "active",
-        )
+        return resource_key, "device", [], "active"
     if expected is QrOnboardingPostCondition.ACCESS_REVOKED:
         if request.required_job_type != "typed-access-revocation-change-job":
             raise QrOnboardingEffectProductStateError("qr_effect_product_state_revoke_shape_invalid")
-        if request.device_id is None:
-            return (
-                f"{KEY_PREFIX}{request.household_id}:guest:{request.target_member_id}",
-                "guest",
-                ["internet.guest"],
-                "revoked",
-            )
-        return (
-            f"{KEY_PREFIX}{request.household_id}:device:{request.device_id}",
-            "device",
-            [],
-            "revoked",
-        )
+        return resource_key, "device" if request.device_id is not None else "guest", [], "revoked"
     raise QrOnboardingEffectProductStateError("qr_effect_product_state_post_condition_invalid")
 
 
