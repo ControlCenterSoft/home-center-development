@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/parental-internet-policy-commit-receipt.v1.schema.json",
+  "title": "Home Center parental Internet policy commit receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "state", "job_id", "plan_id", "household_id", "member_id",
+    "desired_generation", "verified_base_state_sha256", "policy_id", "policy_sha256",
+    "enforcement_verified", "reconciliation_required", "dns_policy_applied",
+    "proxy_policy_applied", "infrastructure_mutation_performed", "external_publication_performed"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.parental-internet-policy-commit-receipt.v1"},
+    "state": {"const": "desired-state-committed"},
+    "job_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "plan_id": {"type": "string", "pattern": "^hpip-[0-9a-f]{24}$"},
+    "household_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "desired_generation": {"type": "integer", "minimum": 1},
+    "verified_base_state_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "policy_id": {"type": "string", "pattern": "^hcip-[0-9a-f]{24}$"},
+    "policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "enforcement_verified": {"const": false},
+    "reconciliation_required": {"const": true},
+    "dns_policy_applied": {"const": false},
+    "proxy_policy_applied": {"const": false},
+    "infrastructure_mutation_performed": {"const": false},
+    "external_publication_performed": {"const": false}
+  }
+}
