@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = "0.61.1"
-BASE_SHA = "88634f6bf5e35d432581d58327bdb277b9b71140"
+BASE_SHA = "9376f16eaaf109085dc0e097e1a306cf6fa18468"
 
 
 def _contract(name: str) -> dict[str, object]:
@@ -31,8 +31,9 @@ def test_061_notes_are_official_bounded_and_truthful() -> None:
     assert "Concrete production VPN adapter execution" in notes
     assert "Multi-node HA / automatic failover" in notes
     assert "commercial launch clearance" in notes
-    assert "0.60.0 → 0.61.1" in notes
+    assert "0.61.0 → 0.61.1" in notes
     assert "split-route direct egress" in notes
+    assert "split_route_direct_not_authorized" in notes
 
 
 def test_061_vpn_runtime_source_is_present() -> None:
@@ -79,14 +80,14 @@ def test_061_architecture_keeps_execution_for_later_typed_boundary() -> None:
     assert "post-condition read-back" in architecture
 
 
-def test_061_upgrade_drills_bind_exact_060_stable_without_source_rewrite() -> None:
+def test_061_upgrade_drills_bind_exact_current_stable_without_source_rewrite() -> None:
     for name in (
         "test_release_061_hosted_upgrade_drill.py",
         "test_release_061_hosted_systemd_upgrade.py",
     ):
         source = (ROOT / "tests" / name).read_text(encoding="utf-8")
         assert f'BASE_SHA = "{BASE_SHA}"' in source
-        assert 'BASELINE_VERSION = "0.60.0"' in source
+        assert 'BASELINE_VERSION = "0.61.0"' in source
         assert 'CANDIDATE_VERSION = "0.61.1"' in source
         assert "SOURCE_VERSION" not in source
         assert "replace(source_marker" not in source
