@@ -25,8 +25,10 @@ def _load_060_drill():
 
 
 @pytest.mark.skipif(
-    os.environ.get("GITHUB_ACTIONS") != "true" or sys.version_info[:2] != (3, 12),
-    reason="0.60 -> 0.61 hosted upgrade/rollback drill runs once on the Python 3.12 leg",
+    os.environ.get("GITHUB_ACTIONS") != "true"
+    or sys.version_info[:2] != (3, 12)
+    or (ROOT / "VERSION").read_text(encoding="ascii").strip() != CANDIDATE_VERSION,
+    reason="historical 0.60 -> 0.61 drill runs only on the exact 0.61 release identity",
 )
 def test_release_061_hosted_upgrade_from_060_and_rollback(tmp_path: Path) -> None:
     """Reuse the proven node drill with exact 0.60 Stable and exact 0.61 HEAD."""
