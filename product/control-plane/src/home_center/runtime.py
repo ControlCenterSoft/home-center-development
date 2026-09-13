@@ -34,6 +34,8 @@ from .local_admin_auth import LocalAdminCredentialStore
 from .local_admin_change import LocalAdminPasswordChangeClient
 from .node_inventory_api import NodeInventoryService
 from .reconcile import Reconciler
+from .role_identity_binding_transition import RoleIdentityBindingTransitionService
+from .role_identity_provisioning_runtime_safe import SafeRoleIdentityProvisioningRuntimeService
 from .step_up import StepUpGrantManager
 from .store import StateStore
 from .util import sha256_file, utc_now
@@ -87,6 +89,8 @@ class Runtime:
             self.store,
             self.household_policy_reconciliation,
         )
+        self.role_identity_provisioning = SafeRoleIdentityProvisioningRuntimeService(self.store)
+        self.role_identity_binding = RoleIdentityBindingTransitionService(self.store)
         self.device_management_providers = DeviceManagementProviderRuntimeService(self.store)
         self.device_management_provider_selection = DeviceManagementProviderSelectionRuntimeService(self.store)
         self.device_management_enrollment_execution = RecoverableDeviceManagementEnrollmentExecutionRuntimeService(self.store)
