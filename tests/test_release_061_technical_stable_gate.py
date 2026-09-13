@@ -24,7 +24,7 @@ from home_center.technical_stable_profile import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.61.0"
+VERSION = "0.61.1"
 REVISION = "c" * 40
 DIGEST = "a" * 64
 OTHER = "b" * 64
