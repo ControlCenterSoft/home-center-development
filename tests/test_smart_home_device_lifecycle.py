@@ -28,16 +28,20 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def snapshot(*, state: EvidenceState = EvidenceState.CURRENT, room_id: str = "room-kitchen"):
+    unavailable = state is EvidenceState.UNAVAILABLE
     coordinator = CoordinatorObservation(
         coordinator_id="zigbee-main", kind=CoordinatorKind.ZIGBEE,
         transport=CoordinatorTransport.USB, observed_at_epoch=995,
-        firmware_version="1.2.3", endpoint_fingerprint_sha256="a" * 64,
+        firmware_version=None if unavailable else "1.2.3",
+        endpoint_fingerprint_sha256=None if unavailable else "a" * 64,
         evidence_state=state,
     )
     device = SmartHomeDeviceObservation(
         device_id="sensor-1", coordinator_id="zigbee-main", observed_at_epoch=996,
-        capabilities=("battery", "temperature"), room_id=room_id,
-        battery_percent=91, link_quality=201, evidence_state=state,
+        capabilities=("battery", "temperature"), room_id=None if unavailable else room_id,
+        battery_percent=None if unavailable else 91,
+        link_quality=None if unavailable else 201,
+        evidence_state=state,
     )
     return build_inventory_snapshot(
         coordinator=coordinator, devices=(device,), now_epoch=1_000, freshness_seconds=60,
