@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/automation/safe-auto-repair-admission.v1.schema.json",
+  "title": "Home Center safe auto-repair admission v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "admission_id",
+    "recommendation_id",
+    "current_recommendation_id",
+    "recommendation_sha256",
+    "current_recommendation_sha256",
+    "admissible_for_job",
+    "blockers",
+    "fresh_current_state_revalidation",
+    "durable_job_required",
+    "action_specific_adapter_required",
+    "post_condition_verification_required",
+    "execution_authorized",
+    "provider_execution_authorized",
+    "infrastructure_mutation_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.safe-auto-repair-admission.v1"},
+    "admission_id": {"type": "string", "pattern": "^hcrpa-[0-9a-f]{24}$"},
+    "recommendation_id": {"type": "string", "pattern": "^hcrpr-[0-9a-f]{24}$"},
+    "current_recommendation_id": {"type": "string", "pattern": "^hcrpr-[0-9a-f]{24}$"},
+    "recommendation_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "current_recommendation_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "admissible_for_job": {"type": "boolean"},
+    "blockers": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "reviewed-recommendation-not-eligible",
+          "current-recommendation-changed",
+          "current-recommendation-not-eligible"
+        ]
+      }
+    },
+    "fresh_current_state_revalidation": {"const": true},
+    "durable_job_required": {"const": true},
+    "action_specific_adapter_required": {"const": true},
+    "post_condition_verification_required": {"const": true},
+    "execution_authorized": {"const": false},
+    "provider_execution_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}

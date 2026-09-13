@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/automation/safe-auto-repair-adapter-request.v1.schema.json",
+  "title": "Home Center safe auto-repair adapter request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "job_id",
+    "recommendation_id",
+    "recommendation_sha256",
+    "household_id",
+    "resource_id",
+    "resource_generation",
+    "source_evidence_sha256",
+    "action",
+    "credential_value_access_authorized",
+    "provider_execution_authorized",
+    "generic_infrastructure_mutation_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.safe-auto-repair-adapter-request.v1"},
+    "job_id": {"type": "string", "pattern": "^hcrpj-[0-9a-f]{24}$"},
+    "recommendation_id": {"type": "string", "pattern": "^hcrpr-[0-9a-f]{24}$"},
+    "recommendation_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "household_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "resource_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "resource_generation": {"type": "integer", "minimum": 0},
+    "source_evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "action": {"enum": ["reconcile-derived-state", "rebuild-derived-index", "refresh-local-read-model"]},
+    "credential_value_access_authorized": {"const": false},
+    "provider_execution_authorized": {"const": false},
+    "generic_infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
