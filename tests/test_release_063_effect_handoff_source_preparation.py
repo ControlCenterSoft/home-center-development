@@ -16,6 +16,7 @@ def test_063_effect_handoff_runtime_is_required_in_reproducible_wheel() -> None:
     assert {
         "home_center/qr_onboarding_effect_handoff.py",
         "home_center/qr_onboarding_effect_verification.py",
+        "home_center/qr_onboarding_effect_admission.py",
     } <= REQUIRED_MEMBERS
 
 
@@ -50,6 +51,12 @@ def test_063_effect_handoff_does_not_preempt_release_identity_or_open_execution(
     verification_source = (
         ROOT / "product/control-plane/src/home_center/qr_onboarding_effect_verification.py"
     ).read_text(encoding="utf-8")
+    admission_source = (
+        ROOT / "product/control-plane/src/home_center/qr_onboarding_effect_admission.py"
+    ).read_text(encoding="utf-8")
     assert 'effect_execution_authorized: bool = field(default=False' in handoff_source
     assert 'post_condition_verified: bool = field(default=False' in verification_source
     assert 'effect_success_claimed: bool = field(default=False' in verification_source
+    assert '"execution_authorized": False' in admission_source
+    assert '"post_condition_verified": False' in admission_source
+    assert '"effect_success_claimed": False' in admission_source
