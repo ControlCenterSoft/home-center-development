@@ -12,24 +12,10 @@ import sqlite3
 import threading
 
 from .safe_auto_repair_job import RepairJobState, SafeAutoRepairJob
+from .safe_auto_repair_job_migration import SAFE_AUTO_REPAIR_JOB_MIGRATION_SQL
 from .util import canonical_json
 
-_JOB_DDL = """
-CREATE TABLE IF NOT EXISTS safe_auto_repair_jobs (
-    job_id TEXT PRIMARY KEY,
-    admission_id TEXT NOT NULL,
-    recommendation_id TEXT NOT NULL,
-    recommendation_sha256 TEXT NOT NULL,
-    idempotency_key_sha256 TEXT NOT NULL,
-    state TEXT NOT NULL CHECK(state IN ('admitted','running','verifying','succeeded','failed','reconcile-required')),
-    job_json TEXT NOT NULL,
-    created_at_epoch INTEGER NOT NULL CHECK(created_at_epoch >= 0),
-    updated_at_epoch INTEGER NOT NULL CHECK(updated_at_epoch >= created_at_epoch),
-    UNIQUE(admission_id, idempotency_key_sha256)
-);
-CREATE INDEX IF NOT EXISTS idx_safe_auto_repair_jobs_recommendation
-ON safe_auto_repair_jobs(recommendation_id, updated_at_epoch DESC);
-"""
+
 
 
 class SafeAutoRepairJobStoreError(RuntimeError):
@@ -50,7 +36,7 @@ class SQLiteSafeAutoRepairJobRepository:
 
     @staticmethod
     def schema_sql() -> str:
-        return _JOB_DDL
+        return SAFE_AUTO_REPAIR_JOB_MIGRATION_SQL
 
     def create(self, job: SafeAutoRepairJob) -> bool:
         if not isinstance(job, SafeAutoRepairJob):
