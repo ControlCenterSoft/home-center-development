@@ -10,13 +10,18 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_MEMBER = "home_center/role_identity_provisioning_runtime.py"
 CONTRACT_MEMBER = "contracts/household/role-identity-provisioning-execution-receipt.v1.schema.json"
+BINDING_RUNTIME_MEMBER = "home_center/role_identity_binding_transition.py"
+BINDING_STATE_CONTRACT = "contracts/household/role-identity-binding-state.v1.schema.json"
+BINDING_RECEIPT_CONTRACT = "contracts/household/role-identity-binding-transition-receipt.v1.schema.json"
 
 
 def test_062_identity_runtime_is_present_in_actual_qualified_wheel() -> None:
     wheels = sorted((ROOT / "dist/first").glob("*.whl"))
     assert len(wheels) == 1, f"expected one qualified wheel, found {wheels}"
     with zipfile.ZipFile(wheels[0]) as archive:
-        assert RUNTIME_MEMBER in set(archive.namelist())
+        members = set(archive.namelist())
+    assert RUNTIME_MEMBER in members
+    assert BINDING_RUNTIME_MEMBER in members
 
 
 def test_062_identity_runtime_and_receipt_contract_are_present_in_node_candidate() -> None:
@@ -31,3 +36,6 @@ def test_062_identity_runtime_and_receipt_contract_are_present_in_node_candidate
         members = {name[2:] if name.startswith("./") else name for name in archive.getnames()}
     assert RUNTIME_MEMBER in members
     assert CONTRACT_MEMBER in members
+    assert BINDING_RUNTIME_MEMBER in members
+    assert BINDING_STATE_CONTRACT in members
+    assert BINDING_RECEIPT_CONTRACT in members
