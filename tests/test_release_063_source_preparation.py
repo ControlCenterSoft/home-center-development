@@ -18,11 +18,13 @@ def test_063_source_preparation_does_not_preempt_release_identity() -> None:
     assert "must be transplanted/reconciled" in notes
 
 
-def test_063_runtime_and_validation_sources_are_present() -> None:
+def test_063_runtime_validation_api_and_audit_sources_are_present() -> None:
     for relative in (
         "product/control-plane/src/home_center/qr_onboarding.py",
         "product/control-plane/src/home_center/qr_onboarding_validation.py",
         "product/control-plane/src/home_center/qr_onboarding_runtime.py",
+        "product/control-plane/src/home_center/qr_onboarding_api.py",
+        "product/control-plane/src/home_center/qr_onboarding_audit.py",
     ):
         assert (ROOT / relative).is_file()
 
@@ -34,6 +36,11 @@ def test_063_contracts_are_closed() -> None:
         "qr-onboarding-redemption-plan.v1.schema.json",
         "qr-onboarding-runtime-record.v1.schema.json",
         "qr-onboarding-operation-receipt.v1.schema.json",
+        "qr-onboarding-audit-details.v1.schema.json",
+        "qr-onboarding-api-issue-request.v1.schema.json",
+        "qr-onboarding-api-plan-request.v1.schema.json",
+        "qr-onboarding-api-consume-request.v1.schema.json",
+        "qr-onboarding-api-revoke-request.v1.schema.json",
     ):
         assert _contract(name)["additionalProperties"] is False
 
@@ -44,3 +51,4 @@ def test_063_notes_preserve_no_admin_credential_and_no_false_success_boundaries(
     assert "fail closed" in notes
     assert "onboarding_effect_verified=false" in notes
     assert "do **not** create an account" in notes
+    assert "authenticated/same-origin HTTP" in notes
