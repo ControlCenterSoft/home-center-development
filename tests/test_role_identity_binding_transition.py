@@ -177,9 +177,9 @@ def _verified_execution(
         plan=plan,
         provider=_provider(),
         preflight_observation=_preflight(),
-        credential_references=(
+        credential_references=[
             {"name": "initial-password", "reference": "secret://identity/artemiy/initial"},
-        ),
+        ],
         confirmed=True,
         idempotency_key=key,
         correlation_id="identity-execution",

@@ -14,7 +14,7 @@ def test_062_source_preparation_does_not_preempt_release_identity() -> None:
     assert (ROOT / "VERSION").read_text(encoding="ascii").strip() == "0.61.0"
     notes = (ROOT / "docs/releases/0.62.0.md").read_text(encoding="utf-8")
     assert "not Release Candidate and not Public Stable" in notes
-    assert "Current Public Stable remains 0.61.0" in notes
+    assert "Current Public Stable is 0.61.2." in notes
 
 
 def test_062_role_identity_runtime_source_is_present() -> None:
