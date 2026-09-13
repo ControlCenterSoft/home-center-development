@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/vpn-egress-policy.v1.schema.json",
+  "title": "Home Center VPN egress policy v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "policy_id", "household_id", "member_id", "base_policy_id", "base_policy_sha256",
+    "parental_policy_id", "parental_policy_sha256", "provider_id", "provider_version",
+    "provider_evidence_sha256", "location_id", "dns_strategy", "split_domains", "kill_switch",
+    "fallback_mode", "max_latency_ms", "min_stability_bps", "parental_deny_has_priority",
+    "execution_authorized", "infrastructure_mutation_authorized", "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.vpn-egress-policy.v1"},
+    "policy_id": {"type": "string", "pattern": "^hcvpn-[0-9a-f]{24}$"},
+    "household_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "member_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "base_policy_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "base_policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "parental_policy_id": {"type": ["string", "null"], "pattern": "^hcip-[0-9a-f]{24}$"},
+    "parental_policy_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "provider_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "provider_version": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,63}$"},
+    "provider_evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "location_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "dns_strategy": {"enum": ["provider", "parental", "system"]},
+    "split_domains": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 3, "maxLength": 253}
+    },
+    "kill_switch": {"type": "boolean"},
+    "fallback_mode": {"enum": ["deny", "direct"]},
+    "max_latency_ms": {"type": "integer", "minimum": 1, "maximum": 5000},
+    "min_stability_bps": {"type": "integer", "minimum": 0, "maximum": 10000},
+    "parental_deny_has_priority": {"const": true},
+    "execution_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"kill_switch": {"const": true}}, "required": ["kill_switch"]},
+      "then": {"properties": {"fallback_mode": {"const": "deny"}}}
+    },
+    {
+      "if": {"properties": {"parental_policy_id": {"type": "string"}}, "required": ["parental_policy_id"]},
+      "then": {
+        "properties": {
+          "parental_policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "kill_switch": {"const": true},
+          "fallback_mode": {"const": "deny"},
+          "dns_strategy": {"enum": ["provider", "parental"]}
+        }
+      }
+    }
+  ]
+}
