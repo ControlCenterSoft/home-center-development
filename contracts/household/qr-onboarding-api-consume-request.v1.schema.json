@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/qr-onboarding-api-consume-request.v1.schema.json",
+  "title": "Home Center QR onboarding API consume request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "plan", "onboarding_code", "expected_version", "confirmed", "idempotency_key"],
+  "properties": {
+    "schema": {"const": "home-center.qr-onboarding-api-consume-request.v1"},
+    "plan": {"type": "object", "maxProperties": 24},
+    "onboarding_code": {"type": "string", "pattern": "^[A-Za-z0-9_-]{22,128}$"},
+    "expected_version": {"type": "integer", "minimum": 1},
+    "confirmed": {"const": true},
+    "idempotency_key": {"type": "string", "pattern": "^[A-Za-z0-9._:-]{8,128}$"}
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/qr-onboarding-runtime-record.v1.schema.json",
+  "title": "Home Center QR onboarding durable runtime record v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "runtime_record_id", "invitation", "household_snapshot_id",
+    "household_resource_version", "household_generation", "target_member_id",
+    "invitation_evidence_sha256", "state", "version", "updated_at_epoch",
+    "consumed_at_epoch", "revoked_at_epoch", "raw_onboarding_code_persisted",
+    "account_creation_authorized", "device_registration_authorized",
+    "managed_state_change_authorized", "provider_execution_authorized",
+    "infrastructure_mutation_authorized", "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.qr-onboarding-runtime-record.v1"},
+    "runtime_record_id": {"type": "string", "pattern": "^hcqrr-[0-9a-f]{24}$"},
+    "invitation": {"type": "object"},
+    "household_snapshot_id": {"type": "string", "pattern": "^hsnap-[0-9a-f]{24}$"},
+    "household_resource_version": {"type": "string", "pattern": "^hrv-[0-9a-f]{24}$"},
+    "household_generation": {"type": "integer", "minimum": 1},
+    "target_member_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "invitation_evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "state": {"enum": ["active", "expired", "revoked", "consumed"]},
+    "version": {"type": "integer", "minimum": 1},
+    "updated_at_epoch": {"type": "integer", "minimum": 0},
+    "consumed_at_epoch": {"type": ["integer", "null"], "minimum": 0},
+    "revoked_at_epoch": {"type": ["integer", "null"], "minimum": 0},
+    "raw_onboarding_code_persisted": {"const": false},
+    "account_creation_authorized": {"const": false},
+    "device_registration_authorized": {"const": false},
+    "managed_state_change_authorized": {"const": false},
+    "provider_execution_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"state": {"const": "consumed"}}, "required": ["state"]},
+      "then": {
+        "properties": {
+          "consumed_at_epoch": {"type": "integer", "minimum": 0},
+          "revoked_at_epoch": {"type": "null"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"state": {"const": "revoked"}}, "required": ["state"]},
+      "then": {
+        "properties": {
+          "revoked_at_epoch": {"type": "integer", "minimum": 0},
+          "consumed_at_epoch": {"type": "null"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"state": {"enum": ["active", "expired"]}}, "required": ["state"]},
+      "then": {
+        "properties": {
+          "consumed_at_epoch": {"type": "null"},
+          "revoked_at_epoch": {"type": "null"}
+        }
+      }
+    }
+  ]
+}
