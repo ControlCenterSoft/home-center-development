@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/qr-onboarding-payload.v1.schema.json",
+  "title": "Home Center QR onboarding payload v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "invitation_id", "household_id", "onboarding_code", "expires_at_epoch",
+    "single_use", "credential_class", "administrative_credential_included",
+    "long_lived_credential_included"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.qr-onboarding-payload.v1"},
+    "invitation_id": {"type": "string", "pattern": "^hcqri-[0-9a-f]{24}$"},
+    "household_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "onboarding_code": {"type": "string", "pattern": "^[A-Za-z0-9_-]{22,128}$"},
+    "expires_at_epoch": {"type": "integer", "minimum": 0},
+    "single_use": {"const": true},
+    "credential_class": {"const": "ephemeral-onboarding-code"},
+    "administrative_credential_included": {"const": false},
+    "long_lived_credential_included": {"const": false}
+  }
+}

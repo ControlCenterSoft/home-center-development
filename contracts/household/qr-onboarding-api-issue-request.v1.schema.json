@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/qr-onboarding-api-issue-request.v1.schema.json",
+  "title": "Home Center QR onboarding API issue request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "target_member_id", "subject", "device_id", "guest_scope", "ttl_seconds"],
+  "properties": {
+    "schema": {"const": "home-center.qr-onboarding-api-issue-request.v1"},
+    "target_member_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "subject": {"enum": ["guest", "device"]},
+    "device_id": {"type": ["string", "null"], "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "guest_scope": {
+      "type": "array",
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": {"enum": ["internet.guest", "home.status.read"]}
+    },
+    "ttl_seconds": {"type": "integer", "minimum": 60, "maximum": 1800}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"subject": {"const": "guest"}}, "required": ["subject"]},
+      "then": {"properties": {"device_id": {"type": "null"}, "guest_scope": {"minItems": 1}}}
+    },
+    {
+      "if": {"properties": {"subject": {"const": "device"}}, "required": ["subject"]},
+      "then": {
+        "properties": {
+          "device_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+          "guest_scope": {"maxItems": 0}
+        }
+      }
+    }
+  ]
+}

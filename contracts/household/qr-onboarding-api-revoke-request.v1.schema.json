@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/qr-onboarding-api-revoke-request.v1.schema.json",
+  "title": "Home Center QR onboarding API revoke request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "invitation_id", "expected_version", "idempotency_key"],
+  "properties": {
+    "schema": {"const": "home-center.qr-onboarding-api-revoke-request.v1"},
+    "invitation_id": {"type": "string", "pattern": "^hcqri-[0-9a-f]{24}$"},
+    "expected_version": {"type": "integer", "minimum": 1},
+    "idempotency_key": {"type": "string", "pattern": "^[A-Za-z0-9._:-]{8,128}$"}
+  }
+}
