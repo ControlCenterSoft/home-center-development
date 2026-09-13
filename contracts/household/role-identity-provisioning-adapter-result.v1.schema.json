@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/role-identity-provisioning-adapter-result.v1.schema.json",
+  "title": "Home Center role identity provisioning adapter result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "state", "provider_operation_id", "account_name",
+    "account_created_verified", "home_directory_verified", "profile_verified",
+    "post_condition_verified"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.role-identity-provisioning-adapter-result.v1"},
+    "state": {"const": "accepted"},
+    "provider_operation_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "account_name": {"type": "string", "pattern": "^[a-z][a-z0-9._-]{0,31}$"},
+    "account_created_verified": {"const": false},
+    "home_directory_verified": {"const": false},
+    "profile_verified": {"const": false},
+    "post_condition_verified": {"const": false}
+  }
+}
