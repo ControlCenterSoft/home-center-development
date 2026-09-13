@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/automation/safe-auto-repair-adapter-apply-result.v1.schema.json",
+  "title": "Home Center safe auto-repair adapter apply result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema","adapter_id","adapter_version","operation_id","outcome","post_condition_verified","readback_required","automatic_retry_authorized"],
+  "properties": {
+    "schema": {"const": "home-center.safe-auto-repair-adapter-apply-result.v1"},
+    "adapter_id": {"type": "string", "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$"},
+    "adapter_version": {"type": "string", "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"},
+    "operation_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "outcome": {"enum": ["accepted","failed","ambiguous"]},
+    "post_condition_verified": {"const": false},
+    "readback_required": {"const": true},
+    "automatic_retry_authorized": {"const": false}
+  }
+}
