@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/role-identity-provisioning-api-bind-request.v1.schema.json",
+  "title": "Home Center role identity provisioning API bind request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "plan_id", "execution_job_id"],
+  "properties": {
+    "schema": {"const": "home-center.role-identity-provisioning-api-bind-request.v1"},
+    "plan_id": {"type": "string", "pattern": "^hcidp-[0-9a-f]{24}$"},
+    "execution_job_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"}
+  }
+}
