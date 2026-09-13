@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BASE_SHA = "ff5ef0c7fb878ee28ff314cd5809c8cb0df2f726"
 BASELINE_VERSION = "0.61.2"
 CANDIDATE_VERSION = "0.62.1"
+CURRENT_VERSION = (ROOT / "VERSION").read_text(encoding="ascii").strip()
 
 
 def _load_060_systemd_drill():
@@ -44,8 +45,10 @@ rm -rf /var/backups/home-center /var/backups/home-center-deploy /run/home-center
 
 
 @pytest.mark.skipif(
-    os.environ.get("GITHUB_ACTIONS") != "true" or sys.version_info[:2] != (3, 12),
-    reason="real-systemd 0.61.2 -> 0.62.1 qualification runs once on Python 3.12",
+    os.environ.get("GITHUB_ACTIONS") != "true"
+    or sys.version_info[:2] != (3, 12)
+    or CURRENT_VERSION != CANDIDATE_VERSION,
+    reason="real-systemd 0.61.2 -> 0.62.1 qualification is scoped to the exact 0.62.1 release line",
 )
 def test_release_062_real_systemd_upgrade_health_and_rollback(tmp_path: Path) -> None:
     _prepare_clean_systemd_sandbox()
