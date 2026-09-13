@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_release_060_notes_preserve_current_stable_and_non_rc_status() -> None:
     notes = (ROOT / "docs/releases/0.60.0.md").read_text(encoding="utf-8")
     assert "Status: source development; not Release Candidate and not Public Stable." in notes
-    assert "текущий официальный Public Stable остаётся Home Center 0.59.0" in notes
+    assert "Текущий официальный Public Stable остаётся Home Center 0.59.0" in notes
     assert (ROOT / "VERSION").read_text(encoding="ascii").strip() == "0.59.0"
 
 
