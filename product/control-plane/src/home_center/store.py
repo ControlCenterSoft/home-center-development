@@ -12,6 +12,10 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from .safe_auto_repair_migration import (
+    SAFE_AUTO_REPAIR_HISTORY_MIGRATION_SQL,
+    SAFE_AUTO_REPAIR_HISTORY_MIGRATION_VERSION,
+)
 from .util import canonical_json, utc_now
 
 
@@ -140,6 +144,10 @@ CREATE TABLE IF NOT EXISTS qr_onboarding_runtime_operations (
     created_at_epoch INTEGER NOT NULL
 );
 """,
+    ),
+    (
+        SAFE_AUTO_REPAIR_HISTORY_MIGRATION_VERSION,
+        SAFE_AUTO_REPAIR_HISTORY_MIGRATION_SQL,
     ),
 )
 
