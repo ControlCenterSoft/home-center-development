@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/automation/safe-auto-repair-verification-decision.v1.schema.json",
+  "title": "Home Center safe auto-repair verification decision v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "job_id",
+    "recommendation_id",
+    "verified",
+    "blockers",
+    "verification_evidence_sha256",
+    "repair_success_claimed",
+    "execution_authorized",
+    "provider_execution_authorized",
+    "generic_infrastructure_mutation_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.safe-auto-repair-verification-decision.v1"},
+    "job_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "recommendation_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "verified": {"type": "boolean"},
+    "blockers": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "job_not_verifying",
+          "job_recommendation_identity_mismatch",
+          "job_recommendation_digest_mismatch",
+          "result_job_mismatch",
+          "result_recommendation_mismatch",
+          "result_action_mismatch",
+          "result_not_accepted",
+          "effect_receipt_mismatch",
+          "observation_job_mismatch",
+          "observation_recommendation_mismatch",
+          "observation_household_mismatch",
+          "observation_resource_mismatch",
+          "observation_generation_mismatch",
+          "post_condition_not_matched"
+        ]
+      }
+    },
+    "verification_evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "repair_success_claimed": {"const": false},
+    "execution_authorized": {"const": false},
+    "provider_execution_authorized": {"const": false},
+    "generic_infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"verified": {"const": true}}},
+      "then": {"properties": {"blockers": {"maxItems": 0}}}
+    },
+    {
+      "if": {"properties": {"verified": {"const": false}}},
+      "then": {"properties": {"blockers": {"minItems": 1}}}
+    }
+  ]
+}
