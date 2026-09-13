@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/smart-home/smart-home-device-change-plan.v1.schema.json",
+  "title": "Home Center smart home device change plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "plan_id", "change", "device_id", "inventory_sha256", "expected_profile_generation", "before", "target", "explicit_confirmation_required", "recovery_snapshot_required", "execution_authorized", "provider_execution_authorized", "device_state_mutation_authorized", "infrastructure_mutation_authorized", "external_publication_authorized"],
+  "properties": {
+    "schema": {"const": "home-center.smart-home-device-change-plan.v1"},
+    "plan_id": {"type": "string", "pattern": "^hc66-change-[0-9a-f]{24}$"},
+    "change": {"enum": ["rename", "move-room"]},
+    "device_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "inventory_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "expected_profile_generation": {"type": "integer", "minimum": 1},
+    "before": {"$ref": "#/$defs/profile"},
+    "target": {"$ref": "#/$defs/profile"},
+    "explicit_confirmation_required": {"const": true},
+    "recovery_snapshot_required": {"const": true},
+    "execution_authorized": {"const": false},
+    "provider_execution_authorized": {"const": false},
+    "device_state_mutation_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  },
+  "$defs": {
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["display_name", "room_id"],
+      "properties": {
+        "display_name": {"type": "string", "minLength": 1, "maxLength": 96},
+        "room_id": {"type": ["string", "null"], "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"}
+      }
+    }
+  }
+}
