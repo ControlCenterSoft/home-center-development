@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/qr-onboarding-effect-api-admit-request.v1.schema.json",
+  "title": "Home Center QR onboarding effect API admit request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "invitation_id", "idempotency_key", "confirmed"],
+  "properties": {
+    "schema": {"const": "home-center.qr-onboarding-effect-api-admit-request.v1"},
+    "invitation_id": {"type": "string", "pattern": "^hcqri-[0-9a-f]{24}$"},
+    "idempotency_key": {"type": "string", "pattern": "^[A-Za-z0-9._:-]{8,128}$"},
+    "confirmed": {"const": true}
+  }
+}

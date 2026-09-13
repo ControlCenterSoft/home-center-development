@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/qr-onboarding-effect-api-run-request.v1.schema.json",
+  "title": "Home Center QR onboarding effect API run request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "job_id", "confirmed"],
+  "properties": {
+    "schema": {"const": "home-center.qr-onboarding-effect-api-run-request.v1"},
+    "job_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "confirmed": {"const": true}
+  }
+}
