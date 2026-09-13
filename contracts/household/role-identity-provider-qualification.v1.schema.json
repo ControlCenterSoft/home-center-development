@@ -8,9 +8,9 @@
     "schema", "version", "revision", "candidate_artifact_sha256",
     "provider_id", "provider_version", "provider_kind", "supported_roles",
     "account_create_supported", "portable_home_supported", "portable_profile_supported",
-    "secret_reference_supported", "evidence_sha256", "qualified", "blockers",
-    "execution_authorized", "infrastructure_mutation_authorized",
-    "external_publication_authorized"
+    "secret_reference_supported", "adapter_artifact_sha256", "evidence_sha256",
+    "qualified", "blockers", "execution_authorized",
+    "infrastructure_mutation_authorized", "external_publication_authorized"
   ],
   "properties": {
     "schema": {"const": "home-center.role-identity-provider-qualification.v1"},
@@ -30,6 +30,7 @@
     "portable_home_supported": {"type": "boolean"},
     "portable_profile_supported": {"type": "boolean"},
     "secret_reference_supported": {"type": "boolean"},
+    "adapter_artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "qualified": {"type": "boolean"},
     "blockers": {
