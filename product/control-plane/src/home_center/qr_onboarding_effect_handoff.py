@@ -1,7 +1,7 @@
 """Exact-bound QR onboarding effect handoff for Home Center 0.63.
 
 This module connects a *verified invitation-state transition* to the next typed
-Change/Job boundary without granting that boundary execution authority.  It is
+Change/Job boundary without granting that boundary execution authority. It is
 intentionally runner-free source preparation: the handoff is deterministic,
 closed and privacy-minimized, but it never creates a Job, mutates Household
 state, calls a provider or reports onboarding success.
@@ -16,7 +16,6 @@ from .home_services import HomeServiceCatalogError, _identifier
 from .qr_onboarding import GuestScope, InvitationState, OnboardingSubject
 from .qr_onboarding_runtime import (
     QrOnboardingOperationReceipt,
-    QrOnboardingRuntimeError,
     QrOnboardingRuntimeRecord,
     RuntimeOperation,
 )
@@ -108,6 +107,16 @@ def _identifier_value(value: object, code: str) -> str:
         raise QrOnboardingEffectHandoffError(code) from exc
 
 
+def _sha256_value(value: object) -> str:
+    if (
+        not isinstance(value, str)
+        or len(value) != 64
+        or any(ch not in "0123456789abcdef" for ch in value)
+    ):
+        raise QrOnboardingEffectHandoffError("qr_effect_handoff_digest_invalid")
+    return value
+
+
 def _receipt_digest(receipt: QrOnboardingOperationReceipt) -> str:
     return hashlib.sha256(canonical_json(receipt.to_dict()).encode("utf-8")).hexdigest()
 
@@ -124,6 +133,23 @@ def _expected_boundary(
     if operation is RuntimeOperation.REVOKE:
         return QrOnboardingEffectKind.ACCESS_REVOCATION, "typed-access-revocation-change-job"
     raise QrOnboardingEffectHandoffError("qr_effect_handoff_operation_not_effectful")
+
+
+def _validate_subject_shape(
+    *,
+    subject: OnboardingSubject,
+    device_id: str | None,
+    guest_scope: tuple[GuestScope, ...],
+) -> None:
+    if subject is OnboardingSubject.GUEST:
+        if device_id is not None or guest_scope != (GuestScope.INTERNET_GUEST,):
+            raise QrOnboardingEffectHandoffError("qr_effect_handoff_subject_shape_invalid")
+        return
+    if subject is OnboardingSubject.DEVICE:
+        if device_id is None or guest_scope:
+            raise QrOnboardingEffectHandoffError("qr_effect_handoff_subject_shape_invalid")
+        return
+    raise QrOnboardingEffectHandoffError("qr_effect_handoff_subject_shape_invalid")
 
 
 def build_qr_onboarding_effect_handoff(
@@ -168,6 +194,11 @@ def build_qr_onboarding_effect_handoff(
     else:
         raise QrOnboardingEffectHandoffError("qr_effect_handoff_operation_not_effectful")
 
+    _validate_subject_shape(
+        subject=invitation.subject,
+        device_id=invitation.device_id,
+        guest_scope=invitation.guest_scope,
+    )
     effect_kind, required_job_type = _expected_boundary(receipt.operation, invitation.subject)
     if receipt.next_required_boundary != required_job_type:
         raise QrOnboardingEffectHandoffError("qr_effect_handoff_boundary_mismatch")
@@ -272,8 +303,8 @@ def qr_onboarding_effect_handoff_from_dict(value: object) -> QrOnboardingEffectH
         if not isinstance(guest_scope_raw, list):
             raise ValueError("guest_scope")
         guest_scope = tuple(sorted((GuestScope(item) for item in guest_scope_raw), key=lambda item: item.value))
-        if len(guest_scope) != len(guest_scope_raw):
-            raise ValueError("guest_scope")
+        if len(set(guest_scope)) != len(guest_scope):
+            raise ValueError("guest_scope_duplicate")
         household_generation = value["household_generation"]
         source_record_version = value["source_record_version"]
         if type(household_generation) is not int or household_generation < 1:
@@ -287,10 +318,10 @@ def qr_onboarding_effect_handoff_from_dict(value: object) -> QrOnboardingEffectH
             effect_kind=effect_kind,
             source_operation=source_operation,
             source_receipt_id=_identifier_value(value["source_receipt_id"], "qr_effect_receipt_id_invalid"),
-            source_receipt_sha256=value["source_receipt_sha256"],
+            source_receipt_sha256=_sha256_value(value["source_receipt_sha256"]),
             runtime_record_id=_identifier_value(value["runtime_record_id"], "qr_effect_runtime_record_id_invalid"),
             invitation_id=_identifier_value(value["invitation_id"], "qr_effect_invitation_id_invalid"),
-            invitation_evidence_sha256=value["invitation_evidence_sha256"],
+            invitation_evidence_sha256=_sha256_value(value["invitation_evidence_sha256"]),
             household_id=_identifier_value(value["household_id"], "qr_effect_household_id_invalid"),
             household_snapshot_id=_identifier_value(value["household_snapshot_id"], "qr_effect_household_snapshot_id_invalid"),
             household_resource_version=_identifier_value(value["household_resource_version"], "qr_effect_household_resource_version_invalid"),
@@ -302,23 +333,12 @@ def qr_onboarding_effect_handoff_from_dict(value: object) -> QrOnboardingEffectH
             source_record_version=source_record_version,
             required_job_type=value["required_job_type"],
         )
-    except (KeyError, TypeError, ValueError, QrOnboardingRuntimeError, QrOnboardingEffectHandoffError) as exc:
+        _validate_subject_shape(subject=subject, device_id=device_id, guest_scope=guest_scope)
+    except (KeyError, TypeError, ValueError, QrOnboardingEffectHandoffError) as exc:
         raise QrOnboardingEffectHandoffError("qr_effect_handoff_rejected") from exc
-
-    if len(handoff.source_receipt_sha256) != 64 or any(ch not in "0123456789abcdef" for ch in handoff.source_receipt_sha256):
-        raise QrOnboardingEffectHandoffError("qr_effect_handoff_rejected")
-    if len(handoff.invitation_evidence_sha256) != 64 or any(
-        ch not in "0123456789abcdef" for ch in handoff.invitation_evidence_sha256
-    ):
-        raise QrOnboardingEffectHandoffError("qr_effect_handoff_rejected")
 
     expected_kind, expected_job = _expected_boundary(handoff.source_operation, handoff.subject)
     if handoff.effect_kind is not expected_kind or handoff.required_job_type != expected_job:
-        raise QrOnboardingEffectHandoffError("qr_effect_handoff_rejected")
-    if handoff.subject is OnboardingSubject.GUEST:
-        if handoff.device_id is not None or not handoff.guest_scope:
-            raise QrOnboardingEffectHandoffError("qr_effect_handoff_rejected")
-    elif handoff.device_id is None or handoff.guest_scope:
         raise QrOnboardingEffectHandoffError("qr_effect_handoff_rejected")
 
     material = {

@@ -50,11 +50,22 @@
   },
   "allOf": [
     {
+      "if": {"properties": {"subject": {"const": "guest"}}, "required": ["subject"]},
+      "then": {"properties": {"device_id": {"type": "null"}}}
+    },
+    {
+      "if": {"properties": {"subject": {"const": "device"}}, "required": ["subject"]},
+      "then": {
+        "properties": {
+          "device_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"}
+        }
+      }
+    },
+    {
       "if": {"properties": {"effect_kind": {"const": "guest-access-grant"}}, "required": ["effect_kind"]},
       "then": {
         "properties": {
           "subject": {"const": "guest"},
-          "device_id": {"type": "null"},
           "required_job_type": {"const": "typed-guest-access-change-job"},
           "expected_post_condition": {"const": "guest-access-effective"}
         }
@@ -65,7 +76,6 @@
       "then": {
         "properties": {
           "subject": {"const": "device"},
-          "device_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
           "required_job_type": {"const": "typed-device-binding-change-job"},
           "expected_post_condition": {"const": "device-binding-effective"}
         }

@@ -1,7 +1,7 @@
 """Post-condition verification request contract for Home Center 0.63 QR effects.
 
 A consumed/revoked invitation is only evidence that the one-time QR token changed
-state.  It is not evidence that the requested guest/device effect happened.  This
+state. It is not evidence that the requested guest/device effect happened. This
 module prepares an exact, non-authorizing verification request that a later typed
 Change/Job implementation can fulfill using authoritative product-state readback.
 """
@@ -13,16 +13,15 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 
 from .qr_onboarding import OnboardingSubject
-from .qr_onboarding_effect_handoff import (
-    QrOnboardingEffectHandoff,
-    QrOnboardingEffectHandoffError,
-    QrOnboardingEffectKind,
-    qr_onboarding_effect_handoff_from_dict,
-)
+from .qr_onboarding_effect_handoff import QrOnboardingEffectHandoff, QrOnboardingEffectKind
 from .util import canonical_json
 
 QR_EFFECT_VERIFICATION_REQUEST_SCHEMA = "home-center.qr-onboarding-effect-verification-request.v1"
-_JOB_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\Z")
+_IDENTIFIER = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\Z")
+_REQUEST_ID = re.compile(r"hcqev-[0-9a-f]{24}\Z")
+_HANDOFF_ID = re.compile(r"hcqeh-[0-9a-f]{24}\Z")
+_SNAPSHOT_ID = re.compile(r"hsnap-[0-9a-f]{24}\Z")
+_RESOURCE_VERSION = re.compile(r"hrv-[0-9a-f]{24}\Z")
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 
 
@@ -88,9 +87,9 @@ class QrOnboardingEffectVerificationRequest:
         }
 
 
-def _job_id(value: object) -> str:
-    if not isinstance(value, str) or _JOB_ID.fullmatch(value) is None:
-        raise QrOnboardingEffectVerificationError("qr_effect_verification_job_id_invalid")
+def _string(value: object, pattern: re.Pattern[str], code: str) -> str:
+    if not isinstance(value, str) or pattern.fullmatch(value) is None:
+        raise QrOnboardingEffectVerificationError(code)
     return value
 
 
@@ -104,8 +103,30 @@ def _expected_post_condition(effect_kind: QrOnboardingEffectKind) -> QrOnboardin
     raise QrOnboardingEffectVerificationError("qr_effect_verification_effect_kind_invalid")
 
 
+def _expected_job_type(effect_kind: QrOnboardingEffectKind) -> str:
+    if effect_kind is QrOnboardingEffectKind.GUEST_ACCESS_GRANT:
+        return "typed-guest-access-change-job"
+    if effect_kind is QrOnboardingEffectKind.DEVICE_BINDING:
+        return "typed-device-binding-change-job"
+    if effect_kind is QrOnboardingEffectKind.ACCESS_REVOCATION:
+        return "typed-access-revocation-change-job"
+    raise QrOnboardingEffectVerificationError("qr_effect_verification_effect_kind_invalid")
+
+
 def _handoff_digest(handoff: QrOnboardingEffectHandoff) -> str:
     return hashlib.sha256(canonical_json(handoff.to_dict()).encode("utf-8")).hexdigest()
+
+
+def _validate_subject_shape(subject: OnboardingSubject, device_id: str | None) -> None:
+    if subject is OnboardingSubject.GUEST:
+        if device_id is not None:
+            raise QrOnboardingEffectVerificationError("qr_effect_verification_subject_shape_invalid")
+        return
+    if subject is OnboardingSubject.DEVICE:
+        if device_id is None:
+            raise QrOnboardingEffectVerificationError("qr_effect_verification_subject_shape_invalid")
+        return
+    raise QrOnboardingEffectVerificationError("qr_effect_verification_subject_shape_invalid")
 
 
 def build_qr_onboarding_effect_verification_request(
@@ -117,8 +138,11 @@ def build_qr_onboarding_effect_verification_request(
 
     if not isinstance(handoff, QrOnboardingEffectHandoff):
         raise QrOnboardingEffectVerificationError("qr_effect_verification_handoff_invalid")
-    normalized_job_id = _job_id(effect_job_id)
+    normalized_job_id = _string(effect_job_id, _IDENTIFIER, "qr_effect_verification_job_id_invalid")
     expected_post_condition = _expected_post_condition(handoff.effect_kind)
+    if handoff.required_job_type != _expected_job_type(handoff.effect_kind):
+        raise QrOnboardingEffectVerificationError("qr_effect_verification_job_type_mismatch")
+    _validate_subject_shape(handoff.subject, handoff.device_id)
     handoff_sha256 = _handoff_digest(handoff)
     material = {
         "handoff_id": handoff.handoff_id,
@@ -205,34 +229,47 @@ def qr_onboarding_effect_verification_request_from_dict(
         generation = value["household_generation"]
         if type(generation) is not int or generation < 1:
             raise ValueError("generation")
-        if not isinstance(value["handoff_sha256"], str) or _SHA256.fullmatch(value["handoff_sha256"]) is None:
-            raise ValueError("handoff_sha256")
+        device_id_raw = value["device_id"]
+        device_id = None if device_id_raw is None else _string(
+            device_id_raw, _IDENTIFIER, "qr_effect_verification_device_id_invalid"
+        )
         request = QrOnboardingEffectVerificationRequest(
-            request_id=value["request_id"],
-            handoff_id=value["handoff_id"],
-            handoff_sha256=value["handoff_sha256"],
-            effect_job_id=_job_id(value["effect_job_id"]),
-            required_job_type=value["required_job_type"],
+            request_id=_string(value["request_id"], _REQUEST_ID, "qr_effect_verification_request_id_invalid"),
+            handoff_id=_string(value["handoff_id"], _HANDOFF_ID, "qr_effect_verification_handoff_id_invalid"),
+            handoff_sha256=_string(value["handoff_sha256"], _SHA256, "qr_effect_verification_digest_invalid"),
+            effect_job_id=_string(value["effect_job_id"], _IDENTIFIER, "qr_effect_verification_job_id_invalid"),
+            required_job_type=_string(
+                value["required_job_type"], _IDENTIFIER, "qr_effect_verification_job_type_invalid"
+            ),
             effect_kind=effect_kind,
-            household_id=value["household_id"],
-            household_snapshot_id=value["household_snapshot_id"],
-            household_resource_version=value["household_resource_version"],
+            household_id=_string(value["household_id"], _IDENTIFIER, "qr_effect_verification_household_id_invalid"),
+            household_snapshot_id=_string(
+                value["household_snapshot_id"], _SNAPSHOT_ID, "qr_effect_verification_snapshot_id_invalid"
+            ),
+            household_resource_version=_string(
+                value["household_resource_version"],
+                _RESOURCE_VERSION,
+                "qr_effect_verification_resource_version_invalid",
+            ),
             household_generation=generation,
-            target_member_id=value["target_member_id"],
+            target_member_id=_string(
+                value["target_member_id"], _IDENTIFIER, "qr_effect_verification_target_member_invalid"
+            ),
             subject=subject,
-            device_id=value["device_id"],
+            device_id=device_id,
             expected_post_condition=expected_post_condition,
         )
+        _validate_subject_shape(subject, device_id)
     except (KeyError, TypeError, ValueError, QrOnboardingEffectVerificationError) as exc:
         raise QrOnboardingEffectVerificationError("qr_effect_verification_request_rejected") from exc
 
     if request.expected_post_condition is not _expected_post_condition(request.effect_kind):
         raise QrOnboardingEffectVerificationError("qr_effect_verification_request_rejected")
+    if request.required_job_type != _expected_job_type(request.effect_kind):
+        raise QrOnboardingEffectVerificationError("qr_effect_verification_request_rejected")
     if request.effect_kind is QrOnboardingEffectKind.GUEST_ACCESS_GRANT and request.subject is not OnboardingSubject.GUEST:
         raise QrOnboardingEffectVerificationError("qr_effect_verification_request_rejected")
-    if request.effect_kind is QrOnboardingEffectKind.DEVICE_BINDING and (
-        request.subject is not OnboardingSubject.DEVICE or not isinstance(request.device_id, str)
-    ):
+    if request.effect_kind is QrOnboardingEffectKind.DEVICE_BINDING and request.subject is not OnboardingSubject.DEVICE:
         raise QrOnboardingEffectVerificationError("qr_effect_verification_request_rejected")
 
     material = {

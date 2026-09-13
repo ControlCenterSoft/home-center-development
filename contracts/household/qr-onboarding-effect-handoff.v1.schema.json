@@ -40,9 +40,9 @@
     },
     "guest_scope": {
       "type": "array",
-      "maxItems": 2,
+      "maxItems": 1,
       "uniqueItems": true,
-      "items": {"enum": ["internet.guest", "home.status.read"]}
+      "items": {"const": "internet.guest"}
     },
     "source_record_version": {"type": "integer", "minimum": 1},
     "required_job_type": {
@@ -64,13 +64,29 @@
   },
   "allOf": [
     {
+      "if": {"properties": {"subject": {"const": "guest"}}, "required": ["subject"]},
+      "then": {
+        "properties": {
+          "device_id": {"type": "null"},
+          "guest_scope": {"const": ["internet.guest"]}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"subject": {"const": "device"}}, "required": ["subject"]},
+      "then": {
+        "properties": {
+          "device_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+          "guest_scope": {"const": []}
+        }
+      }
+    },
+    {
       "if": {"properties": {"effect_kind": {"const": "guest-access-grant"}}, "required": ["effect_kind"]},
       "then": {
         "properties": {
           "source_operation": {"const": "consume"},
           "subject": {"const": "guest"},
-          "device_id": {"type": "null"},
-          "guest_scope": {"minItems": 1},
           "required_job_type": {"const": "typed-guest-access-change-job"}
         }
       }
@@ -81,8 +97,6 @@
         "properties": {
           "source_operation": {"const": "consume"},
           "subject": {"const": "device"},
-          "device_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
-          "guest_scope": {"maxItems": 0},
           "required_job_type": {"const": "typed-device-binding-change-job"}
         }
       }
