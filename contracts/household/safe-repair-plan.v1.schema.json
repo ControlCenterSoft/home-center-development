@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.example/contracts/household/safe-repair-plan.v1.schema.json",
+  "title": "Home Center Safe Repair Plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "plan_id",
+    "household_id",
+    "household_sha256",
+    "evidence_id",
+    "evidence_sha256",
+    "actor_member_id",
+    "subject_member_id",
+    "target_id",
+    "recommendation_kind",
+    "repair_action",
+    "explanation_ru",
+    "technical_reason",
+    "risk",
+    "confirmation_required",
+    "post_condition_verification_required",
+    "recovery_required",
+    "recovery_contract",
+    "automation_eligible",
+    "mutation_authorized",
+    "automatic_execution_authorized",
+    "provider_execution_authorized",
+    "infrastructure_mutation_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.safe-repair-plan.v1"},
+    "plan_id": {"type": "string", "pattern": "^srp-[0-9a-f]{24}$"},
+    "household_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "household_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "evidence_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "evidence_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "actor_member_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "subject_member_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "target_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "recommendation_kind": {
+      "enum": [
+        "managed-device-policy",
+        "household-policy-reconciliation",
+        "compatibility-evidence-refresh"
+      ]
+    },
+    "repair_action": {
+      "enum": [
+        "household.device.reconcile-managed-policy",
+        "household.policy.reconcile",
+        "compatibility.refresh-evidence"
+      ]
+    },
+    "explanation_ru": {"type": "string", "minLength": 1, "maxLength": 240},
+    "technical_reason": {
+      "enum": [
+        "managed_device_required_but_not_managed",
+        "household_policy_reconciliation_required",
+        "compatibility_evidence_refresh_required"
+      ]
+    },
+    "risk": {"enum": ["low", "elevated"]},
+    "confirmation_required": {"type": "boolean"},
+    "post_condition_verification_required": {"const": true},
+    "recovery_required": {"const": true},
+    "recovery_contract": {"enum": ["read-back-or-rollback", "read-only-refresh"]},
+    "automation_eligible": {"type": "boolean"},
+    "mutation_authorized": {"const": false},
+    "automatic_execution_authorized": {"const": false},
+    "provider_execution_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}

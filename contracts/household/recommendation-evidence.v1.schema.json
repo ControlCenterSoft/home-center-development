@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.example/contracts/household/recommendation-evidence.v1.schema.json",
+  "title": "Home Center Recommendation Evidence v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "evidence_id",
+    "household_id",
+    "kind",
+    "subject_member_id",
+    "target_id",
+    "household_sha256",
+    "observation_sha256",
+    "observed_at_epoch",
+    "expires_at_epoch"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.recommendation-evidence.v1"},
+    "evidence_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "household_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "kind": {
+      "enum": [
+        "managed-device-policy",
+        "household-policy-reconciliation",
+        "compatibility-evidence-refresh"
+      ]
+    },
+    "subject_member_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "target_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "household_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "observation_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "observed_at_epoch": {"type": "integer", "minimum": 0},
+    "expires_at_epoch": {"type": "integer", "minimum": 1}
+  }
+}
