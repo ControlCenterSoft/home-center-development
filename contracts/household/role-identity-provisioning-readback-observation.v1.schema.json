@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/role-identity-provisioning-readback-observation.v1.schema.json",
+  "title": "Home Center role identity provisioning read-back observation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "provider_id", "provider_version", "provider_kind", "provider_evidence_sha256",
+    "provider_operation_id", "account_name", "account_state", "account_identity_sha256",
+    "home_directory_state", "profile_state", "observed_at", "valid_until", "evidence_sha256",
+    "read_only", "credential_material_included", "execution_authorized",
+    "privilege_grant_authorized", "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.role-identity-provisioning-readback-observation.v1"},
+    "provider_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "provider_version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+    "provider_kind": {"enum": ["local", "directory"]},
+    "provider_evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "provider_operation_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "account_name": {"type": "string", "pattern": "^[a-z][a-z0-9._-]{0,31}$"},
+    "account_state": {"enum": ["present", "absent", "conflict", "unknown"]},
+    "account_identity_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "home_directory_state": {"enum": ["ready", "missing", "unknown"]},
+    "profile_state": {"enum": ["ready", "missing", "unknown"]},
+    "observed_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"},
+    "valid_until": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"},
+    "evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "read_only": {"const": true},
+    "credential_material_included": {"const": false},
+    "execution_authorized": {"const": false},
+    "privilege_grant_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"account_state": {"const": "present"}}},
+      "then": {"properties": {"account_identity_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}},
+      "else": {"properties": {"account_identity_sha256": {"type": "null"}}}
+    }
+  ]
+}
