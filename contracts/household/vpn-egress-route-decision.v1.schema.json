@@ -18,13 +18,13 @@
         "parental_decision_required", "parental_decision_binding_mismatch", "parental_deny",
         "parental_decision_unknown", "provider_observation_binding_mismatch", "vpn_unhealthy_fail_closed",
         "vpn_unhealthy_direct_fallback", "split_route_domain_required", "split_route_domain_invalid",
-        "split_route_direct", "vpn_route_selected"
+        "split_route_direct", "split_route_direct_not_authorized", "vpn_route_selected"
       ]
     },
     "provider_id": {"type": ["string", "null"], "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
     "location_id": {"type": ["string", "null"], "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
     "dns_strategy": {"type": ["string", "null"], "enum": ["provider", "parental", "system", null]},
-    "observation_evidence_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "observation_evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "parental_deny_has_priority": {"const": true},
     "execution_authorized": {"const": false},
     "infrastructure_mutation_authorized": {"const": false},
@@ -37,7 +37,8 @@
         "properties": {
           "provider_id": {"type": "string"},
           "location_id": {"type": "string"},
-          "dns_strategy": {"type": "string"}
+          "dns_strategy": {"type": "string"},
+          "reason": {"const": "vpn_route_selected"}
         }
       }
     },
@@ -48,6 +49,28 @@
           "provider_id": {"const": null},
           "location_id": {"const": null},
           "dns_strategy": {"const": null}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"route": {"const": "direct"}}, "required": ["route"]},
+      "then": {
+        "properties": {
+          "reason": {"enum": ["vpn_unhealthy_direct_fallback", "split_route_direct"]}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"route": {"const": "deny"}}, "required": ["route"]},
+      "then": {
+        "properties": {
+          "reason": {
+            "enum": [
+              "parental_decision_required", "parental_decision_binding_mismatch", "parental_deny",
+              "parental_decision_unknown", "provider_observation_binding_mismatch", "vpn_unhealthy_fail_closed",
+              "split_route_domain_required", "split_route_domain_invalid", "split_route_direct_not_authorized"
+            ]
+          }
         }
       }
     }
