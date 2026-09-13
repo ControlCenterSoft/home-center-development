@@ -24,8 +24,10 @@ def _load_060_systemd_drill():
 
 
 @pytest.mark.skipif(
-    os.environ.get("GITHUB_ACTIONS") != "true" or sys.version_info[:2] != (3, 12),
-    reason="real systemd 0.60 -> 0.61 qualification runs once on the hosted Python 3.12 leg",
+    os.environ.get("GITHUB_ACTIONS") != "true"
+    or sys.version_info[:2] != (3, 12)
+    or (ROOT / "VERSION").read_text(encoding="ascii").strip() != CANDIDATE_VERSION,
+    reason="historical real-systemd 0.60 -> 0.61 drill runs only on exact 0.61 identity",
 )
 def test_release_061_real_systemd_upgrade_health_and_rollback(tmp_path: Path) -> None:
     """Run the proven real-systemd drill against exact 0.60 Stable and exact 0.61."""
