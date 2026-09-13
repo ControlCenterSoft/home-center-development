@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/household-policy-backend-apply-request.v1.schema.json",
+  "title": "Home Center Household policy backend apply request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "plan_id", "household_id", "member_id", "backend_id", "desired_generation", "desired_plan_id", "policy_id", "policy_sha256", "desired_state_sha256", "policy", "adapter_id", "adapter_version", "adapter_artifact_sha256", "qualification_evidence_sha256", "secret_values_present", "backend_mutation_authorized", "automatic_retry_authorized", "infrastructure_mutation_authorized", "external_publication_authorized"],
+  "properties": {
+    "schema": {"const": "home-center.household-policy-backend-apply-request.v1"},
+    "plan_id": {"type": "string", "pattern": "^hpep-[0-9a-f]{24}$"},
+    "household_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "backend_id": {"type": "string", "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$"},
+    "desired_generation": {"type": "integer", "minimum": 1},
+    "desired_plan_id": {"type": "string", "pattern": "^hpcp-[0-9a-f]{24}$"},
+    "policy_id": {"type": "string", "pattern": "^hcpol-[0-9a-f]{24}$"},
+    "policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "desired_state_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "policy": {"type": "object"},
+    "adapter_id": {"type": "string", "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$"},
+    "adapter_version": {"type": "string", "minLength": 1, "maxLength": 128},
+    "adapter_artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "qualification_evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "secret_values_present": {"const": false},
+    "backend_mutation_authorized": {"const": true},
+    "automatic_retry_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}

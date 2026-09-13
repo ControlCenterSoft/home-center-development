@@ -1,0 +1,123 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Home Center 0.59 Household Policy Enforcement API",
+    "version": "0.59.0-development",
+    "description": "Authenticated, same-origin, fail-closed lifecycle for planning, explicitly confirming and attempting one qualified Household policy backend mutation. Backend acceptance never constitutes verified enforcement; read-only reconciliation remains mandatory."
+  },
+  "paths": {
+    "/api/v1/household/policy/enforcement/plan": {
+      "post": {
+        "operationId": "planHouseholdPolicyEnforcement",
+        "security": [{"sessionCookie": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "../household/household-policy-enforcement-plan-request.v1.schema.json"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Exact Desired State enforcement plan; backend mutation is not yet authorized",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../household/household-policy-enforcement-plan.v1.schema.json"}
+              }
+            }
+          },
+          "400": {"description": "Malformed request or invalid identifiers"},
+          "401": {"description": "Authentication required"},
+          "403": {"description": "Household administration authority required"},
+          "404": {"description": "Household or member not found"},
+          "409": {"description": "Conflicting durable plan state"},
+          "503": {"description": "Household state unavailable or invalid"}
+        }
+      }
+    },
+    "/api/v1/household/policy/enforcement/confirm": {
+      "post": {
+        "operationId": "confirmHouseholdPolicyEnforcement",
+        "security": [{"sessionCookie": []}],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Must equal the exact plan_id being confirmed.",
+            "schema": {"type": "string", "pattern": "^hpep-[0-9a-f]{24}$"}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "../household/household-policy-enforcement-confirm-request.v1.schema.json"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Exact plan confirmation; no automatic retry or success claim is authorized",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../household/household-policy-enforcement-confirmation.v1.schema.json"}
+              }
+            }
+          },
+          "400": {"description": "Malformed request or idempotency header"},
+          "401": {"description": "Authentication required"},
+          "403": {"description": "Household administration authority required"},
+          "404": {"description": "Plan, Household or member not found"},
+          "409": {"description": "Confirmation missing, stale Desired State or invalid durable state"},
+          "503": {"description": "Household state unavailable or invalid"}
+        }
+      }
+    },
+    "/api/v1/household/policy/enforcement/execute": {
+      "post": {
+        "operationId": "executeHouseholdPolicyEnforcement",
+        "security": [{"sessionCookie": []}],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Must equal the exact confirmed plan_id. It does not authorize retry after an ambiguous backend outcome.",
+            "schema": {"type": "string", "pattern": "^hpep-[0-9a-f]{24}$"}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "../household/household-policy-enforcement-execute-request.v1.schema.json"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "One backend attempt classified into a receipt. Even accepted backend outcomes remain unverified and require reconciliation.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../household/household-policy-enforcement-receipt.v1.schema.json"}
+              }
+            }
+          },
+          "400": {"description": "Malformed request or idempotency header"},
+          "401": {"description": "Authentication required"},
+          "403": {"description": "Household administration authority required"},
+          "404": {"description": "Plan, Household or member not found"},
+          "409": {"description": "Confirmation required, stale state, previous failure or reconciliation required"},
+          "503": {"description": "Qualified backend adapter unavailable or backend outcome ambiguous"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {"type": "apiKey", "in": "cookie", "name": "hc_session"}
+    }
+  }
+}
