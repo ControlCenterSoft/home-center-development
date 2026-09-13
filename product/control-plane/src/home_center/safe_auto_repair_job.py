@@ -52,6 +52,12 @@ def _sha256(value: object, code: str) -> str:
     return value
 
 
+def _require_monotonic_update(job: "SafeAutoRepairJob", updated_at_epoch: int) -> int:
+    if type(updated_at_epoch) is not int or updated_at_epoch < job.updated_at_epoch:
+        raise SafeRepairJobError("safe_repair_job_updated_at_non_monotonic")
+    return updated_at_epoch
+
+
 @dataclass(frozen=True, slots=True)
 class SafeAutoRepairJob:
     job_id: str
@@ -151,7 +157,8 @@ def build_safe_repair_job(
 def start_safe_repair_job(job: SafeAutoRepairJob, *, updated_at_epoch: int) -> SafeAutoRepairJob:
     if job.state is not RepairJobState.ADMITTED:
         raise SafeRepairJobError("safe_repair_job_start_state_invalid")
-    return replace(job, state=RepairJobState.RUNNING, updated_at_epoch=updated_at_epoch)
+    timestamp = _require_monotonic_update(job, updated_at_epoch)
+    return replace(job, state=RepairJobState.RUNNING, updated_at_epoch=timestamp)
 
 
 def record_safe_repair_execution(
@@ -165,6 +172,7 @@ def record_safe_repair_execution(
         raise SafeRepairJobError("safe_repair_job_execution_state_invalid")
     if not isinstance(outcome, RepairExecutionOutcome):
         raise SafeRepairJobError("safe_repair_job_execution_outcome_invalid")
+    timestamp = _require_monotonic_update(job, updated_at_epoch)
     receipt = _sha256(effect_receipt_sha256, "safe_repair_job_effect_receipt_invalid")
     if outcome is RepairExecutionOutcome.ACCEPTED:
         state = RepairJobState.VERIFYING
@@ -175,7 +183,7 @@ def record_safe_repair_execution(
     return replace(
         job,
         state=state,
-        updated_at_epoch=updated_at_epoch,
+        updated_at_epoch=timestamp,
         effect_receipt_sha256=receipt,
     )
 
@@ -191,11 +199,12 @@ def verify_safe_repair_post_condition(
         raise SafeRepairJobError("safe_repair_job_verification_state_invalid")
     if type(verified) is not bool:
         raise SafeRepairJobError("safe_repair_job_verification_result_invalid")
+    timestamp = _require_monotonic_update(job, updated_at_epoch)
     evidence = _sha256(evidence_sha256, "safe_repair_job_post_condition_evidence_invalid")
     return replace(
         job,
         state=RepairJobState.SUCCEEDED if verified else RepairJobState.FAILED,
-        updated_at_epoch=updated_at_epoch,
+        updated_at_epoch=timestamp,
         post_condition_evidence_sha256=evidence,
         post_condition_verified=verified,
     )
