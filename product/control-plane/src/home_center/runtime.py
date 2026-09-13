@@ -34,6 +34,8 @@ from .local_admin_auth import LocalAdminCredentialStore
 from .local_admin_change import LocalAdminPasswordChangeClient
 from .node_inventory_api import NodeInventoryService
 from .reconcile import Reconciler
+from .role_identity_provisioning_api_runtime import RoleIdentityProvisioningApiRuntimeService
+from .role_identity_provisioning_runtime import RoleIdentityProvisioningRuntimeService
 from .step_up import StepUpGrantManager
 from .store import StateStore
 from .util import sha256_file, utc_now
@@ -86,6 +88,11 @@ class Runtime:
         self.household_policy_reconciliation_api = HouseholdPolicyReconciliationApiService(
             self.store,
             self.household_policy_reconciliation,
+        )
+        self.role_identity_provisioning = RoleIdentityProvisioningRuntimeService(self.store)
+        self.role_identity_provisioning_api = RoleIdentityProvisioningApiRuntimeService(
+            self.store,
+            self.role_identity_provisioning,
         )
         self.device_management_providers = DeviceManagementProviderRuntimeService(self.store)
         self.device_management_provider_selection = DeviceManagementProviderSelectionRuntimeService(self.store)
