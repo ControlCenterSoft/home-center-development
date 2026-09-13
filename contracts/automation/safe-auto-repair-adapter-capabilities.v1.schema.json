@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/automation/safe-auto-repair-adapter-capabilities.v1.schema.json",
+  "title": "Home Center safe auto-repair adapter capabilities v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema","adapter_id","adapter_version","supported_actions","supports_readback","supports_rollback","credential_value_access_required","provider_execution_required","infrastructure_mutation_required","external_publication_required"],
+  "properties": {
+    "schema": {"const": "home-center.safe-auto-repair-adapter-capabilities.v1"},
+    "adapter_id": {"type": "string", "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$"},
+    "adapter_version": {"type": "string", "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"},
+    "supported_actions": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["reconcile-derived-state","rebuild-derived-index","refresh-local-read-model"]}},
+    "supports_readback": {"const": true},
+    "supports_rollback": {"type": "boolean"},
+    "credential_value_access_required": {"const": false},
+    "provider_execution_required": {"const": false},
+    "infrastructure_mutation_required": {"const": false},
+    "external_publication_required": {"const": false}
+  }
+}
