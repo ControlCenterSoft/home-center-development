@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/smart-home/zigbee-mqtt-inventory-snapshot.v1.schema.json",
+  "title": "Home Center ZigBee/MQTT inventory snapshot v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "coordinator", "devices", "generated_at_epoch", "freshness_seconds", "inventory_sha256", "state", "mutation_authorized", "pairing_authorized", "provider_execution_authorized", "infrastructure_mutation_authorized", "external_publication_authorized"],
+  "properties": {
+    "schema": {"const": "home-center.zigbee-mqtt-inventory-snapshot.v1"},
+    "coordinator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["coordinator_id", "kind", "transport", "observed_at_epoch", "firmware_version", "endpoint_fingerprint_sha256", "evidence_state", "physical_single_coordinator", "ha_supported", "automatic_failover_authorized"],
+      "properties": {
+        "coordinator_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+        "kind": {"enum": ["zigbee", "mqtt-bridge"]},
+        "transport": {"enum": ["usb", "serial", "tcp", "mqtt"]},
+        "observed_at_epoch": {"type": "integer", "minimum": 0},
+        "firmware_version": {"type": ["string", "null"], "pattern": "^[A-Za-z0-9][A-Za-z0-9._+:-]{0,63}$"},
+        "endpoint_fingerprint_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "evidence_state": {"enum": ["current", "stale", "unavailable"]},
+        "physical_single_coordinator": {"type": "boolean"},
+        "ha_supported": {"const": false},
+        "automatic_failover_authorized": {"const": false}
+      }
+    },
+    "devices": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["device_id", "coordinator_id", "observed_at_epoch", "capabilities", "room_id", "battery_percent", "link_quality", "evidence_state"],
+        "properties": {
+          "device_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+          "coordinator_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+          "observed_at_epoch": {"type": "integer", "minimum": 0},
+          "capabilities": {"type": "array", "minItems": 1, "maxItems": 32, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+){0,7}$"}},
+          "room_id": {"type": ["string", "null"], "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+          "battery_percent": {"type": ["integer", "null"], "minimum": 0, "maximum": 100},
+          "link_quality": {"type": ["integer", "null"], "minimum": 0, "maximum": 255},
+          "evidence_state": {"enum": ["current", "stale", "unavailable"]}
+        }
+      }
+    },
+    "generated_at_epoch": {"type": "integer", "minimum": 0},
+    "freshness_seconds": {"type": "integer", "minimum": 1, "maximum": 3600},
+    "inventory_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "state": {"enum": ["current", "stale", "unavailable"]},
+    "mutation_authorized": {"const": false},
+    "pairing_authorized": {"const": false},
+    "provider_execution_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
