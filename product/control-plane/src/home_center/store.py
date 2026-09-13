@@ -168,6 +168,10 @@ class StateStore:
         self._lock = threading.RLock()
         path.parent.mkdir(parents=True, exist_ok=True)
         os.chmod(path.parent, 0o700)
+        # Restrict a pre-existing store before SQLite reads or migrates it.
+        # The final chmod below also covers a database created by connect().
+        if path.exists():
+            os.chmod(path, 0o600)
         self._connection = sqlite3.connect(path, check_same_thread=False, timeout=5)
         self._connection.row_factory = sqlite3.Row
         self._connection.execute("PRAGMA journal_mode=WAL")
