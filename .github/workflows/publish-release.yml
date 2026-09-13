@@ -8,6 +8,7 @@ on:
       - completed
     branches:
       - main
+      - 'release/**'
 
 permissions:
   contents: write
@@ -133,9 +134,6 @@ jobs:
               tag_sha="$RELEASE_SHA"
             fi
 
-            # gh release --verify-tag verifies the local checkout, while a tag
-            # created through the API after checkout is not present locally yet.
-            # Fetch only this exact immutable tag before creating the release.
             git fetch --no-tags origin "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
             [[ "$(git rev-list -n1 "$RELEASE_TAG")" == "$tag_sha" ]]
 
