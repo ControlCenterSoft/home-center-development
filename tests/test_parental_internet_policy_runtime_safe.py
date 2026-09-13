@@ -21,7 +21,7 @@ from home_center.parental_internet_policy_runtime import (
     ParentalInternetPolicyRuntimeError,
 )
 from home_center.parental_internet_policy_runtime_safe import SafeParentalInternetPolicyRuntimeService
-from home_center.step_up import StepUpGrantManager
+from home_center.step_up import StepUpError, StepUpGrantManager
 from home_center.store import StateStore
 from home_center.util import canonical_json
 
@@ -175,7 +175,7 @@ def test_new_commit_requires_actor_plan_bound_single_use_grant(tmp_path: Path) -
     assert receipt["enforcement_verified"] is False
     assert receipt["dns_policy_applied"] is False
     assert receipt["proxy_policy_applied"] is False
-    with pytest.raises(Exception, match="step_up_required"):
+    with pytest.raises(StepUpError, match="step_up_required"):
         grants.consume(actor=PARENT_ACTOR, scope=scope, token=token)
     store.close()
 
@@ -225,7 +225,6 @@ def test_verified_base_drift_fails_before_grant_is_consumed(tmp_path: Path) -> N
             correlation_id="stale",
         )
 
-    # Preflight rejected before consume; the exact grant is still usable once here.
     grants.consume(actor=PARENT_ACTOR, scope=scope, token=token)
     store.close()
 
