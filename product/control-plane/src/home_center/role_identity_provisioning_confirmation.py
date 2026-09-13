@@ -253,13 +253,11 @@ def confirm_role_identity_provisioning(
         raise IdentityProvisioningConfirmationError("identity_provider_capability_invalid")
 
     try:
-        parsed_plan = plan if isinstance(plan, RoleIdentityProvisioningPlan) else plan_from_dict(plan)
+        parsed_plan = plan_from_dict(plan.to_dict() if isinstance(plan, RoleIdentityProvisioningPlan) else plan)
     except IdentityProvisioningError as exc:
         raise IdentityProvisioningConfirmationError("identity_plan_rejected") from exc
-    parsed_preflight = (
-        preflight
-        if isinstance(preflight, IdentityAccountPreflightEvidence)
-        else account_preflight_from_dict(preflight)
+    parsed_preflight = account_preflight_from_dict(
+        preflight.to_dict() if isinstance(preflight, IdentityAccountPreflightEvidence) else preflight
     )
 
     try:
