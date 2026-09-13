@@ -23,6 +23,7 @@ def _snapshot():
             FamilyMember("parent-1", "Parent", HouseholdRole.PARENT),
             FamilyMember("guest-1", "Guest", HouseholdRole.GUEST),
         ),
+        devices=(),
     )
     store = HouseholdStore()
     store.create(household)
@@ -115,7 +116,7 @@ def test_qr_consumed_and_revoked_state_survives_restart_and_backup_restore(tmp_p
         target_member_id="guest-1",
         subject=OnboardingSubject.GUEST,
         created_at_epoch=1_000,
-        expires_at_epoch=1_600,
+        expires_at_epoch=2_700,
         guest_scope=(GuestScope.INTERNET_GUEST,),
         onboarding_code=consumed_code,
     )
