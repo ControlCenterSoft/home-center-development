@@ -8,10 +8,15 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-RUNTIME_MEMBERS = {"home_center/role_identity_provisioning.py"}
+RUNTIME_MEMBERS = {
+    "home_center/role_identity_provisioning.py",
+    "home_center/role_identity_provisioning_execution.py",
+}
 CONTRACT_MEMBERS = {
     "contracts/household/role-identity-provider-capability.v1.schema.json",
     "contracts/household/role-identity-provisioning-plan.v1.schema.json",
+    "contracts/household/role-identity-provisioning-execution-request.v1.schema.json",
+    "contracts/household/role-identity-provisioning-adapter-result.v1.schema.json",
 }
 
 
