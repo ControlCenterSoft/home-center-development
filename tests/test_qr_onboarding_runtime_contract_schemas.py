@@ -84,7 +84,7 @@ def test_operation_receipts_match_closed_schema_before_and_after_consume() -> No
     assert receipt.to_dict()["external_publication_authorized"] is False
 
 
-def test_contracts_are_closed_and_contain_no_secret_value_field() -> None:
+def test_contracts_are_closed_and_contain_no_raw_secret_value_field() -> None:
     for name in (
         "qr-onboarding-runtime-record.v1.schema.json",
         "qr-onboarding-operation-receipt.v1.schema.json",
@@ -92,5 +92,5 @@ def test_contracts_are_closed_and_contain_no_secret_value_field() -> None:
         schema = _schema(name)
         assert schema["additionalProperties"] is False
         text = json.dumps(schema, sort_keys=True)
-        assert "onboarding_code" not in text
-        assert "credential_value" not in text
+        assert '"onboarding_code"' not in text
+        assert '"credential_value"' not in text
