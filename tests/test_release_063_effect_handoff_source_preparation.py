@@ -18,6 +18,12 @@ def test_063_effect_handoff_runtime_is_required_in_reproducible_wheel() -> None:
         "home_center/qr_onboarding_effect_verification.py",
         "home_center/qr_onboarding_effect_admission.py",
         "home_center/qr_onboarding_effect_execution.py",
+        "home_center/qr_onboarding_effect_source.py",
+        "home_center/qr_onboarding_product_state.py",
+        "home_center/qr_onboarding_effect_worker.py",
+        "home_center/qr_onboarding_effect_api.py",
+        "home_center/api_v10.py",
+        "home_center/api_v11.py",
     } <= REQUIRED_MEMBERS
 
 
@@ -44,8 +50,8 @@ def test_063_effect_handoff_contracts_are_closed_and_non_authorizing() -> None:
     assert verification["properties"]["external_publication_authorized"] == {"const": False}
 
 
-def test_063_effect_handoff_does_not_preempt_release_identity_or_open_generic_execution() -> None:
-    assert (ROOT / "VERSION").read_text(encoding="ascii").strip() != "0.63.0"
+def test_063_effect_handoff_preserves_closed_authority_at_final_release_identity() -> None:
+    assert (ROOT / "VERSION").read_text(encoding="ascii").strip() == "0.63.0"
     handoff_source = (
         ROOT / "product/control-plane/src/home_center/qr_onboarding_effect_handoff.py"
     ).read_text(encoding="utf-8")
