@@ -24,6 +24,8 @@ class QrOnboardingRuntimeDelegate(Protocol):
 
     def revoke(self, **kwargs: Any) -> Any: ...
 
+    def plan_redemption(self, **kwargs: Any) -> Any: ...
+
 
 class QrOnboardingStateAuditError(ValueError):
     """Reject unsafe Audit envelope material before persistence."""
@@ -52,6 +54,10 @@ class QrOnboardingAuditedRuntimeService:
         if repository is None:
             raise QrOnboardingStateAuditError("qr_audited_repository_unavailable")
         return repository
+
+    def plan_redemption(self, **kwargs: Any) -> Any:
+        """Forward the read-only redemption plan without appending Audit."""
+        return self.runtime.plan_redemption(**kwargs)
 
     @staticmethod
     def _correlation_id(value: str) -> str:

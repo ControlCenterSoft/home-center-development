@@ -43,7 +43,7 @@ class _CorrelatedQrRuntime:
         return self._runtime.revoke(correlation_id=self._correlation_id, **kwargs)
 
     def plan_redemption(self, **kwargs: Any) -> Any:
-        return self._runtime.runtime.plan_redemption(**kwargs)
+        return self._runtime.plan_redemption(**kwargs)
 
 
 class RuntimeRequestHandlerV10(RuntimeRequestHandlerV9):
