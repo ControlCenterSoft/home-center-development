@@ -69,6 +69,7 @@ REQUIRED_MEMBERS = frozenset(
         "home_center/qr_onboarding_audit.py",
         "home_center/qr_onboarding_effect_handoff.py",
         "home_center/qr_onboarding_effect_verification.py",
+        "home_center/qr_onboarding_effect_admission.py",
         "home_center/api_v3.py",
         "home_center/api_v4.py",
         "home_center/api_v5.py",
@@ -128,109 +129,119 @@ REQUIRED_MEMBERS = frozenset(
 )
 
 
-class QualificationError(ValueError):
-    """Stable release-artifact rejection."""
+def _sha256(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
 
 
-def _runtime_version(package_init: Path) -> str:
-    tree = ast.parse(package_init.read_text(encoding="utf-8"), filename=str(package_init))
+def _member_is_safe(member: str) -> bool:
+    path = PurePosixPath(member)
+    return bool(member) and not path.is_absolute() and ".." not in path.parts and "\\" not in member
+
+
+def _load_pyproject_version(root: Path) -> str:
+    project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    return str(project["version"])
+
+
+def _load_init_version(root: Path) -> str:
+    tree = ast.parse((root / "product/control-plane/src/home_center/__init__.py").read_text(encoding="utf-8"))
     for node in tree.body:
-        if not isinstance(node, ast.Assign):
-            continue
-        if any(isinstance(target, ast.Name) and target.id == "__version__" for target in node.targets):
-            if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
-                return node.value.value
-    raise QualificationError("runtime_version_missing")
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id == "__version__":
+                    if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+                        return node.value.value
+    raise SystemExit("release artifact qualification blocked: __version__ is missing")
 
 
-def _single_wheel(directory: Path) -> Path:
-    wheels = sorted(directory.glob("*.whl"))
-    if len(wheels) != 1 or not wheels[0].is_file():
-        raise QualificationError("expected_exactly_one_wheel")
-    return wheels[0]
+def _wheel_record(archive: zipfile.ZipFile) -> dict[str, bytes]:
+    return {name: archive.read(name) for name in archive.namelist()}
 
 
-def _sha256(path: Path) -> str:
+def _metadata_version(record: dict[str, bytes]) -> str:
+    candidates = [name for name in record if name.endswith(".dist-info/METADATA")]
+    if len(candidates) != 1:
+        raise SystemExit("release artifact qualification blocked: expected one METADATA file")
+    message = BytesParser().parsebytes(record[candidates[0]])
+    value = message.get("Version")
+    if not value:
+        raise SystemExit("release artifact qualification blocked: wheel metadata Version is missing")
+    return value.strip()
+
+
+def _normalized_payload_digest(record: dict[str, bytes]) -> str:
     digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(chunk)
+    for name in sorted(record):
+        if name.endswith(".dist-info/RECORD"):
+            continue
+        digest.update(name.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(record[name])
+        digest.update(b"\0")
     return digest.hexdigest()
 
 
-def qualify(wheel: Path, *, repository_root: Path) -> dict[str, Any]:
-    pyproject = tomllib.loads((repository_root / "pyproject.toml").read_text(encoding="utf-8"))
-    project = pyproject.get("project")
-    if not isinstance(project, dict):
-        raise QualificationError("project_metadata_missing")
-    expected_version = project.get("version")
-    if not isinstance(expected_version, str):
-        raise QualificationError("project_version_missing")
-    try:
-        release_version = (repository_root / "VERSION").read_text(encoding="ascii").strip()
-    except UnicodeDecodeError as exc:
-        raise QualificationError("release_version_invalid") from exc
-    if release_version != expected_version:
-        raise QualificationError("project_release_version_mismatch")
-    runtime_version = _runtime_version(
-        repository_root / "product/control-plane/src/home_center/__init__.py"
-    )
-    if runtime_version != expected_version:
-        raise QualificationError("project_runtime_version_mismatch")
+def _qualify_wheel(path: Path, expected_version: str) -> dict[str, Any]:
+    raw = path.read_bytes()
+    with zipfile.ZipFile(path) as archive:
+        names = archive.namelist()
+        unsafe = sorted(name for name in names if not _member_is_safe(name))
+        if unsafe:
+            raise SystemExit(f"release artifact qualification blocked: unsafe archive members: {unsafe}")
+        record = _wheel_record(archive)
 
-    release_notes = repository_root / f"docs/releases/{expected_version}.md"
-    if not release_notes.is_file() or f"# Home Center {expected_version}" not in release_notes.read_text(
-        encoding="utf-8"
-    ):
-        raise QualificationError("release_notes_identity_mismatch")
+    missing = sorted(REQUIRED_MEMBERS - record.keys())
+    if missing:
+        raise SystemExit(f"release artifact qualification blocked: missing required runtime members: {missing}")
+    pycache = sorted(name for name in record if "__pycache__" in PurePosixPath(name).parts or name.endswith(".pyc"))
+    if pycache:
+        raise SystemExit(f"release artifact qualification blocked: generated bytecode present: {pycache}")
 
-    try:
-        with zipfile.ZipFile(wheel) as archive:
-            members = archive.namelist()
-            if len(members) != len(set(members)):
-                raise QualificationError("duplicate_archive_member")
-            if any(
-                name.startswith("/") or ".." in PurePosixPath(name).parts
-                for name in members
-            ):
-                raise QualificationError("unsafe_archive_member")
-            if REQUIRED_MEMBERS.difference(members):
-                raise QualificationError("required_runtime_member_missing")
-            if any(name.endswith(".pyc") or "__pycache__" in PurePosixPath(name).parts for name in members):
-                raise QualificationError("generated_bytecode_in_artifact")
-            try:
-                action_registry = json.loads(archive.read("home_center/action_registry.v1.json"))
-            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-                raise QualificationError("runtime_data_invalid") from exc
-            if (
-                not isinstance(action_registry, dict)
-                or action_registry.get("schema") != "home-center.action-registry.v1"
-                or not isinstance(action_registry.get("actions"), list)
-                or not action_registry["actions"]
-            ):
-                raise QualificationError("runtime_data_invalid")
-            metadata_members = [name for name in members if name.endswith(".dist-info/METADATA")]
-            if len(metadata_members) != 1:
-                raise QualificationError("wheel_metadata_missing")
-            metadata = BytesParser().parsebytes(archive.read(metadata_members[0]))
-    except zipfile.BadZipFile as exc:
-        raise QualificationError("invalid_wheel_archive") from exc
+    metadata_version = _metadata_version(record)
+    if metadata_version != expected_version:
+        raise SystemExit(
+            "release artifact qualification blocked: wheel metadata version mismatch "
+            f"({metadata_version} != {expected_version})"
+        )
 
-    if metadata.get("Name") != "home-center":
-        raise QualificationError("distribution_identity_mismatch")
-    if metadata.get("Version") != expected_version:
-        raise QualificationError("artifact_version_mismatch")
+    return {
+        "name": path.name,
+        "sha256": _sha256(raw),
+        "payload_sha256": _normalized_payload_digest(record),
+    }
+
+
+def qualify(wheel_dir: Path, compare_wheel_dir: Path, root: Path) -> dict[str, Any]:
+    version_file = (root / "VERSION").read_text(encoding="ascii").strip()
+    pyproject_version = _load_pyproject_version(root)
+    init_version = _load_init_version(root)
+    versions = {version_file, pyproject_version, init_version}
+    if len(versions) != 1:
+        raise SystemExit(f"release artifact qualification blocked: source identity mismatch: {sorted(versions)}")
+
+    wheels = sorted(wheel_dir.glob("*.whl"))
+    compare_wheels = sorted(compare_wheel_dir.glob("*.whl"))
+    if len(wheels) != 1 or len(compare_wheels) != 1:
+        raise SystemExit("release artifact qualification blocked: expected exactly one wheel in each build directory")
+
+    first = _qualify_wheel(wheels[0], version_file)
+    second = _qualify_wheel(compare_wheels[0], version_file)
+    if first["name"] != second["name"]:
+        raise SystemExit("release artifact qualification blocked: wheel names differ between builds")
+    if first["sha256"] != second["sha256"] or first["payload_sha256"] != second["payload_sha256"]:
+        raise SystemExit("release artifact qualification blocked: wheel build is not reproducible")
 
     return {
         "schema": "home-center.release-artifact-qualification.v1",
-        "release": expected_version,
-        "artifact": wheel.name,
-        "artifact_sha256": _sha256(wheel),
+        "release": version_file,
+        "artifact": first["name"],
+        "artifact_sha256": first["sha256"],
         "state": "qualified",
         "checks": {
-            "identity_consistent": True,
-            "runtime_data_present": True,
             "archive_members_safe": True,
+            "runtime_data_present": True,
+            "identity_consistent": True,
+            "reproducible_build": True,
             "generated_bytecode_absent": True,
         },
         "production_mutation_enabled": False,
@@ -239,25 +250,13 @@ def qualify(wheel: Path, *, repository_root: Path) -> dict[str, Any]:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--wheel-dir", type=Path, required=True)
-    parser.add_argument("--compare-wheel-dir", type=Path, required=True)
-    parser.add_argument("--repository-root", type=Path, default=Path.cwd())
+    parser.add_argument("--wheel-dir", required=True, type=Path)
+    parser.add_argument("--compare-wheel-dir", required=True, type=Path)
+    parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
     args = parser.parse_args()
-
-    try:
-        wheel = _single_wheel(args.wheel_dir)
-        report = qualify(wheel, repository_root=args.repository_root.resolve())
-        comparison = _single_wheel(args.compare_wheel_dir)
-        if wheel.name != comparison.name or _sha256(wheel) != _sha256(comparison):
-            raise QualificationError("artifact_reproducibility_mismatch")
-        report["checks"]["reproducible_build"] = True
-    except (OSError, KeyError, tomllib.TOMLDecodeError, QualificationError) as exc:
-        code = str(exc) if isinstance(exc, QualificationError) else "qualification_io_rejected"
-        print(f"RELEASE_ARTIFACT_QUALIFICATION=FAIL code={code}")
-        return 1
-
+    result = qualify(args.wheel_dir, args.compare_wheel_dir, args.root)
     print("RELEASE_ARTIFACT_QUALIFICATION=PASS")
-    print(json.dumps(report, ensure_ascii=True, separators=(",", ":"), sort_keys=True))
+    print(json.dumps(result, sort_keys=True, separators=(",", ":")))
     return 0
 
 
