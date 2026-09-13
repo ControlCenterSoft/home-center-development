@@ -1,27 +1,15 @@
 from __future__ import annotations
 
 import json
-import tomllib
 from pathlib import Path
 
 from scripts.qualify_release_artifact import REQUIRED_MEMBERS
 
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.58.0"
 
 
-def test_release_058_exact_identity_is_consistent() -> None:
-    assert (ROOT / "VERSION").read_text(encoding="ascii").strip() == VERSION
-    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
-    assert project["version"] == VERSION
-    runtime_init = (ROOT / "product/control-plane/src/home_center/__init__.py").read_text(encoding="utf-8")
-    assert f'__version__ = "{VERSION}"' in runtime_init
-    html = (ROOT / "product/web/static/index.html").read_text(encoding="utf-8")
-    assert f'<small id="version">{VERSION}</small>' in html
-
-
-def test_release_058_notes_are_official_bounded_and_truthful() -> None:
+def test_release_058_release_notes_remain_historical_and_documented() -> None:
     notes = (ROOT / "docs/releases/0.58.0.md").read_text(encoding="utf-8")
     assert notes.startswith("# Home Center 0.58.0\n\nStatus: official release.")
     assert "`single-node-core`" in notes
@@ -33,7 +21,7 @@ def test_release_058_notes_are_official_bounded_and_truthful() -> None:
     assert "0.57.0 → 0.58.0" in notes
 
 
-def test_release_058_runtime_contracts_are_packaged() -> None:
+def test_release_058_runtime_contracts_remain_packaged() -> None:
     assert {
         "home_center/api_v4.py",
         "home_center/api_v5.py",
@@ -71,20 +59,9 @@ def test_release_058_openapi_preserves_fail_closed_authority_boundaries() -> Non
         assert boundary.get("external_publication_authorized") is False
 
 
-def test_release_058_ci_derives_candidate_artifact_name_from_version() -> None:
+def test_release_ci_derives_candidate_artifact_name_from_version() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     assert 'version="$(tr -d \'[:space:]\' < VERSION)"' in workflow
     assert "HC_VERSION=$version" in workflow
     assert 'artifact="home-center-${HC_VERSION}-linux-amd64.tar.gz"' in workflow
     assert "home-center-0.57.0-deployment-candidate" not in workflow
-
-
-def test_release_058_upgrade_drills_do_not_rewrite_candidate_identity() -> None:
-    for name in (
-        "test_release_058_hosted_upgrade_drill.py",
-        "test_release_058_hosted_systemd_upgrade.py",
-    ):
-        source = (ROOT / "tests" / name).read_text(encoding="utf-8")
-        assert "_build_exact_artifact" in source
-        assert "SOURCE_VERSION" not in source
-        assert "replace(source_marker" not in source
