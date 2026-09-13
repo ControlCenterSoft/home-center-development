@@ -110,6 +110,37 @@ MIGRATIONS: tuple[tuple[int, str], ...] = (
         );
         """,
     ),
+    (
+        4,
+        """
+CREATE TABLE IF NOT EXISTS qr_onboarding_runtime (
+    runtime_record_id TEXT PRIMARY KEY,
+    invitation_id TEXT NOT NULL UNIQUE,
+    household_id TEXT NOT NULL,
+    household_snapshot_id TEXT NOT NULL,
+    household_resource_version TEXT NOT NULL,
+    household_generation INTEGER NOT NULL CHECK(household_generation >= 1),
+    target_member_id TEXT NOT NULL,
+    invitation_json TEXT NOT NULL,
+    invitation_evidence_sha256 TEXT NOT NULL,
+    token_sha256 TEXT NOT NULL,
+    state TEXT NOT NULL CHECK(state IN ('active','consumed','revoked','expired')),
+    version INTEGER NOT NULL CHECK(version >= 1),
+    created_at_epoch INTEGER NOT NULL,
+    expires_at_epoch INTEGER NOT NULL,
+    consumed_at_epoch INTEGER,
+    revoked_at_epoch INTEGER,
+    updated_at_epoch INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS qr_onboarding_runtime_operations (
+    operation_key_sha256 TEXT PRIMARY KEY,
+    runtime_record_id TEXT NOT NULL REFERENCES qr_onboarding_runtime(runtime_record_id) ON DELETE CASCADE,
+    request_sha256 TEXT NOT NULL,
+    receipt_json TEXT NOT NULL,
+    created_at_epoch INTEGER NOT NULL
+);
+""",
+    ),
 )
 
 
