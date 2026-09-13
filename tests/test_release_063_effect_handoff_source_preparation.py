@@ -17,6 +17,7 @@ def test_063_effect_handoff_runtime_is_required_in_reproducible_wheel() -> None:
         "home_center/qr_onboarding_effect_handoff.py",
         "home_center/qr_onboarding_effect_verification.py",
         "home_center/qr_onboarding_effect_admission.py",
+        "home_center/qr_onboarding_effect_execution.py",
     } <= REQUIRED_MEMBERS
 
 
@@ -43,7 +44,7 @@ def test_063_effect_handoff_contracts_are_closed_and_non_authorizing() -> None:
     assert verification["properties"]["external_publication_authorized"] == {"const": False}
 
 
-def test_063_effect_handoff_does_not_preempt_release_identity_or_open_execution() -> None:
+def test_063_effect_handoff_does_not_preempt_release_identity_or_open_generic_execution() -> None:
     assert (ROOT / "VERSION").read_text(encoding="ascii").strip() != "0.63.0"
     handoff_source = (
         ROOT / "product/control-plane/src/home_center/qr_onboarding_effect_handoff.py"
@@ -54,9 +55,17 @@ def test_063_effect_handoff_does_not_preempt_release_identity_or_open_execution(
     admission_source = (
         ROOT / "product/control-plane/src/home_center/qr_onboarding_effect_admission.py"
     ).read_text(encoding="utf-8")
+    execution_source = (
+        ROOT / "product/control-plane/src/home_center/qr_onboarding_effect_execution.py"
+    ).read_text(encoding="utf-8")
     assert 'effect_execution_authorized: bool = field(default=False' in handoff_source
     assert 'post_condition_verified: bool = field(default=False' in verification_source
     assert 'effect_success_claimed: bool = field(default=False' in verification_source
     assert '"execution_authorized": False' in admission_source
     assert '"post_condition_verified": False' in admission_source
     assert '"effect_success_claimed": False' in admission_source
+    assert 'provider_execution_authorized: bool = field(default=False' in execution_source
+    assert 'infrastructure_mutation_authorized: bool = field(default=False' in execution_source
+    assert 'external_publication_authorized: bool = field(default=False' in execution_source
+    assert 'automatic_retry_authorized": False' in execution_source
+    assert 'reconcile_verifying' in execution_source
