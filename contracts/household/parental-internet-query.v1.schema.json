@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/parental-internet-query.v1.schema.json",
+  "title": "Home Center parental Internet query v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "policy_id", "household_id", "member_id", "domain", "category",
+    "weekday", "minute_of_day", "daily_used_minutes", "weekly_used_minutes",
+    "continuous_used_minutes", "rule_source_id", "rule_source_version", "rule_source_sha256"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.parental-internet-query.v1"},
+    "policy_id": {"type": "string", "pattern": "^hcip-[0-9a-f]{24}$"},
+    "household_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "domain": {"type": "string", "minLength": 3, "maxLength": 253},
+    "category": {"type": ["string", "null"], "maxLength": 128},
+    "weekday": {"type": "integer", "minimum": 0, "maximum": 6},
+    "minute_of_day": {"type": "integer", "minimum": 0, "maximum": 1439},
+    "daily_used_minutes": {"type": "integer", "minimum": 0, "maximum": 10080},
+    "weekly_used_minutes": {"type": "integer", "minimum": 0, "maximum": 10080},
+    "continuous_used_minutes": {"type": "integer", "minimum": 0, "maximum": 10080},
+    "rule_source_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "rule_source_version": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"},
+    "rule_source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}
