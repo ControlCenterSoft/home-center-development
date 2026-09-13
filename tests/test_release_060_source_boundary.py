@@ -6,11 +6,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_release_060_notes_define_bounded_official_release_identity() -> None:
+def test_release_060_notes_remain_historical_bounded_official_release() -> None:
     notes = (ROOT / "docs/releases/0.60.0.md").read_text(encoding="utf-8")
     assert notes.startswith("# Home Center 0.60.0\n\nStatus: official release.")
     assert "Release profile: `single-node-core`." in notes
-    assert (ROOT / "VERSION").read_text(encoding="ascii").strip() == "0.60.0"
 
 
 def test_release_060_notes_do_not_turn_provider_acceptance_into_success() -> None:
