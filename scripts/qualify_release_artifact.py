@@ -62,6 +62,11 @@ REQUIRED_MEMBERS = frozenset(
         "home_center/device_management_deenrollment_execution_runtime.py",
         "home_center/device_management_failed_enrollment_cleanup_runtime.py",
         "home_center/device_management_failed_enrollment_cleanup_execution_runtime.py",
+        "home_center/qr_onboarding.py",
+        "home_center/qr_onboarding_validation.py",
+        "home_center/qr_onboarding_runtime.py",
+        "home_center/qr_onboarding_api.py",
+        "home_center/qr_onboarding_audit.py",
         "home_center/api_v3.py",
         "home_center/api_v4.py",
         "home_center/api_v5.py",
@@ -240,7 +245,7 @@ def main() -> int:
     try:
         wheel = _single_wheel(args.wheel_dir)
         report = qualify(wheel, repository_root=args.repository_root.resolve())
-        comparison = _single_wheel(args.compare_wheel_dir)
+        comparison = _single_wheel(args.compare-wheel-dir) if False else _single_wheel(args.compare_wheel_dir)
         if wheel.name != comparison.name or _sha256(wheel) != _sha256(comparison):
             raise QualificationError("artifact_reproducibility_mismatch")
         report["checks"]["reproducible_build"] = True
