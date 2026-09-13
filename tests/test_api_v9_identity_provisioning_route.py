@@ -2,6 +2,7 @@ import pytest
 
 from home_center.api_v8 import RuntimeRequestHandlerV8
 from home_center.api_v9 import (
+    BIND_REQUEST_SCHEMA,
     EXECUTE_REQUEST_SCHEMA,
     PLAN_REQUEST_SCHEMA,
     PREFLIGHT_REQUEST_SCHEMA,
@@ -19,6 +20,9 @@ def test_identity_routes_are_explicit_and_extend_current_handler_chain() -> None
     }
     assert RuntimeRequestHandlerV9.IDENTITY_EXECUTE_POSTS == {
         "/api/v1/household/identity/provisioning/execute"
+    }
+    assert RuntimeRequestHandlerV9.IDENTITY_BIND_POSTS == {
+        "/api/v1/household/identity/provisioning/bind"
     }
     assert RuntimeRequestHandlerV9.IDENTITY_POSTS.isdisjoint(
         RuntimeRequestHandlerV8.POLICY_ENFORCEMENT_POSTS
@@ -63,6 +67,25 @@ def test_identity_http_bodies_are_closed_and_do_not_accept_provider_evidence() -
         schema=EXECUTE_REQUEST_SCHEMA,
         fields={"plan_id", "confirmed", "credential_references"},
     ) is execute
+
+    bind = {
+        "schema": BIND_REQUEST_SCHEMA,
+        "plan_id": "hcidp-" + "e" * 24,
+        "execution_job_id": "job-verified-1",
+        "confirmed": True,
+    }
+    assert RuntimeRequestHandlerV9._schema_body(
+        bind,
+        schema=BIND_REQUEST_SCHEMA,
+        fields={"plan_id", "execution_job_id", "confirmed"},
+    ) is bind
+
+    with pytest.raises(ValueError):
+        RuntimeRequestHandlerV9._schema_body(
+            {**bind, "execution_receipt": {"state": "verified"}},
+            schema=BIND_REQUEST_SCHEMA,
+            fields={"plan_id", "execution_job_id", "confirmed"},
+        )
 
 
 def test_identity_http_fields_reject_implicit_coercion() -> None:
