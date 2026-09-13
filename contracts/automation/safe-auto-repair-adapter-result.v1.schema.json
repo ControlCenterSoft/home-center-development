@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/automation/safe-auto-repair-adapter-result.v1.schema.json",
+  "title": "Home Center safe auto-repair adapter result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "job_id",
+    "recommendation_id",
+    "action",
+    "outcome",
+    "effect_receipt_sha256",
+    "post_condition_verified",
+    "automatic_retry_authorized",
+    "provider_execution_performed",
+    "generic_infrastructure_mutation_performed",
+    "external_publication_performed"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.safe-auto-repair-adapter-result.v1"},
+    "job_id": {"type": "string", "pattern": "^hcrpj-[0-9a-f]{24}$"},
+    "recommendation_id": {"type": "string", "pattern": "^hcrpr-[0-9a-f]{24}$"},
+    "action": {"enum": ["reconcile-derived-state", "rebuild-derived-index", "refresh-local-read-model"]},
+    "outcome": {"enum": ["accepted", "failed", "ambiguous"]},
+    "effect_receipt_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "post_condition_verified": {"const": false},
+    "automatic_retry_authorized": {"const": false},
+    "provider_execution_performed": {"const": false},
+    "generic_infrastructure_mutation_performed": {"const": false},
+    "external_publication_performed": {"const": false}
+  }
+}
