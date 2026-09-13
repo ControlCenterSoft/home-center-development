@@ -1,0 +1,111 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Home Center 0.60 Parental Internet Policy Change API",
+    "version": "0.60.0-development",
+    "description": "Authenticated same-origin parental Desired State lifecycle: plan, exact-plan credential re-auth, and explicit confirmation. Confirmation commits protected Desired State only. It never invokes DNS/proxy enforcement, never claims Actual State success, and never grants infrastructure or external-publication authority."
+  },
+  "paths": {
+    "/api/v1/household/parental-internet/plan": {
+      "post": {
+        "operationId": "planParentalInternetPolicyChange",
+        "security": [{"sessionCookie": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "../household/parental-internet-policy-plan-request.v1.schema.json"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Exact parent-authorized change plan. Desired State write and enforcement are not yet authorized.",
+            "content": {"application/json": {"schema": {"$ref": "../household/parental-internet-policy-change-plan.v1.schema.json"}}}
+          },
+          "400": {"description": "Malformed rule request"},
+          "401": {"description": "Authentication required"},
+          "403": {"description": "Current parent administration authority required"},
+          "404": {"description": "Household or member not found"},
+          "409": {"description": "Subject/base/current-state conflict"},
+          "503": {"description": "Household or verified base state unavailable"}
+        }
+      }
+    },
+    "/api/v1/household/parental-internet/reauth": {
+      "post": {
+        "operationId": "reauthParentalInternetPolicyChange",
+        "security": [{"sessionCookie": []}],
+        "description": "Issues one short-lived single-use grant only after the exact plan, current parent authority, Household snapshot and verified 0.59 base are revalidated. Passwords are never persisted or returned.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "../household/parental-internet-reauth-request.v1.schema.json"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Actor/plan-bound single-use grant",
+            "content": {"application/json": {"schema": {"$ref": "../household/parental-internet-reauth-result.v1.schema.json"}}}
+          },
+          "400": {"description": "Malformed request or scope"},
+          "401": {"description": "Authentication required"},
+          "403": {"description": "Credentials/authority rejected"},
+          "404": {"description": "Plan/Household/member not found"},
+          "409": {"description": "Plan already committed, stale or otherwise not re-auth eligible"},
+          "429": {"description": "Re-authentication rate limited"},
+          "503": {"description": "Authentication or state backend unavailable"}
+        }
+      }
+    },
+    "/api/v1/household/parental-internet/confirm": {
+      "post": {
+        "operationId": "confirmParentalInternetPolicyChange",
+        "security": [{"sessionCookie": []}],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Must equal the exact plan_id being confirmed.",
+            "schema": {"type": "string", "pattern": "^hpip-[0-9a-f]{24}$"}
+          },
+          {
+            "name": "X-Home-Center-Step-Up",
+            "in": "header",
+            "required": true,
+            "description": "Short-lived actor/plan-bound single-use grant obtained through the parental re-auth operation.",
+            "schema": {"type": "string", "minLength": 16, "maxLength": 256}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "../household/parental-internet-policy-confirm-request.v1.schema.json"}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Protected parental Desired State committed and read back. Enforcement remains unverified and reconciliation-required.",
+            "content": {"application/json": {"schema": {"$ref": "../household/parental-internet-policy-commit-receipt.v1.schema.json"}}}
+          },
+          "400": {"description": "Malformed request"},
+          "401": {"description": "Authentication required"},
+          "403": {"description": "Parent authority or step-up grant rejected"},
+          "404": {"description": "Plan/Household/member not found"},
+          "409": {"description": "Plan/state/idempotency conflict"},
+          "503": {"description": "Verified base, durable state or read-back unavailable"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {"type": "apiKey", "in": "cookie", "name": "hc_session"}
+    }
+  }
+}
