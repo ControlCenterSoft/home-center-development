@@ -15,7 +15,7 @@
   ],
   "properties": {
     "schema": {"const": "home-center.role-identity-provisioning-execution-request.v1"},
-    "job_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "job_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
     "plan_id": {"type": "string", "pattern": "^hcidp-[0-9a-f]{24}$"},
     "household_id": {"type": "string", "minLength": 1, "maxLength": 128},
     "member_id": {"type": "string", "minLength": 1, "maxLength": 128},
