@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/role-identity-binding-transition-receipt.v1.schema.json",
+  "title": "Home Center role identity binding transition receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "state", "job_id", "execution_job_id", "audit_event_id", "binding_id",
+    "household_id", "member_id", "account_name", "account_identity_sha256",
+    "identity_binding_committed", "provider_reinvocation_performed",
+    "credential_material_persisted", "emergency_admin_mutation_authorized",
+    "privilege_grant_authorized", "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.role-identity-binding-transition-receipt.v1"},
+    "state": {"const": "bound"},
+    "job_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "execution_job_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "audit_event_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "binding_id": {"type": "string", "pattern": "^hcidb-[0-9a-f]{24}$"},
+    "household_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "account_name": {"type": "string", "pattern": "^[a-z][a-z0-9._-]{0,31}$"},
+    "account_identity_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "identity_binding_committed": {"const": true},
+    "provider_reinvocation_performed": {"const": false},
+    "credential_material_persisted": {"const": false},
+    "emergency_admin_mutation_authorized": {"const": false},
+    "privilege_grant_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
