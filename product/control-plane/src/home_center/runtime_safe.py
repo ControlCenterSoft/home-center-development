@@ -8,13 +8,15 @@ its own production schema mutation.
 """
 from __future__ import annotations
 
+from .qr_onboarding_effect_execution import QrOnboardingEffectExecutionService
+from .qr_onboarding_product_state import QrOnboardingProductStateAdapter, SUPPORTED_JOB_TYPES
 from .qr_onboarding_runtime import QrOnboardingRuntimeService, SQLiteQrOnboardingRuntimeRepository
 from .role_identity_provisioning_runtime_safe import SafeRoleIdentityProvisioningRuntimeService
 from .runtime import Runtime
 
 
 class ProductionRuntime(Runtime):
-    """Server runtime with fail-closed provider and bounded QR admission."""
+    """Server runtime with fail-closed providers and bounded QR effects."""
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         super().__init__(*args, **kwargs)  # type: ignore[arg-type]
@@ -25,3 +27,7 @@ class ProductionRuntime(Runtime):
                 self.store._lock,  # noqa: SLF001 - share the canonical transaction lock
             )
         )
+        self.qr_effect_execution = QrOnboardingEffectExecutionService(self.store)
+        qr_product_state = QrOnboardingProductStateAdapter(self.store)
+        for job_type in SUPPORTED_JOB_TYPES:
+            self.qr_effect_execution.register(job_type, qr_product_state)
