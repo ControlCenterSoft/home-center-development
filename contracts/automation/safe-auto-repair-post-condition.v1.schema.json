@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/automation/safe-auto-repair-post-condition.v1.schema.json",
+  "title": "Home Center safe auto-repair post-condition observation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema","job_id","recommendation_id","household_id","resource_id","observed_generation","observation_sha256","state","post_condition_verified","execution_authorized","provider_execution_authorized","generic_infrastructure_mutation_authorized","external_publication_authorized"],
+  "properties": {
+    "schema": {"const": "home-center.safe-auto-repair-post-condition.v1"},
+    "job_id": {"type": "string", "pattern": "^hcrpj-[0-9a-f]{24}$"},
+    "recommendation_id": {"type": "string", "pattern": "^hcrpr-[0-9a-f]{24}$"},
+    "household_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "resource_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "observed_generation": {"type": "integer", "minimum": 0},
+    "observation_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "state": {"enum": ["matched", "mismatched", "unknown"]},
+    "post_condition_verified": {"type": "boolean"},
+    "execution_authorized": {"const": false},
+    "provider_execution_authorized": {"const": false},
+    "generic_infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  },
+  "allOf": [{
+    "if": {"properties": {"state": {"const": "matched"}}, "required": ["state"]},
+    "then": {"properties": {"post_condition_verified": {"const": true}}},
+    "else": {"properties": {"post_condition_verified": {"const": false}}}
+  }]
+}
