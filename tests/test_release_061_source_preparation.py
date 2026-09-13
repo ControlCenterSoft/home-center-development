@@ -28,7 +28,7 @@ def test_061_notes_are_official_bounded_and_truthful() -> None:
     assert notes.startswith(f"# Home Center {VERSION}\n\nStatus: official release.")
     assert "Release profile: `single-node-core`." in notes
     assert "Provider selection is not VPN activation." in notes
-    assert "concrete production VPN adapter execution" in notes
+    assert "Concrete production VPN adapter execution" in notes
     assert "Multi-node HA / automatic failover" in notes
     assert "commercial launch clearance" in notes
     assert "0.60.0 → 0.61.1" in notes
