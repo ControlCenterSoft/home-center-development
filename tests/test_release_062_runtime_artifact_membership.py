@@ -17,6 +17,13 @@ QUALIFICATION_RUNTIME_MEMBER = "home_center/role_identity_provider_qualification
 QUALIFICATION_CONTRACT = "contracts/household/role-identity-provider-qualification.v1.schema.json"
 SAFE_RUNTIME_MEMBER = "home_center/role_identity_provisioning_runtime_safe.py"
 PRODUCTION_RUNTIME_MEMBER = "home_center/runtime_safe.py"
+API_RUNTIME_MEMBER = "home_center/role_identity_provisioning_api_runtime.py"
+API_HANDLER_MEMBER = "home_center/api_v9.py"
+API_CONTRACTS = {
+    "contracts/household/role-identity-provisioning-api-plan-request.v1.schema.json",
+    "contracts/household/role-identity-provisioning-api-execute-request.v1.schema.json",
+    "contracts/household/role-identity-provisioning-api-bind-request.v1.schema.json",
+}
 
 
 def test_062_identity_runtime_is_present_in_actual_qualified_wheel() -> None:
@@ -29,6 +36,8 @@ def test_062_identity_runtime_is_present_in_actual_qualified_wheel() -> None:
     assert QUALIFICATION_RUNTIME_MEMBER in members
     assert SAFE_RUNTIME_MEMBER in members
     assert PRODUCTION_RUNTIME_MEMBER in members
+    assert API_RUNTIME_MEMBER in members
+    assert API_HANDLER_MEMBER in members
 
 
 def test_062_identity_runtime_and_receipt_contract_are_present_in_node_candidate() -> None:
@@ -50,3 +59,6 @@ def test_062_identity_runtime_and_receipt_contract_are_present_in_node_candidate
     assert QUALIFICATION_CONTRACT in members
     assert SAFE_RUNTIME_MEMBER in members
     assert PRODUCTION_RUNTIME_MEMBER in members
+    assert API_RUNTIME_MEMBER in members
+    assert API_HANDLER_MEMBER in members
+    assert API_CONTRACTS <= members
