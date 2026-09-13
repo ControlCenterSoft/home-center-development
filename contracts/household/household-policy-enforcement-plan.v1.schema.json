@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/household-policy-enforcement-plan.v1.schema.json",
+  "title": "Home Center Household policy enforcement plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "plan_id", "household_id", "member_id", "backend_id", "desired_generation", "desired_plan_id", "policy_id", "policy_sha256", "desired_state_sha256", "backend_mutation_authorized", "automatic_retry_authorized", "enforcement_success_claim_authorized", "infrastructure_mutation_authorized", "external_publication_authorized"],
+  "properties": {
+    "schema": {"const": "home-center.household-policy-enforcement-plan.v1"},
+    "plan_id": {"type": "string", "pattern": "^hpep-[0-9a-f]{24}$"},
+    "household_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "backend_id": {"type": "string", "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$"},
+    "desired_generation": {"type": "integer", "minimum": 1},
+    "desired_plan_id": {"type": "string", "pattern": "^hpcp-[0-9a-f]{24}$"},
+    "policy_id": {"type": "string", "pattern": "^hcpol-[0-9a-f]{24}$"},
+    "policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "desired_state_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "backend_mutation_authorized": {"const": false},
+    "automatic_retry_authorized": {"const": false},
+    "enforcement_success_claim_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}

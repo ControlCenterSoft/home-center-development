@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/household-policy-desired-state.v1.schema.json",
+  "title": "Home Center household policy desired state v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "household_id", "member_id", "generation", "plan_id", "policy", "policy_sha256", "reason", "enforcement_verified", "reconciliation_required", "infrastructure_mutation_authorized", "external_publication_authorized"],
+  "properties": {
+    "schema": {"const": "home-center.household-policy-desired-state.v1"},
+    "household_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "generation": {"type": "integer", "minimum": 1},
+    "plan_id": {"type": "string", "pattern": "^hpcp-[0-9a-f]{24}$"},
+    "policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "reason": {"type": "string", "minLength": 1, "maxLength": 512},
+    "enforcement_verified": {"type": "boolean"},
+    "reconciliation_required": {"type": "boolean"},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false},
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "policy_id", "household_id", "member_id", "role", "base_policy_id", "bundle_id", "internet_policy", "vpn_allowed", "managed_device_required", "home_files_allowed", "smart_home_control_allowed", "administration_allowed", "external_publication_allowed", "enforcement_verified", "production_mutation_enabled", "explanation_ru"],
+      "properties": {
+        "schema": {"const": "home-center.household-composed-policy.v1"},
+        "policy_id": {"type": "string", "pattern": "^hcpol-[0-9a-f]{24}$"},
+        "household_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "role": {"enum": ["parent", "child", "guest"]},
+        "base_policy_id": {"type": "string", "pattern": "^hpol-[0-9a-f]{24}$"},
+        "bundle_id": {"type": "string", "pattern": "^hpb-[0-9a-f]{24}$"},
+        "internet_policy": {"enum": ["full", "filtered", "guest"]},
+        "vpn_allowed": {"type": "boolean"},
+        "managed_device_required": {"type": "boolean"},
+        "home_files_allowed": {"type": "boolean"},
+        "smart_home_control_allowed": {"type": "boolean"},
+        "administration_allowed": {"type": "boolean"},
+        "external_publication_allowed": {"const": false},
+        "enforcement_verified": {"const": false},
+        "production_mutation_enabled": {"const": false},
+        "explanation_ru": {"type": "string", "minLength": 1, "maxLength": 1024}
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "enforcement_verified": {"const": false},
+        "reconciliation_required": {"const": true}
+      }
+    },
+    {
+      "properties": {
+        "enforcement_verified": {"const": true},
+        "reconciliation_required": {"const": false}
+      }
+    }
+  ]
+}

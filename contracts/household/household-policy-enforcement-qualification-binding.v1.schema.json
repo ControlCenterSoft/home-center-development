@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/household-policy-enforcement-qualification-binding.v1.schema.json",
+  "title": "Home Center Household policy enforcement qualification binding v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "revision",
+    "candidate_artifact_sha256",
+    "backend_id",
+    "adapter_version",
+    "adapter_artifact_sha256",
+    "qualification_schema",
+    "qualification_evidence_sha256",
+    "backend_mutation_authorized",
+    "automatic_retry_authorized",
+    "enforcement_success_claim_authorized",
+    "release_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.household-policy-enforcement-qualification-binding.v1"},
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "revision": {"type": "string", "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"},
+    "candidate_artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "backend_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$"
+    },
+    "adapter_version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "adapter_artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "qualification_schema": {"const": "home-center.policy-backend-qualification.v1"},
+    "qualification_evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "backend_mutation_authorized": {"const": false},
+    "automatic_retry_authorized": {"const": false},
+    "enforcement_success_claim_authorized": {"const": false},
+    "release_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
