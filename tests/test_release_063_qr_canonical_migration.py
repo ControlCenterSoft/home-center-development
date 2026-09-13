@@ -109,8 +109,13 @@ def test_upgrade_from_canonical_v3_preserves_existing_state_and_applies_register
     finally:
         connection.close()
 
+    path.parent.chmod(0o750)
+    path.chmod(0o640)
+
     store = StateStore(path, b"m" * 32, "cluster-test")
     try:
+        assert stat.S_IMODE(path.parent.stat().st_mode) == 0o700
+        assert stat.S_IMODE(path.stat().st_mode) == 0o600
         assert store.get_meta("pre_qr_marker") == {"preserved": True}
         versions = [
             int(row[0])
