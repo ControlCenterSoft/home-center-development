@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/household-policy-enforcement-confirmation.v1.schema.json",
+  "title": "Home Center Household policy enforcement confirmation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "plan_id", "backend_id", "member_id", "desired_generation", "policy_sha256", "backend_mutation_authorized", "automatic_retry_authorized", "enforcement_success_claim_authorized", "infrastructure_mutation_authorized", "external_publication_authorized"],
+  "properties": {
+    "schema": {"const": "home-center.household-policy-enforcement-confirmation.v1"},
+    "plan_id": {"type": "string", "pattern": "^hpep-[0-9a-f]{24}$"},
+    "backend_id": {"type": "string", "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$"},
+    "member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "desired_generation": {"type": "integer", "minimum": 1},
+    "policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "backend_mutation_authorized": {"const": true},
+    "automatic_retry_authorized": {"const": false},
+    "enforcement_success_claim_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}

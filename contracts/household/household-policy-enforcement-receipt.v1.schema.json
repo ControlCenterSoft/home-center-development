@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/household-policy-enforcement-receipt.v1.schema.json",
+  "title": "Home Center Household policy enforcement receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "state", "plan_id", "job_id", "backend_id", "member_id", "desired_generation", "policy_sha256", "backend_command_accepted", "enforcement_verified", "reconciliation_required", "automatic_retry_authorized", "enforcement_success_claim_authorized", "infrastructure_mutation_performed", "external_publication_performed"],
+  "properties": {
+    "schema": {"const": "home-center.household-policy-enforcement-receipt.v1"},
+    "state": {"enum": ["backend-accepted-awaiting-reconciliation", "backend-rejected"]},
+    "plan_id": {"type": "string", "pattern": "^hpep-[0-9a-f]{24}$"},
+    "job_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "backend_id": {"type": "string", "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$"},
+    "member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "desired_generation": {"type": "integer", "minimum": 1},
+    "policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "backend_command_accepted": {"type": "boolean"},
+    "enforcement_verified": {"const": false},
+    "reconciliation_required": {"const": true},
+    "automatic_retry_authorized": {"const": false},
+    "enforcement_success_claim_authorized": {"const": false},
+    "infrastructure_mutation_performed": {"const": false},
+    "external_publication_performed": {"const": false}
+  }
+}
