@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/parental-internet-reauth-request.v1.schema.json",
+  "title": "Home Center parental Internet re-auth request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "provider", "username", "password", "plan_id"],
+  "properties": {
+    "schema": {"const": "home-center.parental-internet-reauth-request.v1"},
+    "provider": {"enum": ["local", "ad"]},
+    "username": {"type": "string", "minLength": 1, "maxLength": 256},
+    "password": {"type": "string", "minLength": 1, "maxLength": 4096},
+    "plan_id": {"type": "string", "pattern": "^hpip-[0-9a-f]{24}$"}
+  }
+}
