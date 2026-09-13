@@ -1,17 +1,17 @@
 """Durable fail-closed role identity provisioning runtime for Home Center 0.62.
 
-The runtime persists a Job before the first provider side effect, binds execution
-to exact planning/preflight evidence, invokes a deliberately registered typed
-provider adapter at most once per durable attempt, and requires separate read-
-back verification before reporting success. It never mutates Household state,
-the emergency administrator, privileges or external-publication state.
+The runtime persists a Job before the first provider side effect, revalidates a
+fresh exact account-absence preflight, invokes a deliberately registered typed
+provider adapter at most once per durable attempt, and requires a separate read-
+back before reporting success. It never mutates Household state, the emergency
+administrator, privileges or external-publication state.
 """
 from __future__ import annotations
 
 import hashlib
 import re
 import threading
-from typing import Protocol
+from typing import Callable, Protocol
 
 from .role_identity_provisioning import IdentityProviderCapability, RoleIdentityProvisioningPlan
 from .role_identity_provisioning_execution import (
@@ -21,14 +21,18 @@ from .role_identity_provisioning_execution import (
     build_identity_execution_request,
     normalize_secret_references,
 )
-from .role_identity_provisioning_preflight import IdentityProvisioningPreflightDecision
+from .role_identity_provisioning_preflight import (
+    AccountPreflightObservation,
+    IdentityProvisioningPreflightError,
+    evaluate_account_preflight,
+)
 from .role_identity_provisioning_verification import (
     IdentityProvisioningVerificationError,
     observation_from_dict,
     verify_identity_provisioning,
 )
 from .store import IdempotencyConflict, StateStore
-from .util import canonical_json
+from .util import canonical_json, utc_now
 
 ACTION = "household.identity.provisioning.execute"
 RECEIPT_SCHEMA = "home-center.role-identity-provisioning-execution-receipt.v1"
@@ -42,7 +46,7 @@ class IdentityProvisioningRuntimeError(ValueError):
 
 
 class RoleIdentityProvisioningRuntimeAdapter(Protocol):
-    """Provider adapter with one mutation call and a separate read-only observation."""
+    """Provider adapter with one mutation call and one separate read-only observation."""
 
     def start(self, request: RoleIdentityProvisioningExecutionRequest) -> object: ...
 
@@ -87,8 +91,9 @@ def _receipt(
 
 
 class RoleIdentityProvisioningRuntimeService:
-    def __init__(self, store: StateStore) -> None:
+    def __init__(self, store: StateStore, *, now: Callable[[], str] = utc_now) -> None:
         self.store = store
+        self._now = now
         self._lock = threading.RLock()
         self._adapters: dict[str, RoleIdentityProvisioningRuntimeAdapter] = {}
 
@@ -104,17 +109,14 @@ class RoleIdentityProvisioningRuntimeService:
         self._adapters[provider_id] = adapter
 
     @staticmethod
-    def _validate_binding(
+    def _validate_plan_provider(
         plan: RoleIdentityProvisioningPlan,
         provider: IdentityProviderCapability,
-        preflight: IdentityProvisioningPreflightDecision,
     ) -> None:
         if not isinstance(plan, RoleIdentityProvisioningPlan):
             raise IdentityProvisioningRuntimeError("identity_runtime_plan_invalid")
         if not isinstance(provider, IdentityProviderCapability):
             raise IdentityProvisioningRuntimeError("identity_runtime_provider_invalid")
-        if not isinstance(preflight, IdentityProvisioningPreflightDecision):
-            raise IdentityProvisioningRuntimeError("identity_runtime_preflight_invalid")
         if (
             provider.provider_id != plan.provider_id
             or provider.provider_version != plan.provider_version
@@ -122,18 +124,28 @@ class RoleIdentityProvisioningRuntimeService:
             or provider.evidence_sha256 != plan.provider_evidence_sha256
         ):
             raise IdentityProvisioningRuntimeError("identity_runtime_provider_binding_mismatch")
-        if (
-            preflight.plan_id != plan.plan_id
-            or preflight.account_name != plan.account_name
-            or preflight.provider_id != plan.provider_id
-            or preflight.provider_version != plan.provider_version
-            or preflight.provider_evidence_sha256 != plan.provider_evidence_sha256
-            or preflight.ready is not True
-            or preflight.blockers
-            or preflight.execution_authorized is not False
-            or preflight.external_publication_authorized is not False
-        ):
+
+    def _fresh_preflight(
+        self,
+        *,
+        plan: RoleIdentityProvisioningPlan,
+        provider: IdentityProviderCapability,
+        observation: AccountPreflightObservation,
+    ):
+        if not isinstance(observation, AccountPreflightObservation):
+            raise IdentityProvisioningRuntimeError("identity_runtime_preflight_observation_invalid")
+        try:
+            decision = evaluate_account_preflight(
+                plan=plan,
+                provider=provider,
+                observation=observation,
+                now=self._now(),
+            )
+        except IdentityProvisioningPreflightError as exc:
+            raise IdentityProvisioningRuntimeError(exc.code) from exc
+        if not decision.ready or decision.blockers:
             raise IdentityProvisioningRuntimeError("identity_runtime_preflight_not_ready")
+        return decision
 
     def _adapter(self, provider_id: str) -> RoleIdentityProvisioningRuntimeAdapter:
         adapter = self._adapters.get(provider_id)
@@ -177,7 +189,7 @@ class RoleIdentityProvisioningRuntimeService:
         actor: str,
         plan: RoleIdentityProvisioningPlan,
         provider: IdentityProviderCapability,
-        preflight: IdentityProvisioningPreflightDecision,
+        preflight_observation: AccountPreflightObservation,
         credential_references: object,
         confirmed: bool,
         idempotency_key: str,
@@ -189,7 +201,8 @@ class RoleIdentityProvisioningRuntimeService:
             raise IdentityProvisioningRuntimeError("identity_runtime_actor_or_correlation_invalid")
         if not isinstance(idempotency_key, str) or _IDEMPOTENCY.fullmatch(idempotency_key) is None:
             raise IdentityProvisioningRuntimeError("identity_runtime_idempotency_key_invalid")
-        self._validate_binding(plan, provider, preflight)
+        self._validate_plan_provider(plan, provider)
+        preflight = self._fresh_preflight(plan=plan, provider=provider, observation=preflight_observation)
         adapter = self._adapter(plan.provider_id)
         try:
             refs = normalize_secret_references(credential_references)
@@ -255,6 +268,39 @@ class RoleIdentityProvisioningRuntimeService:
                     raise IdentityProvisioningRuntimeError("identity_runtime_previous_attempt_failed")
                 raise IdentityProvisioningRuntimeError("identity_runtime_job_state_invalid")
 
+            try:
+                request = build_identity_execution_request(
+                    plan=plan,
+                    provider=provider,
+                    job_id=job["job_id"],
+                    credential_references=[item.to_dict() for item in refs],
+                    confirmed=True,
+                )
+            except IdentityProvisioningExecutionError as exc:
+                self.store.transition_action_job(
+                    job["job_id"],
+                    expected_state="preflight",
+                    new_state="failed",
+                    result={
+                        "schema": "home-center.role-identity-provider-start-failure.v1",
+                        "state": "failed",
+                        "code": exc.code,
+                        "provider_invoked": False,
+                        "provider_acceptance_unknown": False,
+                        "retry_safe": True,
+                        "post_condition_verified": False,
+                    },
+                )
+                self._audit(
+                    actor=actor,
+                    plan=plan,
+                    outcome="rejected",
+                    correlation_id=correlation_id,
+                    job_id=job["job_id"],
+                    blockers=(exc.code,),
+                )
+                raise IdentityProvisioningRuntimeError(exc.code) from exc
+
             running = self.store.transition_action_job(
                 job["job_id"],
                 expected_state="preflight",
@@ -267,38 +313,9 @@ class RoleIdentityProvisioningRuntimeService:
                 ],
             )
             try:
-                request = build_identity_execution_request(
-                    plan=plan,
-                    provider=provider,
-                    job_id=running["job_id"],
-                    credential_references=[item.to_dict() for item in refs],
-                    confirmed=True,
-                )
                 accepted = adapter_result_from_dict(adapter.start(request))
             except TimeoutError as exc:
-                self.store.transition_action_job(
-                    running["job_id"],
-                    expected_state="running",
-                    new_state="failed",
-                    result={
-                        "schema": "home-center.role-identity-provider-start-failure.v1",
-                        "state": "failed",
-                        "code": "identity_runtime_provider_timeout",
-                        "provider_acceptance_unknown": True,
-                        "retry_safe": False,
-                        "post_condition_verified": False,
-                    },
-                )
-                self._audit(
-                    actor=actor, plan=plan, outcome="failed", correlation_id=correlation_id, job_id=running["job_id"]
-                )
-                raise IdentityProvisioningRuntimeError("identity_runtime_provider_timeout") from exc
-            except (IdentityProvisioningExecutionError, Exception) as exc:
-                code = (
-                    exc.code
-                    if isinstance(exc, IdentityProvisioningExecutionError)
-                    else "identity_runtime_provider_error"
-                )
+                code = "identity_runtime_provider_timeout"
                 self.store.transition_action_job(
                     running["job_id"],
                     expected_state="running",
@@ -313,7 +330,26 @@ class RoleIdentityProvisioningRuntimeService:
                     },
                 )
                 self._audit(
-                    actor=actor, plan=plan, outcome="failed", correlation_id=correlation_id, job_id=running["job_id"]
+                    actor=actor, plan=plan, outcome="failed", correlation_id=correlation_id, job_id=running["job_id"], blockers=(code,)
+                )
+                raise IdentityProvisioningRuntimeError(code) from exc
+            except Exception as exc:
+                code = exc.code if isinstance(exc, IdentityProvisioningExecutionError) else "identity_runtime_provider_error"
+                self.store.transition_action_job(
+                    running["job_id"],
+                    expected_state="running",
+                    new_state="failed",
+                    result={
+                        "schema": "home-center.role-identity-provider-start-failure.v1",
+                        "state": "failed",
+                        "code": code,
+                        "provider_acceptance_unknown": True,
+                        "retry_safe": False,
+                        "post_condition_verified": False,
+                    },
+                )
+                self._audit(
+                    actor=actor, plan=plan, outcome="failed", correlation_id=correlation_id, job_id=running["job_id"], blockers=(code,)
                 )
                 raise IdentityProvisioningRuntimeError(code) from exc
 
@@ -350,14 +386,10 @@ class RoleIdentityProvisioningRuntimeService:
                     provider=provider,
                     accepted=accepted,
                     observation=observation,
-                    now=observation.observed_at,
+                    now=self._now(),
                 )
-            except (IdentityProvisioningVerificationError, TimeoutError, Exception) as exc:
-                code = (
-                    exc.code
-                    if isinstance(exc, IdentityProvisioningVerificationError)
-                    else "identity_runtime_verification_unavailable"
-                )
+            except Exception as exc:
+                code = exc.code if isinstance(exc, IdentityProvisioningVerificationError) else "identity_runtime_verification_unavailable"
                 failed = self.store.transition_action_job(
                     verifying["job_id"],
                     expected_state="verifying",
