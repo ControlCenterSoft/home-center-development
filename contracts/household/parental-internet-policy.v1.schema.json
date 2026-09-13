@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/parental-internet-policy.v1.schema.json",
+  "title": "Home Center parental Internet policy v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "policy_id", "household_id", "member_id", "subject_role",
+    "base_policy_id", "base_policy_sha256",
+    "rule_source_id", "rule_source_version", "rule_source_sha256",
+    "allow_domains", "deny_domains", "allow_categories", "deny_categories", "schedule",
+    "daily_quota_minutes", "weekly_quota_minutes", "continuous_session_minutes",
+    "break_minutes", "grace_minutes", "bonus_minutes", "default_decision",
+    "dns_policy_required", "proxy_policy_required", "enforcement_authorized",
+    "infrastructure_mutation_authorized", "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.parental-internet-policy.v1"},
+    "policy_id": {"type": "string", "pattern": "^hcip-[0-9a-f]{24}$"},
+    "household_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "subject_role": {"const": "child"},
+    "base_policy_id": {"type": "string", "pattern": "^hcpol-[0-9a-f]{24}$"},
+    "base_policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "rule_source_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "rule_source_version": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"},
+    "rule_source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "allow_domains": {"type": "array", "maxItems": 512, "uniqueItems": true, "items": {"type": "string", "minLength": 3, "maxLength": 253}},
+    "deny_domains": {"type": "array", "maxItems": 512, "uniqueItems": true, "items": {"type": "string", "minLength": 3, "maxLength": 253}},
+    "allow_categories": {"type": "array", "maxItems": 256, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 128}},
+    "deny_categories": {"type": "array", "maxItems": 256, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 128}},
+    "schedule": {
+      "type": "array", "maxItems": 64,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["weekday", "start_minute", "end_minute"],
+        "properties": {
+          "weekday": {"type": "integer", "minimum": 0, "maximum": 6},
+          "start_minute": {"type": "integer", "minimum": 0, "maximum": 1438},
+          "end_minute": {"type": "integer", "minimum": 1, "maximum": 1439}
+        }
+      }
+    },
+    "daily_quota_minutes": {"type": ["integer", "null"], "minimum": 1, "maximum": 1440},
+    "weekly_quota_minutes": {"type": ["integer", "null"], "minimum": 1, "maximum": 10080},
+    "continuous_session_minutes": {"type": ["integer", "null"], "minimum": 1, "maximum": 1440},
+    "break_minutes": {"type": "integer", "minimum": 0, "maximum": 1440},
+    "grace_minutes": {"type": "integer", "minimum": 0, "maximum": 60},
+    "bonus_minutes": {"type": "integer", "minimum": 0, "maximum": 1440},
+    "default_decision": {"const": "deny"},
+    "dns_policy_required": {"const": true},
+    "proxy_policy_required": {"const": true},
+    "enforcement_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
