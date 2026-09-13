@@ -13,6 +13,8 @@ CONTRACT_MEMBER = "contracts/household/role-identity-provisioning-execution-rece
 BINDING_RUNTIME_MEMBER = "home_center/role_identity_binding_transition.py"
 BINDING_STATE_CONTRACT = "contracts/household/role-identity-binding-state.v1.schema.json"
 BINDING_RECEIPT_CONTRACT = "contracts/household/role-identity-binding-transition-receipt.v1.schema.json"
+QUALIFICATION_RUNTIME_MEMBER = "home_center/role_identity_provider_qualification.py"
+QUALIFICATION_CONTRACT = "contracts/household/role-identity-provider-qualification.v1.schema.json"
 
 
 def test_062_identity_runtime_is_present_in_actual_qualified_wheel() -> None:
@@ -22,6 +24,7 @@ def test_062_identity_runtime_is_present_in_actual_qualified_wheel() -> None:
         members = set(archive.namelist())
     assert RUNTIME_MEMBER in members
     assert BINDING_RUNTIME_MEMBER in members
+    assert QUALIFICATION_RUNTIME_MEMBER in members
 
 
 def test_062_identity_runtime_and_receipt_contract_are_present_in_node_candidate() -> None:
@@ -39,3 +42,5 @@ def test_062_identity_runtime_and_receipt_contract_are_present_in_node_candidate
     assert BINDING_RUNTIME_MEMBER in members
     assert BINDING_STATE_CONTRACT in members
     assert BINDING_RECEIPT_CONTRACT in members
+    assert QUALIFICATION_RUNTIME_MEMBER in members
+    assert QUALIFICATION_CONTRACT in members
