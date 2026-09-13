@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/qr-onboarding-operation-receipt.v1.schema.json",
+  "title": "Home Center QR onboarding operation receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "receipt_id", "operation", "runtime_record_id", "invitation_id",
+    "household_id", "household_snapshot_id", "household_resource_version",
+    "household_generation", "target_member_id", "before_state", "after_state",
+    "record_version", "occurred_at_epoch", "invitation_evidence_sha256",
+    "invitation_state_post_condition_verified", "onboarding_effect_verified",
+    "next_required_boundary", "raw_onboarding_code_persisted",
+    "account_creation_authorized", "device_registration_authorized",
+    "managed_state_change_authorized", "provider_execution_authorized",
+    "infrastructure_mutation_authorized", "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.qr-onboarding-operation-receipt.v1"},
+    "receipt_id": {"type": "string", "pattern": "^hcqro-[0-9a-f]{24}$"},
+    "operation": {"enum": ["issue", "consume", "revoke"]},
+    "runtime_record_id": {"type": "string", "pattern": "^hcqrr-[0-9a-f]{24}$"},
+    "invitation_id": {"type": "string", "pattern": "^hcqri-[0-9a-f]{24}$"},
+    "household_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "household_snapshot_id": {"type": "string", "pattern": "^hsnap-[0-9a-f]{24}$"},
+    "household_resource_version": {"type": "string", "pattern": "^hrv-[0-9a-f]{24}$"},
+    "household_generation": {"type": "integer", "minimum": 1},
+    "target_member_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "before_state": {"type": ["string", "null"], "enum": [null, "active", "expired", "revoked", "consumed"]},
+    "after_state": {"enum": ["active", "expired", "revoked", "consumed"]},
+    "record_version": {"type": "integer", "minimum": 1},
+    "occurred_at_epoch": {"type": "integer", "minimum": 0},
+    "invitation_evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "invitation_state_post_condition_verified": {"const": true},
+    "onboarding_effect_verified": {"const": false},
+    "next_required_boundary": {
+      "enum": [
+        "explicit-qr-presentation-and-redemption",
+        "typed-guest-access-change-job",
+        "typed-device-binding-change-job",
+        "typed-access-revocation-change-job"
+      ]
+    },
+    "raw_onboarding_code_persisted": {"const": false},
+    "account_creation_authorized": {"const": false},
+    "device_registration_authorized": {"const": false},
+    "managed_state_change_authorized": {"const": false},
+    "provider_execution_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
