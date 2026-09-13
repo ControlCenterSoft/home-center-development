@@ -5,7 +5,7 @@ import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.62.0"
+VERSION = "0.62.1"
 BASELINE_VERSION = "0.61.2"
 
 
@@ -24,14 +24,15 @@ def test_062_exact_release_identity_is_consistent() -> None:
 
 
 def test_062_release_notes_are_official_bounded_and_truthful() -> None:
-    notes = (ROOT / "docs/releases/0.62.0.md").read_text(encoding="utf-8")
-    assert notes.startswith("# Home Center 0.62.0\n\nStatus: official release.")
+    notes = (ROOT / "docs/releases/0.62.1.md").read_text(encoding="utf-8")
+    assert notes.startswith("# Home Center 0.62.1\n\nStatus: official release.")
     assert "Release profile: `single-node-core`." in notes
-    assert "Provider-specific execution" in notes
-    assert "disabled/fail-closed" in notes
-    assert "multi-node HA / automatic failover" in notes
+    assert "provider execution" in notes.lower()
+    assert "disabled/fail-closed/unclaimed" in notes
+    assert "multi-node HA/automatic failover" in notes
     assert "commercial-launch clearance" in notes
     assert f"{BASELINE_VERSION} → {VERSION} → {BASELINE_VERSION}" in notes
+    assert "reconciled ancestry" in notes
 
 
 def test_062_role_identity_runtime_source_is_present() -> None:
