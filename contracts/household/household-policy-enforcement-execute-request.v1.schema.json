@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/household-policy-enforcement-execute-request.v1.schema.json",
+  "title": "Home Center household policy enforcement execute request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "plan_id"],
+  "properties": {
+    "schema": {"const": "home-center.household-policy-enforcement-execute-request.v1"},
+    "plan_id": {
+      "type": "string",
+      "pattern": "^hpep-[0-9a-f]{24}$"
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://home-center.local/contracts/household/household-policy-reconciliation-evidence.v1.schema.json",
+  "title":"Home Center household policy reconciliation evidence v1",
+  "type":"object","additionalProperties":false,
+  "required":["schema","evidence_id","request_id","backend_id","binding","observed_at","observed_state","actual_policy_sha256","status","blocker","enforcement_verified","reconciliation_required","backend_mutation_performed","infrastructure_mutation_performed","external_publication_performed"],
+  "properties": {
+    "schema":{"const":"home-center.household-policy-reconciliation-evidence.v1"},
+    "evidence_id":{"type":"string","pattern":"^hpev-[0-9a-f]{24}$"},
+    "request_id":{"type":"string","pattern":"^hprq-[0-9a-f]{24}$"},
+    "backend_id":{"type":"string","pattern":"^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$"},
+    "binding":{"$ref":"household-policy-reconciliation-request.v1.schema.json#/$defs/binding"},
+    "observed_at":{"type":"string","pattern":"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"},
+    "observed_state":{"enum":["enforced","not-enforced","unknown","ambiguous"]},
+    "actual_policy_sha256":{"oneOf":[{"type":"string","pattern":"^[0-9a-f]{64}$"},{"type":"null"}]},
+    "status":{"enum":["verified","mismatch","pending","blocked"]},
+    "blocker":{"oneOf":[{"type":"string","enum":["actual-policy-digest-mismatch","policy-not-enforced","actual-state-unknown","actual-state-ambiguous"]},{"type":"null"}]},
+    "enforcement_verified":{"type":"boolean"},
+    "reconciliation_required":{"type":"boolean"},
+    "backend_mutation_performed":{"const":false},
+    "infrastructure_mutation_performed":{"const":false},
+    "external_publication_performed":{"const":false}
+  },
+  "allOf":[
+    {"if":{"properties":{"status":{"const":"verified"}},"required":["status"]},"then":{"properties":{"blocker":{"type":"null"},"enforcement_verified":{"const":true},"reconciliation_required":{"const":false}}}},
+    {"if":{"not":{"properties":{"status":{"const":"verified"}},"required":["status"]}},"then":{"properties":{"enforcement_verified":{"const":false},"reconciliation_required":{"const":true}}}}
+  ]
+}
