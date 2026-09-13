@@ -1,0 +1,192 @@
+name: Home Center CodeQL
+
+on:
+  push:
+    branches:
+      - main
+      - 'release/**'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: home-center-codeql-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  analyze:
+    name: CodeQL Python security analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact event head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@faaca9a8f6edddba5725ffe5adefdab6669a2eca
+        with:
+          languages: python
+          queries: security-extended
+
+      - name: Analyze Python security boundary
+        uses: github/codeql-action/analyze@faaca9a8f6edddba5725ffe5adefdab6669a2eca
+        with:
+          category: /language:python
+
+      - name: Fail closed on current-analysis medium-or-higher findings
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          sarif_files = sorted((Path.cwd().parent / "results").glob("*.sarif"))
+          if not sarif_files:
+              raise SystemExit("CodeQL release gate blocked: current-analysis SARIF is missing")
+
+          reviewed_security_boundaries = {
+              (
+                  "py/overly-permissive-file",
+                  "product/control-plane/src/home_center/store.py",
+                  131,
+              ): (
+                  "os.chmod(path.parent, 0o750)",
+                  "dedicated home-center state directory; group traversal is bounded to the service group",
+              ),
+              (
+                  "py/overly-permissive-file",
+                  "product/control-plane/src/home_center/store.py",
+                  138,
+              ): (
+                  "os.chmod(path, 0o640)",
+                  "state database remains writable only by its owner; read access is bounded to the service group",
+              ),
+              (
+                  "py/overly-permissive-file",
+                  "product/control-plane/src/home_center/privileged_helper.py",
+                  707,
+              ): (
+                  "os.chmod(socket_path, 0o660)",
+                  "root helper IPC socket requires service-group connect access; peer credentials and policy authorize every request",
+              ),
+              (
+                  "py/log-injection",
+                  "product/control-plane/src/home_center/api.py",
+                  164,
+              ): (
+                  "correlation_id,",
+                  "correlation id is accepted from X-Correlation-ID only after a strict [A-Za-z0-9._:-]{1,96} full-match that excludes CR/LF and other log delimiters",
+              ),
+          }
+
+          def reviewed_security_boundary(rule_id, path, line):
+              if not isinstance(line, int):
+                  return None
+              review = reviewed_security_boundaries.get((rule_id, path, line))
+              if review is None:
+                  return None
+              expected_source, rationale = review
+              source_path = Path(path)
+              try:
+                  source_lines = source_path.read_text(encoding="utf-8").splitlines()
+                  actual_source = source_lines[line - 1].strip()
+              except (OSError, IndexError, UnicodeError):
+                  return None
+              if actual_source != expected_source:
+                  return None
+              return rationale
+
+          blocking = []
+          for sarif_path in sarif_files:
+              document = json.loads(sarif_path.read_text(encoding="utf-8"))
+              for run in document.get("runs", []):
+                  tool = run.get("tool") or {}
+                  rule_sources = [tool.get("driver") or {}, *(tool.get("extensions") or [])]
+                  rules = {}
+                  for source in rule_sources:
+                      for rule in source.get("rules", []) or []:
+                          rule_id = rule.get("id")
+                          if rule_id:
+                              rules[rule_id] = rule
+
+                  for result in run.get("results", []):
+                      if result.get("suppressions"):
+                          continue
+                      rule_id = result.get("ruleId") or "unknown-rule"
+                      rule = rules.get(rule_id, {})
+                      properties = dict(rule.get("properties") or {})
+                      properties.update(result.get("properties") or {})
+                      raw_score = properties.get("security-severity")
+                      tags = tuple(properties.get("tags") or ())
+                      security_tagged = any(
+                          tag == "security"
+                          or tag.startswith("external/cwe/")
+                          or tag.startswith("external/cve/")
+                          for tag in tags
+                      )
+
+                      score = None
+                      if raw_score not in (None, ""):
+                          try:
+                              score = float(raw_score)
+                          except (TypeError, ValueError):
+                              raise SystemExit(
+                                  f"CodeQL release gate blocked: invalid security-severity for {rule_id}: {raw_score!r}"
+                              )
+                          if score < 4.0:
+                              continue
+                      elif not security_tagged:
+                          continue
+
+                      location = ((result.get("locations") or [{}])[0].get("physicalLocation") or {})
+                      artifact = location.get("artifactLocation") or {}
+                      region = location.get("region") or {}
+                      path = artifact.get("uri", "unknown-path")
+                      start_line = region.get("startLine", "?")
+                      end_line = region.get("endLine", start_line)
+                      rationale = reviewed_security_boundary(rule_id, path, start_line)
+                      if rationale is not None:
+                          print(
+                              f"CODEQL_REVIEWED_EXCEPTION rule={rule_id} location={path}:{start_line}-{end_line} "
+                              f"rationale={rationale}"
+                          )
+                          continue
+                      blocking.append(
+                          (
+                              score,
+                              rule_id,
+                              path,
+                              start_line,
+                              end_line,
+                              (result.get("message") or {}).get("text", "CodeQL security finding"),
+                          )
+                      )
+
+          if blocking:
+              for score, rule_id, path, start_line, end_line, message in blocking:
+                  if score is None:
+                      severity = "security-severity-missing"
+                      score_text = "missing"
+                  else:
+                      severity = "critical" if score >= 9.0 else "high" if score >= 7.0 else "medium"
+                      score_text = f"{score:g}"
+                  print(
+                      f"CODEQL_RELEASE_BLOCKER severity={severity} score={score_text} "
+                      f"rule={rule_id} location={path}:{start_line}-{end_line}"
+                  )
+                  print(
+                      f"::error file={path},line={start_line},endLine={end_line},"
+                      f"title=CodeQL release gate::{severity} {rule_id}: {message}"
+                  )
+              raise SystemExit(
+                  "CodeQL release gate blocked: current analysis contains medium-or-higher or unclassified security finding(s)"
+              )
+
+          print("CodeQL release gate: current analysis has no unreviewed medium-or-higher or unclassified security findings")
+          PY
