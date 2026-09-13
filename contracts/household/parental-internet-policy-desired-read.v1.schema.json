@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/parental-internet-policy-desired-read.v1.schema.json",
+  "title": "Home Center parental Internet Desired State read v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "member_id", "view", "state", "value",
+    "provider_execution_authorized", "infrastructure_mutation_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.parental-internet-policy-desired-read.v1"},
+    "member_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "view": {"enum": ["cozy", "full"]},
+    "state": {"enum": ["absent", "present"]},
+    "value": {"type": ["object", "null"]},
+    "provider_execution_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"state": {"const": "absent"}}},
+      "then": {"properties": {"value": {"type": "null"}}}
+    },
+    {
+      "if": {"properties": {"state": {"const": "present"}}},
+      "then": {"properties": {"value": {"type": "object"}}}
+    }
+  ]
+}
