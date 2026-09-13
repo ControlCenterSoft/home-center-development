@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/parental-internet-decision.v1.schema.json",
+  "title": "Home Center parental Internet decision v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "policy_id", "decision", "reason", "rule_source_id",
+    "rule_source_version", "rule_source_sha256", "required_break_minutes",
+    "fail_closed", "enforcement_authorized", "infrastructure_mutation_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.parental-internet-decision.v1"},
+    "policy_id": {"type": "string", "pattern": "^hcip-[0-9a-f]{24}$"},
+    "decision": {"enum": ["allow", "deny"]},
+    "reason": {
+      "enum": [
+        "query_invalid", "policy_binding_mismatch", "rule_source_stale_or_mismatched",
+        "explicit_domain_deny", "outside_allowed_schedule", "weekly_quota_exhausted",
+        "daily_quota_exhausted", "continuous_session_limit", "explicit_domain_allow",
+        "classification_unknown", "category_deny", "category_not_allowed", "category_allowed"
+      ]
+    },
+    "rule_source_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "rule_source_version": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"},
+    "rule_source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "required_break_minutes": {"type": "integer", "minimum": 0, "maximum": 1440},
+    "fail_closed": {"const": true},
+    "enforcement_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
