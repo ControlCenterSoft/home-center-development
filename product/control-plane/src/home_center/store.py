@@ -16,6 +16,10 @@ from .safe_auto_repair_migration import (
     SAFE_AUTO_REPAIR_HISTORY_MIGRATION_SQL,
     SAFE_AUTO_REPAIR_HISTORY_MIGRATION_VERSION,
 )
+from .safe_auto_repair_job_migration import (
+    SAFE_AUTO_REPAIR_JOB_MIGRATION_SQL,
+    SAFE_AUTO_REPAIR_JOB_MIGRATION_VERSION,
+)
 from .util import canonical_json, utc_now
 
 
@@ -148,6 +152,10 @@ CREATE TABLE IF NOT EXISTS qr_onboarding_runtime_operations (
     (
         SAFE_AUTO_REPAIR_HISTORY_MIGRATION_VERSION,
         SAFE_AUTO_REPAIR_HISTORY_MIGRATION_SQL,
+    ),
+    (
+        SAFE_AUTO_REPAIR_JOB_MIGRATION_VERSION,
+        SAFE_AUTO_REPAIR_JOB_MIGRATION_SQL,
     ),
 )
 
