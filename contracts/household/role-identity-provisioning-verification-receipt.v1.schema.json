@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/household/role-identity-provisioning-verification-receipt.v1.schema.json",
+  "title": "Home Center role identity provisioning verification receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "verification_id",
+    "job_id",
+    "plan_id",
+    "confirmation_receipt_id",
+    "provider_operation_id",
+    "observation_id",
+    "household_id",
+    "member_id",
+    "account_name",
+    "account_creation_verified",
+    "home_directory_verified",
+    "profile_verified",
+    "post_condition_verified",
+    "credential_material_returned",
+    "emergency_admin_mutation_authorized",
+    "arbitrary_privilege_grant_authorized",
+    "infrastructure_mutation_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.role-identity-provisioning-verification-receipt.v1"},
+    "verification_id": {"type": "string", "pattern": "^hcidver-[0-9a-f]{24}$"},
+    "job_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "plan_id": {"type": "string", "pattern": "^hcidp-[0-9a-f]{24}$"},
+    "confirmation_receipt_id": {"type": "string", "pattern": "^hcidcr-[0-9a-f]{24}$"},
+    "provider_operation_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "observation_id": {"type": "string", "pattern": "^hcidobs-[0-9a-f]{24}$"},
+    "household_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "member_id": {"type": "string", "pattern": "^[a-z][a-z0-9_.:-]{1,127}$"},
+    "account_name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]{0,31}$",
+      "not": {"enum": ["admin", "administrator", "root"]}
+    },
+    "account_creation_verified": {"const": true},
+    "home_directory_verified": {"const": true},
+    "profile_verified": {"const": true},
+    "post_condition_verified": {"const": true},
+    "credential_material_returned": {"const": false},
+    "emergency_admin_mutation_authorized": {"const": false},
+    "arbitrary_privilege_grant_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  }
+}
