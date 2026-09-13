@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
+import jsonschema
 import pytest
 
 from home_center.zigbee_mqtt import (
@@ -16,6 +20,8 @@ from home_center.zigbee_mqtt import (
     project_cozy,
     project_full,
 )
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def _snapshot(now: int = 1000):
@@ -42,6 +48,10 @@ def _snapshot(now: int = 1000):
         now_epoch=now,
         freshness_seconds=30,
     )
+
+
+def _schema(name: str) -> dict[str, object]:
+    return json.loads((ROOT / "contracts/smart-home" / name).read_text(encoding="utf-8"))
 
 
 def test_snapshot_is_content_addressed_and_non_authorizing():
@@ -146,3 +156,22 @@ def test_unavailable_evidence_cannot_smuggle_telemetry():
             battery_percent=80,
             evidence_state=EvidenceState.UNAVAILABLE,
         )
+
+
+def test_domain_outputs_match_closed_public_schemas():
+    snapshot = _snapshot()
+    pair = build_operation_plan(
+        snapshot=snapshot,
+        operation=PairingOperation.PAIR,
+        pairing_window_seconds=60,
+    )
+    backup = build_backup_plan(snapshot=snapshot, reason="pre-pair")
+    cases = (
+        (snapshot.to_dict(), "zigbee-mqtt-inventory-snapshot.v1.schema.json"),
+        (pair.to_dict(), "zigbee-mqtt-operation-plan.v1.schema.json"),
+        (backup.to_dict(), "zigbee-mqtt-backup-plan.v1.schema.json"),
+    )
+    for value, name in cases:
+        schema = _schema(name)
+        jsonschema.Draft202012Validator.check_schema(schema)
+        jsonschema.Draft202012Validator(schema).validate(value)
