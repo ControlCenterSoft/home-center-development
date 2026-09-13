@@ -5,8 +5,8 @@ verified 0.59 child-policy base and current parental Desired State before commit
 This wrapper adds the missing production re-auth boundary without weakening those
 checks: it performs a read-only preflight first, consumes one actor/plan-bound step-up
 grant, then calls the base runtime which revalidates the exact state again before any
-write.  Idempotent reads of an already committed receipt require current parent
-authority but do not consume a new grant.
+write. Idempotent reads of an already committed receipt require current parent
+authority and exact durable receipt/plan binding but do not consume a new grant.
 """
 from __future__ import annotations
 
@@ -61,11 +61,37 @@ class SafeParentalInternetPolicyRuntimeService:
     def desired_state(self, *, actor: str, member_id: str) -> dict[str, object] | None:
         return self.base.desired_state(actor=actor, member_id=member_id)
 
+    @staticmethod
+    def _committed_receipt_matches(
+        *,
+        receipt: object,
+        plan: dict[str, Any],
+        household_id: str,
+        member_id: str,
+    ) -> bool:
+        return bool(
+            isinstance(receipt, dict)
+            and receipt.get("schema") == COMMIT_RECEIPT_SCHEMA
+            and receipt.get("state") == "desired-state-committed"
+            and receipt.get("plan_id") == plan.get("plan_id")
+            and receipt.get("household_id") == household_id
+            and receipt.get("member_id") == member_id
+            and receipt.get("desired_generation") == plan.get("expected_desired_generation")
+            and receipt.get("verified_base_state_sha256") == plan.get("verified_base_state_sha256")
+            and receipt.get("policy_sha256") == plan.get("proposed_policy_sha256")
+            and receipt.get("enforcement_verified") is False
+            and receipt.get("reconciliation_required") is True
+            and receipt.get("dns_policy_applied") is False
+            and receipt.get("proxy_policy_applied") is False
+            and receipt.get("infrastructure_mutation_performed") is False
+            and receipt.get("external_publication_performed") is False
+        )
+
     def confirmation_scope(self, *, actor: str, plan_id: object) -> str | None:
         """Revalidate immutable plan/authority before a credential grant is issued.
 
         ``None`` means the exact plan is already durably committed and only an
-        idempotent receipt read remains.  All other valid planned states return the
+        idempotent receipt read remains. All other valid planned states return the
         exact scope that the re-auth endpoint may issue.
         """
 
@@ -79,9 +105,6 @@ class SafeParentalInternetPolicyRuntimeService:
             actor_member_id = self.base._actor_parent(actor, snapshot, bindings)
 
             if envelope.get("status") == "committed":
-                receipt = envelope.get("commit")
-                if not isinstance(receipt, dict) or receipt.get("schema") != COMMIT_RECEIPT_SCHEMA:
-                    raise ParentalInternetPolicyRuntimeError("parental_internet_plan_state_invalid")
                 subject_member_id = plan.get("subject_member_id")
                 try:
                     subject = snapshot.household.member(subject_member_id)
@@ -89,6 +112,13 @@ class SafeParentalInternetPolicyRuntimeService:
                     raise ParentalInternetPolicyRuntimeError(exc.code) from exc
                 if not subject.enabled or subject.role is not HouseholdRole.CHILD:
                     raise ParentalInternetPolicyRuntimeError("parental_internet_subject_not_eligible")
+                if not self._committed_receipt_matches(
+                    receipt=envelope.get("commit"),
+                    plan=plan,
+                    household_id=snapshot.household_id,
+                    member_id=subject.member_id,
+                ):
+                    raise ParentalInternetPolicyRuntimeError("parental_internet_plan_state_invalid")
                 return None
 
             if envelope.get("status") != "planned":
@@ -167,7 +197,7 @@ class SafeParentalInternetPolicyRuntimeService:
                 raise ParentalInternetPolicyRuntimeError(exc.code) from exc
 
         # The base runtime repeats all exact-state checks under its own lock before any
-        # durable write.  A state change between preflight and this call therefore fails
+        # durable write. A state change between preflight and this call therefore fails
         # closed even though the one-time grant has already been consumed.
         return self.base.confirm(
             actor=actor,
