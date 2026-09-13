@@ -386,13 +386,25 @@ class HouseholdPolicyEnforcementRuntimeService:
             final = dict(invoking)
             final.update(status="completed" if accepted else "failed", backend_result=result, receipt=receipt)
             self.store.set_meta(key, final)
-            self.store.transition_action_job(
-                job["job_id"], expected_state="running",
-                new_state="succeeded" if accepted else "failed",
-                evidence={"schema": "home-center.household-policy-enforcement-evidence.v1",
-                          "backend_result": result, "receipt": receipt,
-                          "enforcement_verified": False, "reconciliation_required": True},
-            )
+            evidence = {
+                "schema": "home-center.household-policy-enforcement-evidence.v1",
+                "backend_result": result, "receipt": receipt,
+                "enforcement_verified": False, "reconciliation_required": True,
+            }
+            if accepted:
+                verifying = self.store.transition_action_job(
+                    job["job_id"], expected_state="running", new_state="verifying",
+                    result=result,
+                )
+                self.store.transition_action_job(
+                    verifying["job_id"], expected_state="verifying", new_state="succeeded",
+                    evidence=evidence,
+                )
+            else:
+                self.store.transition_action_job(
+                    job["job_id"], expected_state="running", new_state="failed",
+                    evidence=evidence,
+                )
             self.store.audit(
                 actor=actor, action=ACTION, target=str(plan["member_id"]),
                 outcome="backend-accepted" if accepted else "backend-rejected",
