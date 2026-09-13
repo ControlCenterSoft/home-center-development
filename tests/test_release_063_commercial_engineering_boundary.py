@@ -15,6 +15,7 @@ QR_RUNTIME_MODULES = (
     "qr_onboarding_effect_handoff.py",
     "qr_onboarding_effect_verification.py",
     "qr_onboarding_effect_admission.py",
+    "qr_onboarding_effect_execution.py",
 )
 
 
