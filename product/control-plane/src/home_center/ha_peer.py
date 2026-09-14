@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import ssl
 import threading
 import urllib.request
@@ -12,7 +13,7 @@ from typing import Any
 from .authoritative_state import snapshot_authoritative
 from .config import Config, Peer
 from .ha_admission import writer_admission
-from .ha_state import load_membership, load_transition
+from .ha_state import HAStateConflict, load_membership, load_transition
 from .release_identity import ReleaseIdentityError, current_release_identity
 from .util import utc_now
 
@@ -20,6 +21,7 @@ HA_STATUS_SCHEMA = "home-center.ha-peer-status.v1"
 HA_SNAPSHOT_SCHEMA = "home-center.ha-peer-authoritative-state.v1"
 MAX_HA_STATUS_BYTES = 512 * 1024
 MAX_HA_SNAPSHOT_BYTES = 32 * 1024 * 1024
+_HEX40 = re.compile(r"^[0-9a-f]{40}$")
 
 
 class HAPeerProtocolError(RuntimeError):
@@ -58,24 +60,32 @@ def _qualified_release() -> dict[str, Any]:
     if release.get("source") != "immutable-artifact":
         raise HAPeerProtocolError("ha_requires_immutable_release")
     revision = release.get("revision")
-    if not isinstance(revision, str) or len(revision) != 40:
+    if not isinstance(revision, str) or _HEX40.fullmatch(revision) is None:
         raise HAPeerProtocolError("ha_release_revision_unqualified")
     return release
+
+
+def _local_ha_state(runtime: Any) -> tuple[dict[str, Any] | None, dict[str, Any] | None, dict[str, Any], Any]:
+    try:
+        with runtime.store._lock:  # noqa: SLF001 - canonical StateStore transaction domain
+            membership = load_membership(runtime.store._connection)  # noqa: SLF001
+            transition = load_transition(runtime.store._connection)  # noqa: SLF001
+            snapshot = snapshot_authoritative(runtime.store._connection)  # noqa: SLF001
+            admission = writer_admission(
+                runtime.store._connection,  # noqa: SLF001
+                local_node_id=runtime.config.node_id,
+                bootstrap_role=runtime.config.role,
+            )
+    except (HAStateConflict, ValueError, TypeError) as exc:
+        raise HAPeerProtocolError("ha_local_state_invalid") from exc
+    return membership, transition, snapshot, admission
 
 
 def build_ha_status(runtime: Any) -> dict[str, Any]:
     """Build non-secret HA evidence for an authenticated cluster peer."""
     release = _qualified_release()
     clock = runtime.ha_export_clock.current()
-    with runtime.store._lock:  # noqa: SLF001 - canonical StateStore transaction domain
-        membership = load_membership(runtime.store._connection)  # noqa: SLF001
-        transition = load_transition(runtime.store._connection)  # noqa: SLF001
-        snapshot = snapshot_authoritative(runtime.store._connection)  # noqa: SLF001
-        admission = writer_admission(
-            runtime.store._connection,  # noqa: SLF001
-            local_node_id=runtime.config.node_id,
-            bootstrap_role=runtime.config.role,
-        )
+    membership, transition, snapshot, admission = _local_ha_state(runtime)
     return {
         "schema": HA_STATUS_SCHEMA,
         "cluster_id": runtime.config.cluster_id,
@@ -100,19 +110,11 @@ def build_ha_status(runtime: Any) -> dict[str, Any]:
 def build_authoritative_export(runtime: Any) -> dict[str, Any]:
     """Export writer-owned state only when this node is the durable writer."""
     release = _qualified_release()
-    with runtime.store._lock:  # noqa: SLF001 - canonical StateStore transaction domain
-        membership = load_membership(runtime.store._connection)  # noqa: SLF001
-        transition = load_transition(runtime.store._connection)  # noqa: SLF001
-        admission = writer_admission(
-            runtime.store._connection,  # noqa: SLF001
-            local_node_id=runtime.config.node_id,
-            bootstrap_role=runtime.config.role,
-        )
-        if membership is None:
-            raise HAPeerProtocolError("ha_membership_not_initialized")
-        if not admission.allowed or membership.get("writer") != runtime.config.node_id:
-            raise HAPeerProtocolError("ha_export_requires_durable_writer")
-        snapshot = snapshot_authoritative(runtime.store._connection)  # noqa: SLF001
+    membership, transition, snapshot, admission = _local_ha_state(runtime)
+    if membership is None:
+        raise HAPeerProtocolError("ha_membership_not_initialized")
+    if not admission.allowed or membership.get("writer") != runtime.config.node_id:
+        raise HAPeerProtocolError("ha_export_requires_durable_writer")
     clock = runtime.ha_export_clock.next()
     return {
         "schema": HA_SNAPSHOT_SCHEMA,
