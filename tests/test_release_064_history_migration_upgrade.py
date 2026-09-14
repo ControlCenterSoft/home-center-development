@@ -12,10 +12,12 @@ from home_center.safe_auto_repair import (
     evaluate_safe_auto_repair,
 )
 from home_center.safe_auto_repair_history import SQLiteSafeAutoRepairHistoryRepository
+from home_center.safe_auto_repair_job_store import SQLiteSafeAutoRepairJobRepository
 from home_center.store import MIGRATIONS, StateStore
 
 
 LEGACY_V4_VERSIONS = (1, 2, 3, 4)
+CURRENT_VERSIONS = [1, 2, 3, 4, 5, 6]
 
 
 def _create_legacy_v4_database(path: Path, *, marker: dict[str, object]) -> None:
@@ -72,25 +74,32 @@ def _migration_versions(store: StateStore) -> list[int]:
     ]
 
 
-def test_current_statestore_automatically_upgrades_v4_and_preserves_existing_state(tmp_path: Path) -> None:
+def test_current_statestore_automatically_upgrades_v4_to_v6_and_preserves_existing_state(
+    tmp_path: Path,
+) -> None:
     path = tmp_path / "upgrade" / "state.db"
     marker = {"preserved": True, "generation": 7, "stable": "0.63.0"}
     _create_legacy_v4_database(path, marker=marker)
 
     upgraded = StateStore(path, b"x" * 32, "cluster-test")
     try:
-        assert [version for version, _ in MIGRATIONS] == [1, 2, 3, 4, 5]
+        assert [version for version, _ in MIGRATIONS] == CURRENT_VERSIONS
         assert upgraded.get_meta("pre_064_marker") == marker
-        assert _migration_versions(upgraded) == [1, 2, 3, 4, 5]
+        assert _migration_versions(upgraded) == CURRENT_VERSIONS
         assert upgraded._connection.execute(  # noqa: SLF001
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name='safe_auto_repair_recommendations'"
+        ).fetchone() is not None
+        assert upgraded._connection.execute(  # noqa: SLF001
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='safe_auto_repair_jobs'"
         ).fetchone() is not None
         assert upgraded.integrity_check() is True
     finally:
         upgraded.close()
 
 
-def test_v5_history_survives_restart_and_sqlite_backup_restore(tmp_path: Path) -> None:
+def test_v5_history_and_v6_job_schema_survive_restart_and_sqlite_backup_restore(
+    tmp_path: Path,
+) -> None:
     source_path = tmp_path / "source" / "state.db"
     backup_path = tmp_path / "backup" / "state.db"
     marker = {"preserved": True, "stable": "0.63.0"}
@@ -98,11 +107,16 @@ def test_v5_history_survives_restart_and_sqlite_backup_restore(tmp_path: Path) -
 
     upgraded = StateStore(source_path, b"y" * 32, "cluster-backup")
     recommendation = _recommendation()
-    repository = SQLiteSafeAutoRepairHistoryRepository(
+    history = SQLiteSafeAutoRepairHistoryRepository(
         upgraded._connection,  # noqa: SLF001 - canonical shared StateStore connection
         upgraded._lock,  # noqa: SLF001 - canonical shared StateStore lock
     )
-    assert repository.append(recommendation, recorded_at_epoch=1_000) is True
+    jobs = SQLiteSafeAutoRepairJobRepository(
+        upgraded._connection,  # noqa: SLF001
+        upgraded._lock,  # noqa: SLF001
+    )
+    assert history.append(recommendation, recorded_at_epoch=1_000) is True
+    assert jobs.recent_for_recommendation(recommendation_id=recommendation.recommendation_id) == []
     upgraded.backup_to(backup_path)
     upgraded.close()
 
@@ -110,8 +124,12 @@ def test_v5_history_survives_restart_and_sqlite_backup_restore(tmp_path: Path) -
         reopened = StateStore(path, b"y" * 32, "cluster-backup")
         try:
             assert reopened.get_meta("pre_064_marker") == marker
-            assert _migration_versions(reopened) == [1, 2, 3, 4, 5]
+            assert _migration_versions(reopened) == CURRENT_VERSIONS
             history = SQLiteSafeAutoRepairHistoryRepository(
+                reopened._connection,  # noqa: SLF001
+                reopened._lock,  # noqa: SLF001
+            )
+            jobs = SQLiteSafeAutoRepairJobRepository(
                 reopened._connection,  # noqa: SLF001
                 reopened._lock,  # noqa: SLF001
             )
@@ -123,6 +141,7 @@ def test_v5_history_survives_restart_and_sqlite_backup_restore(tmp_path: Path) -
             assert stored["recommendation"]["provider_execution_authorized"] is False
             assert stored["recommendation"]["infrastructure_mutation_authorized"] is False
             assert stored["recommendation"]["external_publication_authorized"] is False
+            assert jobs.recent_for_recommendation(recommendation_id=recommendation.recommendation_id) == []
             assert reopened.integrity_check() is True
         finally:
             reopened.close()

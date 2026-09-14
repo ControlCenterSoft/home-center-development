@@ -18,7 +18,6 @@ from .qr_onboarding_runtime import QrOnboardingRuntimeService, SQLiteQrOnboardin
 from .role_identity_provisioning_runtime_safe import SafeRoleIdentityProvisioningRuntimeService
 from .runtime import Runtime
 from .safe_auto_repair_history import SQLiteSafeAutoRepairHistoryRepository
-from .safe_auto_repair_job_migration import apply_safe_auto_repair_job_migration
 from .safe_auto_repair_job_store import SQLiteSafeAutoRepairJobRepository
 
 
@@ -27,7 +26,6 @@ class ProductionRuntime(Runtime):
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         super().__init__(*args, **kwargs)  # type: ignore[arg-type]
-        apply_safe_auto_repair_job_migration(self.store)
         self.safe_repair_history = SQLiteSafeAutoRepairHistoryRepository(
             self.store._connection,  # noqa: SLF001 - same-package canonical StateStore DB
             self.store._lock,  # noqa: SLF001 - share canonical transaction lock
