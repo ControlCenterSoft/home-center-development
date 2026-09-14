@@ -40,7 +40,7 @@ class HAFencePolicy:
 
 
 def resolve_fence_mode(
-    connection: sqlite3.Connection,
+    connection: sqlite3.Connection | None,
     config: Config,
     *,
     override: str | None = None,
@@ -50,6 +50,12 @@ def resolve_fence_mode(
         if override not in FENCE_OVERRIDES:
             raise HAFenceRejected("ha_fence_override_rejected")
         return override
+
+    # Before the canonical DB exists there is no durable epoch yet; bootstrap role
+    # is the only available source of truth. Once the DB exists callers must pass
+    # a real connection so corruption/read failures cannot silently fall back.
+    if connection is None:
+        return "standby" if config.role == "standby" else "writer"
 
     membership = load_membership(connection)
     if membership is None:
@@ -63,14 +69,15 @@ def resolve_fence_mode(
 
 
 def fence_policy(
-    connection: sqlite3.Connection,
+    connection: sqlite3.Connection | None,
     config: Config,
     *,
     override: str | None = None,
 ) -> HAFencePolicy:
     mode = resolve_fence_mode(connection, config, override=override)
     peer_addresses = tuple(sorted({peer.address for peer in config.peers}))
-    if mode == "standby" and not peer_addresses and load_membership(connection) is not None:
+    membership_initialized = connection is not None and load_membership(connection) is not None
+    if mode == "standby" and not peer_addresses and membership_initialized:
         raise HAFenceRejected("ha_fence_peer_address_missing")
     return HAFencePolicy(
         mode=mode,
