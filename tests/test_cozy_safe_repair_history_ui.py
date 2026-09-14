@@ -42,7 +42,7 @@ def test_cozy_safe_repair_history_is_accessible_and_injection_safe() -> None:
     assert "textContent" in ui
     assert "innerHTML" not in ui
     assert "eval(" not in ui
-    assert "Интерфейс не запускает и не повторяет исправления." in ui
+    assert "интерфейс не запускает и не повторяет исправления." in ui
 
 
 def test_cozy_safe_repair_history_fails_closed_on_bad_or_unauthorized_response() -> None:
