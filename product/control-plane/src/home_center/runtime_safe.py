@@ -9,6 +9,7 @@ its own production schema mutation.
 from __future__ import annotations
 
 from .ha_peer import HAPeerExportClock
+from .ha_reconcile import HAStateReconciler
 from .qr_onboarding_effect_admission import QrOnboardingEffectAdmissionService
 from .qr_onboarding_effect_execution import QrOnboardingEffectExecutionService
 from .qr_onboarding_effect_source import QrOnboardingEffectSourceService
@@ -20,11 +21,12 @@ from .runtime import Runtime
 
 
 class ProductionRuntime(Runtime):
-    """Server runtime with fail-closed providers and bounded QR effects."""
+    """Server runtime with fail-closed providers, bounded QR effects and manual HA state sync."""
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         super().__init__(*args, **kwargs)  # type: ignore[arg-type]
         self.ha_export_clock = HAPeerExportClock()
+        self.ha_state_reconciler = HAStateReconciler(self.config, self.store)
         self.role_identity_provisioning = SafeRoleIdentityProvisioningRuntimeService(self.store)
         qr_repository = SQLiteQrOnboardingRuntimeRepository(
             self.store._connection,  # noqa: SLF001 - same-package canonical StateStore DB
@@ -38,3 +40,11 @@ class ProductionRuntime(Runtime):
         for job_type in SUPPORTED_JOB_TYPES:
             self.qr_effect_execution.register(job_type, qr_product_state)
         self.qr_effect_worker = QrOnboardingEffectWorkerService(self.store, self.qr_effect_execution)
+
+    def start(self) -> None:
+        super().start()
+        self.ha_state_reconciler.start()
+
+    def stop(self) -> None:
+        self.ha_state_reconciler.stop()
+        super().stop()
