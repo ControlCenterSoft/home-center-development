@@ -128,8 +128,17 @@ class Runtime:
             expected_mode=0o640,
         )
 
+    def authoritative_mutations_allowed(self) -> bool:
+        """Generic runtime hook; production HA composition overrides this fail-closed."""
+        return True
+
     def start(self) -> None:
-        recovered = self.device_management_enrollment_post_condition.recover_incomplete()
+        recovery_allowed = self.authoritative_mutations_allowed()
+        recovered = (
+            self.device_management_enrollment_post_condition.recover_incomplete()
+            if recovery_allowed
+            else 0
+        )
         self.store.audit(
             actor="system:runtime",
             action="runtime.start",
@@ -140,6 +149,7 @@ class Runtime:
                 "version": __version__,
                 "role": self.config.role,
                 "post_condition_recoveries": recovered,
+                "authoritative_recovery_allowed": recovery_allowed,
             },
         )
         self.reconciler.start()
