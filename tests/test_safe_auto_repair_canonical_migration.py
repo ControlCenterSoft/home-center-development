@@ -17,7 +17,7 @@ def _normalize(sql: str) -> str:
 
 def test_history_migration_is_installed_once_as_canonical_migration_five() -> None:
     versions = [version for version, _ in MIGRATIONS]
-    assert versions == [1, 2, 3, 4, 5]
+    assert versions == [1, 2, 3, 4, 5, 6]
     assert versions == sorted(set(versions))
     assert SAFE_AUTO_REPAIR_HISTORY_MIGRATION_VERSION == 5
     installed = [sql for version, sql in MIGRATIONS if version == SAFE_AUTO_REPAIR_HISTORY_MIGRATION_VERSION]
