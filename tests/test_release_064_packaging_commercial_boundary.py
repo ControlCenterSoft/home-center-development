@@ -11,6 +11,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME = ROOT / "product/control-plane/src/home_center"
+DEVELOPMENT_VERSION = "0.64.0"
 FOUNDATION_MODULES = (
     "safe_auto_repair.py",
     "safe_auto_repair_history.py",
@@ -26,6 +27,16 @@ def _absolute_import_roots(path: Path) -> set[str]:
         elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
             roots.add(node.module.split(".", 1)[0])
     return roots
+
+
+def test_064_development_identity_is_exact_everywhere() -> None:
+    assert (ROOT / "VERSION").read_text(encoding="ascii").strip() == DEVELOPMENT_VERSION
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    assert project["version"] == DEVELOPMENT_VERSION
+    runtime_init = (RUNTIME / "__init__.py").read_text(encoding="utf-8")
+    assert f'__version__ = "{DEVELOPMENT_VERSION}"' in runtime_init
+    html = (ROOT / "product/web/static/index.html").read_text(encoding="utf-8")
+    assert f'<small id="version">{DEVELOPMENT_VERSION}</small>' in html
 
 
 def test_064_foundation_has_no_third_party_runtime_dependency() -> None:
@@ -51,12 +62,14 @@ def test_064_foundation_modules_are_present_in_the_exact_ci_wheel() -> None:
 
 def test_064_release_boundary_keeps_commercial_provider_and_ha_claims_closed() -> None:
     notes = (ROOT / "docs/releases/0.64.0.md").read_text(encoding="utf-8")
+    assert "Status: development" in notes
     assert "Authoritative Public Stable baseline for this work is Home Center 0.63.0." in notes
     assert "adds no third-party runtime dependency" in notes
     assert "no remote-service client dependency" in notes
     assert "does not claim provider qualification, HA capability or commercial-launch/legal clearance" in notes
     assert "eligible_for_auto_repair=true` is evidence only" in notes
     assert "does not grant execution authority" in notes
+    assert "DEVELOPMENT_NO_PUBLISH" in notes
 
 
 def test_064_foundation_source_contains_no_remote_client_or_secret_value_import() -> None:
