@@ -124,6 +124,7 @@ REQUIRED_MEMBERS = frozenset(
         "home_center/automation_retry.py",
         "home_center/automation_runbook.py",
         "home_center/safe_auto_repair.py",
+        "home_center/safe_auto_repair_candidate_source.py",
         "home_center/safe_auto_repair_history.py",
         "home_center/safe_auto_repair_admission.py",
         "home_center/safe_auto_repair_job.py",
