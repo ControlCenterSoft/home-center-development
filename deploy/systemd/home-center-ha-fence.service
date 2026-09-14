@@ -13,6 +13,8 @@ ExecStart=/usr/bin/python3 -I /opt/home-center/current/deploy/home-center-ha-fen
 RemainAfterExit=yes
 TimeoutStartSec=30s
 UMask=0077
+RuntimeDirectory=home-center-locks
+RuntimeDirectoryMode=0700
 NoNewPrivileges=yes
 PrivateTmp=yes
 PrivateDevices=yes
@@ -34,7 +36,7 @@ SystemCallArchitectures=native
 CapabilityBoundingSet=CAP_NET_ADMIN
 AmbientCapabilities=CAP_NET_ADMIN
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
-ReadWritePaths=/var/lib/home-center/ha-fence /run/home-center-locks /run/xtables.lock
+ReadWritePaths=/var/lib/home-center/ha-fence /run
 ReadOnlyPaths=/etc/home-center /opt/home-center /var/lib/home-center
 
 [Install]
