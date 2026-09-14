@@ -6,16 +6,34 @@ from urllib.parse import urlsplit
 
 from .api_v11 import RuntimeRequestHandlerV11
 from .ha_admission import writer_admission
+from .ha_status import status as ha_status
 
 
 class RuntimeRequestHandlerV12(RuntimeRequestHandlerV11):
-    """Allow authenticated mutations only on the durable HA writer."""
+    """Expose HA evidence and allow mutations only on the durable HA writer."""
 
+    HA_STATUS_PATH = "/api/v1/ha"
     SESSION_ONLY_POSTS = {
         "/api/v1/session",
         "/api/v1/session/logout",
         "/api/v1/session/reauth",
     }
+
+    def do_GET(self) -> None:  # noqa: N802
+        path = urlsplit(self.path).path
+        if path != self.HA_STATUS_PATH:
+            super().do_GET()
+            return
+        correlation_id = self._correlation_id()
+        context = self._classify_request(correlation_id)
+        if context is None:
+            return
+        if self._blocked_for_external(path, context):
+            self._error(HTTPStatus.NOT_FOUND, "not_found", "Ресурс не найден", correlation_id)
+            return
+        if not self._require_actor(correlation_id):
+            return
+        self._json(HTTPStatus.OK, ha_status(self.runtime))
 
     def _require_actor(
         self,
