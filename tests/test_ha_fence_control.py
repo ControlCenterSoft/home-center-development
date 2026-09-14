@@ -4,6 +4,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from home_center.config import Config, Peer
 from home_center.ha_fence_control import (
@@ -138,6 +139,26 @@ class HAFenceControlTests(unittest.TestCase):
         self.override_path.chmod(0o600)
         with self.assertRaisesRegex(HAFenceControlError, "value_rejected"):
             self.overrides.read()
+
+    def test_override_replacement_between_lstat_and_open_fails_closed(self) -> None:
+        self.overrides.write("isolated")
+        replacement = self.override_path.parent / "replacement"
+        replacement.write_text("standby\n", encoding="ascii")
+        replacement.chmod(0o600)
+        real_open = os.open
+        swapped = False
+
+        def swap_before_open(path, flags, *args):
+            nonlocal swapped
+            if not swapped and Path(path) == self.override_path:
+                os.replace(replacement, self.override_path)
+                swapped = True
+            return real_open(path, flags, *args)
+
+        with mock.patch("home_center.ha_fence_control.os.open", side_effect=swap_before_open):
+            with self.assertRaisesRegex(HAFenceControlError, "file_changed"):
+                self.overrides.read()
+        self.assertTrue(swapped)
 
     def test_isolate_persists_before_firewall_activation(self) -> None:
         firewall = FakeFirewall()
