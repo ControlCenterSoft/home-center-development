@@ -37,8 +37,8 @@ class AuthoritativeStateTests(unittest.TestCase):
         }
 
     def _seed_local_state(self) -> None:
-        self.source.upsert_node(self._node("source-node", "source", "leader", "10.0.0.1"), "ready")
-        self.target.upsert_node(self._node("target-node", "target", "standby", "10.0.0.2"), "ready")
+        self.source.upsert_node(self._node("source-node", "source", "leader", "source.example"), "ready")
+        self.target.upsert_node(self._node("target-node", "target", "standby", "target.example"), "ready")
         self.source.audit(
             actor="system:test", action="source.local", target="source-node", outcome="ok",
             correlation_id="source-audit", details={"local": "source"},
