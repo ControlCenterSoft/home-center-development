@@ -1,0 +1,41 @@
+[Unit]
+Description=Home Center HA listener fence
+Documentation=https://github.com/ControlCenterSoft/home-center-development
+Wants=network-online.target
+After=network-online.target
+Before=home-center.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/usr/bin/python3 -I /opt/home-center/current/deploy/home-center-ha-fence.py apply
+RemainAfterExit=yes
+TimeoutStartSec=30s
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=CAP_NET_ADMIN
+AmbientCapabilities=CAP_NET_ADMIN
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+ReadWritePaths=/var/lib/home-center/ha-fence /run/home-center-locks /run/xtables.lock
+ReadOnlyPaths=/etc/home-center /opt/home-center /var/lib/home-center
+
+[Install]
+WantedBy=multi-user.target
