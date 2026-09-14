@@ -80,8 +80,9 @@ class HAStateTests(unittest.TestCase):
         self.node_b.close()
         self.temp.cleanup()
 
-    def _source_fenced_transition(self) -> tuple[dict, object]:
+    def _persist_source_fenced(self, store: StateStore) -> tuple[dict, object]:
         current = membership()
+        initialize_membership(store._connection, current)
         transition = begin_manual_failover(
             current,
             target_node_id="node-b",
@@ -89,16 +90,20 @@ class HAStateTests(unittest.TestCase):
             target=evidence("node-b", fenced=True),
             transition_id="transition-test",
         )
+        persist_transition(store._connection, transition.as_dict(), expected_phase=None)
         transition = record_source_quiesced(transition, evidence("node-a", active=False))
+        persist_transition(store._connection, transition.as_dict(), expected_phase="planned")
         transition = record_final_sync_verified(
             transition,
             source=evidence("node-a", active=False, digest=FINAL_DIGEST, sequence=11),
             target=evidence("node-b", fenced=True, digest=FINAL_DIGEST, sequence=11),
         )
+        persist_transition(store._connection, transition.as_dict(), expected_phase="source_quiesced")
         transition = record_source_fenced(
             transition,
             evidence("node-a", active=False, fenced=True, digest=FINAL_DIGEST, sequence=11),
         )
+        persist_transition(store._connection, transition.as_dict(), expected_phase="final_sync_verified")
         return current, transition
 
     def test_membership_initialization_is_idempotent_but_conflicting_reinitialization_fails(self) -> None:
@@ -131,27 +136,22 @@ class HAStateTests(unittest.TestCase):
         with self.assertRaisesRegex(HAStateConflict, "phase_changed"):
             persist_transition(self.node_a._connection, transition.as_dict(), expected_phase="planned")
 
-    def test_writer_generation_and_transition_phase_commit_atomically(self) -> None:
-        current, transition = self._source_fenced_transition()
+    def test_new_transition_cannot_skip_planned_phase(self) -> None:
+        current = membership()
         initialize_membership(self.node_a._connection, current)
-        planned = begin_manual_failover(
+        transition = begin_manual_failover(
             current,
             target_node_id="node-b",
             source=evidence("node-a"),
             target=evidence("node-b", fenced=True),
             transition_id="transition-test",
         )
-        persist_transition(self.node_a._connection, planned.as_dict(), expected_phase=None)
-        quiesced = record_source_quiesced(planned, evidence("node-a", active=False))
-        persist_transition(self.node_a._connection, quiesced.as_dict(), expected_phase="planned")
-        synced = record_final_sync_verified(
-            quiesced,
-            source=evidence("node-a", active=False, digest=FINAL_DIGEST, sequence=11),
-            target=evidence("node-b", fenced=True, digest=FINAL_DIGEST, sequence=11),
-        )
-        persist_transition(self.node_a._connection, synced.as_dict(), expected_phase="source_quiesced")
-        persist_transition(self.node_a._connection, transition.as_dict(), expected_phase="final_sync_verified")
+        quiesced = record_source_quiesced(transition, evidence("node-a", active=False))
+        with self.assertRaisesRegex(HAStateConflict, "must_start_planned"):
+            persist_transition(self.node_a._connection, quiesced.as_dict(), expected_phase=None)
 
+    def test_writer_generation_and_transition_phase_commit_atomically(self) -> None:
+        current, transition = self._persist_source_fenced(self.node_a)
         promoted_transition, promoted_membership = promote_membership(transition, current)
         commit_promotion(
             self.node_a._connection,
@@ -175,9 +175,7 @@ class HAStateTests(unittest.TestCase):
             )
 
     def test_promoted_membership_and_journal_can_reverse_mirror_to_returning_node(self) -> None:
-        current, transition = self._source_fenced_transition()
-        initialize_membership(self.node_b._connection, current)
-        persist_transition(self.node_b._connection, transition.as_dict(), expected_phase=None)
+        current, transition = self._persist_source_fenced(self.node_b)
         promoted_transition, promoted_membership = promote_membership(transition, current)
         commit_promotion(
             self.node_b._connection,
