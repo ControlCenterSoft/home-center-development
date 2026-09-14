@@ -7,7 +7,6 @@ the unprivileged service starts.
 from __future__ import annotations
 
 import ipaddress
-import os
 import re
 import shlex
 import stat
@@ -216,7 +215,10 @@ def resolve_firewall_binary(address: str) -> Path:
             and info.st_mode & 0o111
             and not info.st_mode & 0o022
         ):
-            return resolved
+            # Keep the applet path (iptables/ip6tables) as argv[0]. Debian's
+            # xtables-nft-multi dispatches behavior from that name; executing
+            # the resolved multi-call binary directly would select no applet.
+            return candidate
     raise HAFenceRuntimeError(f"ha_fence_firewall_binary_unavailable:{name}")
 
 
@@ -321,8 +323,6 @@ class IptablesFirewallAdapter:
     def delete_chain(self, chain: str) -> None:
         if _CHAIN.fullmatch(chain) is None:
             raise HAFenceRuntimeError("ha_fence_chain_identity_rejected")
-        # Orphan cleanup is idempotent: if the chain disappeared between list
-        # and cleanup, both checks simply become no-ops.
         listed = set(self.managed_chains())
         if chain not in listed:
             return
