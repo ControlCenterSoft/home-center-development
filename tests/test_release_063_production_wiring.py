@@ -12,10 +12,11 @@ from home_center.store import StateStore
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_canonical_server_selects_v11_qr_effect_handler() -> None:
+def test_canonical_server_selects_v12_safe_repair_history_handler() -> None:
     server = (ROOT / "product/control-plane/src/home_center/server.py").read_text(encoding="utf-8")
-    assert "from .api_v11 import RuntimeRequestHandlerV11" in server
-    assert "HomeCenterServer(config.web_bind, RuntimeRequestHandlerV11, runtime)" in server
+    assert "from .api_v12 import RuntimeRequestHandlerV12" in server
+    assert "HomeCenterServer(config.web_bind, RuntimeRequestHandlerV12, runtime)" in server
+    assert "RuntimeRequestHandlerV11" not in server
     assert "RuntimeRequestHandlerV10" not in server
     assert "from .runtime_safe import ProductionRuntime as Runtime" in server
 

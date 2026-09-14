@@ -42,6 +42,7 @@ def test_api_route_is_read_only_and_wired_through_current_handler_chain() -> Non
     api_v9 = (ROOT / "product/control-plane/src/home_center/api_v9.py").read_text(encoding="utf-8")
     api_v10 = (ROOT / "product/control-plane/src/home_center/api_v10.py").read_text(encoding="utf-8")
     api_v11 = (ROOT / "product/control-plane/src/home_center/api_v11.py").read_text(encoding="utf-8")
+    api_v12 = (ROOT / "product/control-plane/src/home_center/api_v12.py").read_text(encoding="utf-8")
     server = (ROOT / "product/control-plane/src/home_center/server.py").read_text(encoding="utf-8")
 
     assert EFFECTIVE_STATE_PATH == "/api/v1/household/policy/effective-state"
@@ -54,7 +55,8 @@ def test_api_route_is_read_only_and_wired_through_current_handler_chain() -> Non
     assert "class RuntimeRequestHandlerV9(RuntimeRequestHandlerV8)" in api_v9
     assert "class RuntimeRequestHandlerV10(RuntimeRequestHandlerV9)" in api_v10
     assert "class RuntimeRequestHandlerV11(RuntimeRequestHandlerV10)" in api_v11
-    assert "RuntimeRequestHandlerV11" in server
+    assert "class RuntimeRequestHandlerV12(RuntimeRequestHandlerV11)" in api_v12
+    assert "RuntimeRequestHandlerV12" in server
     assert "RuntimeRequestHandlerV5" not in server
 
 
