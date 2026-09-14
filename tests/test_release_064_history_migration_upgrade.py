@@ -79,11 +79,14 @@ def test_current_statestore_automatically_upgrades_v4_and_preserves_existing_sta
 
     upgraded = StateStore(path, b"x" * 32, "cluster-test")
     try:
-        assert [version for version, _ in MIGRATIONS] == [1, 2, 3, 4, 5]
+        assert [version for version, _ in MIGRATIONS] == [1, 2, 3, 4, 5, 6]
         assert upgraded.get_meta("pre_064_marker") == marker
-        assert _migration_versions(upgraded) == [1, 2, 3, 4, 5]
+        assert _migration_versions(upgraded) == [1, 2, 3, 4, 5, 6]
         assert upgraded._connection.execute(  # noqa: SLF001
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name='safe_auto_repair_recommendations'"
+        ).fetchone() is not None
+        assert upgraded._connection.execute(  # noqa: SLF001
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='safe_auto_repair_jobs'"
         ).fetchone() is not None
         assert upgraded.integrity_check() is True
     finally:
@@ -110,7 +113,7 @@ def test_v5_history_survives_restart_and_sqlite_backup_restore(tmp_path: Path) -
         reopened = StateStore(path, b"y" * 32, "cluster-backup")
         try:
             assert reopened.get_meta("pre_064_marker") == marker
-            assert _migration_versions(reopened) == [1, 2, 3, 4, 5]
+            assert _migration_versions(reopened) == [1, 2, 3, 4, 5, 6]
             history = SQLiteSafeAutoRepairHistoryRepository(
                 reopened._connection,  # noqa: SLF001
                 reopened._lock,  # noqa: SLF001
