@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -12,14 +11,11 @@ def _contract(name: str) -> dict[str, object]:
     return json.loads((ROOT / "contracts/household" / name).read_text(encoding="utf-8"))
 
 
-def test_063_release_identity_is_exact_everywhere() -> None:
-    assert (ROOT / "VERSION").read_text(encoding="ascii").strip() == VERSION
-    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
-    assert project["version"] == VERSION
-    runtime_init = (ROOT / "product/control-plane/src/home_center/__init__.py").read_text(encoding="utf-8")
-    assert f'__version__ = "{VERSION}"' in runtime_init
-    html = (ROOT / "product/web/static/index.html").read_text(encoding="utf-8")
-    assert f'<small id="version">{VERSION}</small>' in html
+def test_063_release_identity_remains_historical_stable_boundary() -> None:
+    notes = (ROOT / "docs/releases/0.63.0.md").read_text(encoding="utf-8")
+    assert "# Home Center 0.63.0" in notes
+    assert "Status: official release." in notes
+    assert "Home Center 0.62.1 → 0.63.0" in notes
 
 
 def test_063_release_notes_are_official_bounded_and_truthful() -> None:
