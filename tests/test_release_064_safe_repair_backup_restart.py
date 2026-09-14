@@ -18,7 +18,6 @@ from home_center.safe_auto_repair_job import (
     record_safe_repair_execution,
     start_safe_repair_job,
 )
-from home_center.safe_auto_repair_job_migration import apply_safe_auto_repair_job_migration
 from home_center.safe_auto_repair_job_store import SQLiteSafeAutoRepairJobRepository
 from home_center.store import StateStore
 
@@ -50,7 +49,6 @@ def _recommendation_and_admission():
 
 
 def _repositories(store: StateStore):
-    apply_safe_auto_repair_job_migration(store)
     return (
         SQLiteSafeAutoRepairHistoryRepository(store._connection, store._lock),  # noqa: SLF001
         SQLiteSafeAutoRepairJobRepository(store._connection, store._lock),  # noqa: SLF001
