@@ -31,6 +31,26 @@ CREATE INDEX IF NOT EXISTS idx_safe_auto_repair_jobs_recommendation
 ON safe_auto_repair_jobs(recommendation_id, updated_at_epoch DESC);
 """
 
+_ALLOWED_TRANSITIONS: dict[RepairJobState, frozenset[RepairJobState]] = {
+    RepairJobState.ADMITTED: frozenset({RepairJobState.RUNNING}),
+    RepairJobState.RUNNING: frozenset(
+        {
+            RepairJobState.VERIFYING,
+            RepairJobState.FAILED,
+            RepairJobState.RECONCILE_REQUIRED,
+        }
+    ),
+    RepairJobState.VERIFYING: frozenset(
+        {
+            RepairJobState.SUCCEEDED,
+            RepairJobState.FAILED,
+        }
+    ),
+    RepairJobState.SUCCEEDED: frozenset(),
+    RepairJobState.FAILED: frozenset(),
+    RepairJobState.RECONCILE_REQUIRED: frozenset(),
+}
+
 
 class SafeAutoRepairJobStoreError(RuntimeError):
     def __init__(self, code: str) -> None:
@@ -116,6 +136,21 @@ class SQLiteSafeAutoRepairJobRepository:
             ).fetchall()
         return [self._decode(row["job_json"]) for row in rows]
 
+    def save(
+        self,
+        job: SafeAutoRepairJob,
+        *,
+        expected_state: RepairJobState,
+        expected_updated_at_epoch: int,
+    ) -> SafeAutoRepairJob:
+        """Persist one observed transition using exact state+timestamp CAS."""
+
+        return self.compare_and_set(
+            expected_state=expected_state,
+            expected_updated_at_epoch=expected_updated_at_epoch,
+            updated=job,
+        )
+
     def compare_and_set(
         self,
         *,
@@ -129,6 +164,11 @@ class SQLiteSafeAutoRepairJobRepository:
             raise SafeAutoRepairJobStoreError("safe_repair_job_store_expected_timestamp_invalid")
         if not isinstance(updated, SafeAutoRepairJob):
             raise TypeError("safe_repair_job_store_job_invalid")
+        if updated.updated_at_epoch < expected_updated_at_epoch:
+            raise SafeAutoRepairJobStoreError("safe_repair_job_store_non_monotonic")
+        allowed = _ALLOWED_TRANSITIONS.get(expected_state)
+        if allowed is None or updated.state not in allowed:
+            raise SafeAutoRepairJobStoreError("safe_repair_job_store_transition_invalid")
         encoded = canonical_json(updated.to_dict())
         with self._lock:
             self._connection.execute("BEGIN IMMEDIATE")
@@ -145,6 +185,7 @@ class SQLiteSafeAutoRepairJobRepository:
                     or current.recommendation_id != updated.recommendation_id
                     or current.recommendation_sha256 != updated.recommendation_sha256
                     or current.idempotency_key_sha256 != updated.idempotency_key_sha256
+                    or current.created_at_epoch != updated.created_at_epoch
                 ):
                     raise SafeAutoRepairJobStoreError("safe_repair_job_store_identity_conflict")
                 if current.state is not expected_state or current.updated_at_epoch != expected_updated_at_epoch:
