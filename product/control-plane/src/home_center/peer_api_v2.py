@@ -6,7 +6,13 @@ from http import HTTPStatus
 from urllib.parse import urlsplit
 
 from .api import PeerRequestHandler
-from .ha_peer import HAPeerProtocolError, build_authoritative_export, build_ha_status
+from .ha_peer import (
+    MAX_HA_SNAPSHOT_BYTES,
+    MAX_HA_STATUS_BYTES,
+    HAPeerProtocolError,
+    build_authoritative_export,
+    build_ha_status,
+)
 
 
 class PeerRequestHandlerV2(PeerRequestHandler):
@@ -15,13 +21,16 @@ class PeerRequestHandlerV2(PeerRequestHandler):
     HA_STATUS_PATH = "/internal/v1/ha/status"
     HA_SNAPSHOT_PATH = "/internal/v1/ha/authoritative-state"
 
-    def _json(self, status: int, value: dict) -> None:
+    def _json(self, status: int, value: dict, *, max_bytes: int = MAX_HA_STATUS_BYTES) -> None:
         body = json.dumps(
             value,
             ensure_ascii=False,
             separators=(",", ":"),
             sort_keys=True,
         ).encode("utf-8")
+        if len(body) > max_bytes:
+            self.send_error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
+            return
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
@@ -41,8 +50,10 @@ class PeerRequestHandlerV2(PeerRequestHandler):
         try:
             if path == self.HA_STATUS_PATH:
                 value = build_ha_status(self.runtime)
+                max_bytes = MAX_HA_STATUS_BYTES
             else:
                 value = build_authoritative_export(self.runtime)
+                max_bytes = MAX_HA_SNAPSHOT_BYTES
         except HAPeerProtocolError as exc:
             unavailable = {
                 "ha_release_identity_unavailable",
@@ -58,4 +69,4 @@ class PeerRequestHandlerV2(PeerRequestHandler):
                 },
             )
             return
-        self._json(HTTPStatus.OK, value)
+        self._json(HTTPStatus.OK, value, max_bytes=max_bytes)
