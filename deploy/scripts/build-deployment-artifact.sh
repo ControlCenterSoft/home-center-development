@@ -41,8 +41,10 @@ cp "$ROOT/deploy/runtime/run.py" "$ROOT/deploy/runtime/backup-run.py" "$STAGE/"
 cp "$ROOT/deploy/scripts/install-node.sh" \
    "$ROOT/deploy/scripts/rollback-node.sh" \
    "$ROOT/deploy/scripts/bootstrap-two-node.sh" \
+   "$ROOT/deploy/scripts/home-center-ha-fence.py" \
    "$STAGE/deploy/"
 cp "$ROOT/deploy/systemd/home-center.service" \
+   "$ROOT/deploy/systemd/home-center-ha-fence.service" \
    "$ROOT/deploy/systemd/home-center-backup.service" \
    "$ROOT/deploy/systemd/home-center-backup.timer" \
    "$STAGE/deploy/"
@@ -63,7 +65,11 @@ fi
 
 find "$STAGE" -type d -exec chmod 0755 {} +
 find "$STAGE" -type f -exec chmod 0644 {} +
-chmod 0755 "$STAGE/deploy/install-node.sh" "$STAGE/deploy/rollback-node.sh" "$STAGE/deploy/bootstrap-two-node.sh"
+chmod 0755 \
+  "$STAGE/deploy/install-node.sh" \
+  "$STAGE/deploy/rollback-node.sh" \
+  "$STAGE/deploy/bootstrap-two-node.sh" \
+  "$STAGE/deploy/home-center-ha-fence.py"
 
 (
   cd "$STAGE"
