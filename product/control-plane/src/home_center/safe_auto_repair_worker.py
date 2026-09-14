@@ -38,7 +38,13 @@ class SafeRepairJobRepository(Protocol):
 
     def get(self, job_id: str) -> SafeAutoRepairJob | None: ...
 
-    def save(self, job: SafeAutoRepairJob, *, expected_state: RepairJobState) -> None: ...
+    def save(
+        self,
+        job: SafeAutoRepairJob,
+        *,
+        expected_state: RepairJobState,
+        expected_updated_at_epoch: int,
+    ) -> SafeAutoRepairJob: ...
 
 
 class SafeRepairWorkerService:
@@ -92,7 +98,11 @@ class SafeRepairWorkerService:
 
         if job.state is RepairJobState.ADMITTED:
             running = start_safe_repair_job(job, updated_at_epoch=now_epoch)
-            self.repository.save(running, expected_state=RepairJobState.ADMITTED)
+            running = self.repository.save(
+                running,
+                expected_state=RepairJobState.ADMITTED,
+                expected_updated_at_epoch=job.updated_at_epoch,
+            )
 
             # The RUNNING state is durable before the first action-adapter call. Any
             # exception from execute therefore leaves a non-retryable uncertain Job.
@@ -108,7 +118,11 @@ class SafeRepairWorkerService:
                 effect_receipt_sha256=result.effect_receipt_sha256,
                 updated_at_epoch=now_epoch,
             )
-            self.repository.save(next_job, expected_state=RepairJobState.RUNNING)
+            next_job = self.repository.save(
+                next_job,
+                expected_state=RepairJobState.RUNNING,
+                expected_updated_at_epoch=running.updated_at_epoch,
+            )
             if next_job.state is RepairJobState.FAILED:
                 raise SafeRepairWorkerError("safe_repair_worker_execution_failed")
             if next_job.state is RepairJobState.RECONCILE_REQUIRED:
@@ -144,7 +158,11 @@ class SafeRepairWorkerService:
             verified=decision.verified,
             updated_at_epoch=now_epoch,
         )
-        self.repository.save(completed, expected_state=RepairJobState.VERIFYING)
+        completed = self.repository.save(
+            completed,
+            expected_state=RepairJobState.VERIFYING,
+            expected_updated_at_epoch=job.updated_at_epoch,
+        )
         if completed.state is not RepairJobState.SUCCEEDED:
             raise SafeRepairWorkerError("safe_repair_worker_post_condition_failed")
         return completed

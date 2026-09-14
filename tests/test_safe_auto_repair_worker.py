@@ -33,9 +33,11 @@ class Repository:
     def get(self, job_id):
         return self.job if self.job.job_id == job_id else None
 
-    def save(self, job, *, expected_state):
+    def save(self, job, *, expected_state, expected_updated_at_epoch):
         assert self.job.state is expected_state
+        assert self.job.updated_at_epoch == expected_updated_at_epoch
         self.job = job
+        return job
 
 
 class Adapter:
