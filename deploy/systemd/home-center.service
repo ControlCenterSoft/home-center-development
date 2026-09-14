@@ -1,7 +1,8 @@
 [Unit]
 Description=Home Center control plane and node inventory
 Documentation=https://github.com/ControlCenterSoft/home-center-development
-After=network-online.target time-sync.target
+Requires=home-center-ha-fence.service
+After=network-online.target time-sync.target home-center-ha-fence.service
 Wants=network-online.target time-sync.target
 
 [Service]
