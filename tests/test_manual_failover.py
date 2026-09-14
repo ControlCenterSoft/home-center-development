@@ -152,6 +152,26 @@ class ManualFailoverTests(unittest.TestCase):
                 target=evidence("node-b", fenced=True),
             )
 
+    def test_final_sync_requires_target_to_remain_ready_active_and_fenced(self) -> None:
+        transition = begin_manual_failover(
+            membership(),
+            target_node_id="node-b",
+            source=evidence("node-a"),
+            target=evidence("node-b", fenced=True),
+        )
+        transition = record_source_quiesced(transition, evidence("node-a", active=False))
+        source = evidence("node-a", active=False, digest=FINAL_DIGEST, sequence=11)
+
+        unsafe_targets = (
+            evidence("node-b", ready=False, fenced=True, digest=FINAL_DIGEST, sequence=11),
+            evidence("node-b", active=False, fenced=True, digest=FINAL_DIGEST, sequence=11),
+            evidence("node-b", fenced=False, digest=FINAL_DIGEST, sequence=11),
+        )
+        for target in unsafe_targets:
+            with self.subTest(target=target):
+                with self.assertRaisesRegex(ManualFailoverRejected, "final_sync_target_not_safe"):
+                    record_final_sync_verified(transition, source=source, target=target)
+
     def test_final_sync_must_match_digest_and_monotonic_sequence(self) -> None:
         transition = begin_manual_failover(
             membership(),
