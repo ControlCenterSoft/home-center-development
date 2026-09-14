@@ -5,7 +5,12 @@ import unittest
 from pathlib import Path
 
 from home_center.home_service_operations import HomeServiceInstanceState
-from home_center.home_service_state import HomeServiceInstanceStateStore, InstanceTransition
+from home_center.home_service_state import (
+    HomeServiceInstanceStateStore,
+    InstanceTransition,
+    PreparedInstanceTransition,
+)
+from home_center.home_services import HomeServiceCatalogError
 from home_center.store import IdempotencyConflict, StatePreconditionFailed, StateStore
 
 
@@ -43,6 +48,45 @@ class HomeServiceInstanceStateTests(unittest.TestCase):
         self.assertEqual(first, second)
         with self.assertRaises(IdempotencyConflict):
             self.instances.transition(InstanceTransition("zigbee-main", 1, str(created["resource_version"]), "configure-001", HomeServiceInstanceState.REMOVED))
+
+    def test_local_only_transition_cannot_persist_external_publication(self) -> None:
+        created = self.instances.create(
+            instance_id="torrent-main",
+            service_id="torrent-client",
+            target_node_id="home-node-a",
+        )
+        with self.assertRaisesRegex(HomeServiceCatalogError, "publication_forbidden"):
+            self.instances.transition(
+                InstanceTransition(
+                    "torrent-main",
+                    1,
+                    str(created["resource_version"]),
+                    "publish-001",
+                    HomeServiceInstanceState.CONFIGURED,
+                    external_publication_enabled=True,
+                )
+            )
+        self.assertEqual(created, self.instances.get("torrent-main"))
+
+    def test_local_only_prepared_commit_cannot_persist_external_publication(self) -> None:
+        created = self.instances.create(
+            instance_id="zigbee-main",
+            service_id="zigbee-bridge",
+            target_node_id="home-node-a",
+        )
+        request = PreparedInstanceTransition(
+            instance_id="zigbee-main",
+            expected_generation=1,
+            expected_resource_version=str(created["resource_version"]),
+            idempotency_key="publish-002",
+            target_state=HomeServiceInstanceState.CONFIGURED,
+            next_generation=2,
+            next_resource_version="rv:instance:prepared-local-only",
+            external_publication_enabled=True,
+        )
+        with self.assertRaisesRegex(HomeServiceCatalogError, "publication_forbidden"):
+            self.instances.commit_prepared(request)
+        self.assertEqual(created, self.instances.get("zigbee-main"))
 
     def test_persisted_shape_is_secret_free(self) -> None:
         value = self.instances.create(instance_id="yandex-main", service_id="yandex-smart-home", target_node_id="home-node-a")

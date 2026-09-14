@@ -7,7 +7,12 @@ import json
 from dataclasses import dataclass
 
 from home_center.home_service_operations import HomeServiceInstanceState
-from home_center.home_services import HomeServiceCatalogError, _identifier
+from home_center.home_services import (
+    HOME_SERVICE_BY_ID,
+    HomeServiceCatalogError,
+    PublicationPolicy,
+    _identifier,
+)
 from home_center.store import StateStore
 from home_center.util import canonical_json, utc_now
 
@@ -95,9 +100,23 @@ class HomeServiceInstanceStateStore:
     def get(self, instance_id: str) -> dict[str, object] | None:
         return self._store.home_service_instance(_identifier(instance_id, "invalid_instance_id"))
 
+    def _assert_publication_policy(self, instance_id: str, external_publication_enabled: bool) -> None:
+        if not external_publication_enabled:
+            return
+        current = self.get(instance_id)
+        if current is None:
+            return
+        service_id = current.get("service_id")
+        if not isinstance(service_id, str):
+            raise HomeServiceCatalogError("invalid_service_id")
+        profile = HOME_SERVICE_BY_ID.get(service_id)
+        if profile is not None and profile.publication_policy is PublicationPolicy.LOCAL_ONLY:
+            raise HomeServiceCatalogError("publication_forbidden")
+
     def transition(self, request: InstanceTransition) -> tuple[dict[str, object], bool]:
         if not isinstance(request, InstanceTransition):
             raise TypeError("invalid_instance_transition")
+        self._assert_publication_policy(request.instance_id, request.external_publication_enabled)
         material = {
             "instance_id": request.instance_id,
             "expected_generation": request.expected_generation,
@@ -130,6 +149,7 @@ class HomeServiceInstanceStateStore:
 
         if not isinstance(request, PreparedInstanceTransition):
             raise TypeError("invalid_prepared_instance_transition")
+        self._assert_publication_policy(request.instance_id, request.external_publication_enabled)
         material = {
             "instance_id": request.instance_id,
             "expected_generation": request.expected_generation,
