@@ -8,6 +8,7 @@ its own production schema mutation.
 """
 from __future__ import annotations
 
+from .ha_admission import writer_admission
 from .ha_peer import HAPeerExportClock
 from .ha_reconcile import HAStateReconciler
 from .qr_onboarding_effect_admission import QrOnboardingEffectAdmissionService
@@ -40,6 +41,14 @@ class ProductionRuntime(Runtime):
         for job_type in SUPPORTED_JOB_TYPES:
             self.qr_effect_execution.register(job_type, qr_product_state)
         self.qr_effect_worker = QrOnboardingEffectWorkerService(self.store, self.qr_effect_execution)
+
+    def authoritative_mutations_allowed(self) -> bool:
+        admission = writer_admission(
+            self.store._connection,  # noqa: SLF001 - canonical StateStore transaction domain
+            local_node_id=self.config.node_id,
+            bootstrap_role=self.config.role,
+        )
+        return admission.allowed
 
     def start(self) -> None:
         super().start()
