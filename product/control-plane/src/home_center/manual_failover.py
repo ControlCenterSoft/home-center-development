@@ -224,6 +224,12 @@ def record_source_fenced(
     source.validate()
     if source.node_id != transition.source_writer or source.service_active or not source.fenced:
         raise ManualFailoverRejected("source_fence_not_proven")
+    if source.version != transition.version or source.revision != transition.revision:
+        raise ManualFailoverRejected("source_release_changed")
+    if source.authoritative_sha256 != transition.authoritative_sha256:
+        raise ManualFailoverRejected("source_state_changed_after_final_sync")
+    if transition.final_source_sequence is None or source.source_sequence != transition.final_source_sequence:
+        raise ManualFailoverRejected("source_sequence_changed_after_final_sync")
     return replace(transition, phase="source_fenced", updated_at=utc_now())
 
 
@@ -259,6 +265,12 @@ def record_target_verified(
     target.validate()
     if source.node_id != transition.source_writer or source.service_active or not source.fenced:
         raise ManualFailoverRejected("old_writer_not_safely_fenced")
+    if source.version != transition.version or source.revision != transition.revision:
+        raise ManualFailoverRejected("old_writer_release_changed")
+    if source.authoritative_sha256 != transition.authoritative_sha256:
+        raise ManualFailoverRejected("old_writer_state_changed_after_final_sync")
+    if transition.final_source_sequence is None or source.source_sequence != transition.final_source_sequence:
+        raise ManualFailoverRejected("old_writer_sequence_changed_after_final_sync")
     if target.node_id != transition.target_writer or not target.ready or not target.service_active or target.fenced:
         raise ManualFailoverRejected("promoted_writer_not_serving")
     if target.version != transition.version or target.revision != transition.revision:
