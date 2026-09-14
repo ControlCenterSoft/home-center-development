@@ -11,6 +11,16 @@ from .util import canonical_json, utc_now
 MEMBERSHIP_KEY = "ha.cluster-membership.v1"
 TRANSITION_KEY = "ha.manual-failover.current.v1"
 MEMBERSHIP_SCHEMA = "home-center.cluster-membership.v1"
+TRANSITION_PHASES = frozenset({
+    "planned",
+    "source_quiesced",
+    "final_sync_verified",
+    "source_fenced",
+    "target_promoted",
+    "target_verified",
+    "completed",
+    "failed",
+})
 TERMINAL_PHASES = frozenset({"completed", "failed"})
 
 
@@ -81,7 +91,7 @@ def validate_transition(transition: dict[str, Any], *, expected_cluster_id: str)
         raise HAStateConflict("transition_cluster_rejected")
     if not isinstance(transition.get("transition_id"), str) or not transition["transition_id"]:
         raise HAStateConflict("transition_identity_rejected")
-    if not isinstance(transition.get("phase"), str):
+    if transition.get("phase") not in TRANSITION_PHASES:
         raise HAStateConflict("transition_phase_rejected")
     source = transition.get("source_writer")
     target = transition.get("target_writer")
@@ -159,18 +169,28 @@ def persist_transition(
         if current is None:
             if expected_phase is not None:
                 raise HAStateConflict("transition_missing")
+            if transition.get("phase") != "planned":
+                raise HAStateConflict("new_transition_must_start_planned")
         else:
             validate_transition(current, expected_cluster_id=cluster_id)
-            if expected_phase is None:
-                if current.get("phase") not in TERMINAL_PHASES:
+            current_terminal = current.get("phase") in TERMINAL_PHASES
+            same_transition = current.get("transition_id") == transition.get("transition_id")
+            if current_terminal:
+                if same_transition:
+                    raise HAStateConflict("terminal_transition_immutable")
+                if expected_phase is not None:
+                    raise HAStateConflict("transition_phase_changed")
+                if transition.get("phase") != "planned":
+                    raise HAStateConflict("new_transition_must_start_planned")
+            else:
+                if expected_phase is None:
                     raise HAStateConflict("transition_already_active")
-            elif current.get("phase") != expected_phase:
-                raise HAStateConflict("transition_phase_changed")
-            if current.get("transition_id") == transition.get("transition_id"):
+                if current.get("phase") != expected_phase:
+                    raise HAStateConflict("transition_phase_changed")
+                if not same_transition:
+                    raise HAStateConflict("different_transition_active")
                 if current.get("from_generation") != transition.get("from_generation"):
                     raise HAStateConflict("transition_generation_changed")
-            elif current.get("phase") not in TERMINAL_PHASES:
-                raise HAStateConflict("different_transition_active")
         _write_meta(connection, TRANSITION_KEY, transition)
         connection.commit()
         return True
