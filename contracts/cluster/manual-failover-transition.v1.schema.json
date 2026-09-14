@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/cluster/manual-failover-transition.v1.schema.json",
+  "title": "ManualFailoverTransition v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "transition_id",
+    "cluster_id",
+    "source_writer",
+    "target_writer",
+    "from_generation",
+    "to_generation",
+    "phase",
+    "version",
+    "revision",
+    "authoritative_sha256",
+    "final_source_sequence",
+    "started_at",
+    "updated_at",
+    "failure_reason"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.manual-failover-transition.v1"},
+    "transition_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "cluster_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "source_writer": {"type": "string", "minLength": 1, "maxLength": 128},
+    "target_writer": {"type": "string", "minLength": 1, "maxLength": 128},
+    "from_generation": {"type": "integer", "minimum": 1},
+    "to_generation": {"type": "integer", "minimum": 2},
+    "phase": {
+      "enum": [
+        "planned",
+        "source_quiesced",
+        "final_sync_verified",
+        "source_fenced",
+        "target_promoted",
+        "target_verified",
+        "completed",
+        "failed"
+      ]
+    },
+    "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "authoritative_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "final_source_sequence": {"type": ["integer", "null"], "minimum": 0},
+    "started_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "failure_reason": {"type": ["string", "null"], "maxLength": 256}
+  }
+}
