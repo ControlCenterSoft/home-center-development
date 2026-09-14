@@ -24,8 +24,8 @@ SAFE_REPAIR_DERIVED_STATE_OBSERVATION_SCHEMA = (
     "home-center.safe-repair-derived-state-observation.v1"
 )
 
-_IDENTIFIER = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\\Z")
-_SHA256 = re.compile(r"[0-9a-f]{64}\\Z")
+_IDENTIFIER = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\Z")
+_SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 
 
 class SafeRepairCandidateSourceError(ValueError):
