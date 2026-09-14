@@ -8,6 +8,7 @@ its own production schema mutation.
 """
 from __future__ import annotations
 
+from .ha_peer import HAPeerExportClock
 from .qr_onboarding_effect_admission import QrOnboardingEffectAdmissionService
 from .qr_onboarding_effect_execution import QrOnboardingEffectExecutionService
 from .qr_onboarding_effect_source import QrOnboardingEffectSourceService
@@ -23,6 +24,7 @@ class ProductionRuntime(Runtime):
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         super().__init__(*args, **kwargs)  # type: ignore[arg-type]
+        self.ha_export_clock = HAPeerExportClock()
         self.role_identity_provisioning = SafeRoleIdentityProvisioningRuntimeService(self.store)
         qr_repository = SQLiteQrOnboardingRuntimeRepository(
             self.store._connection,  # noqa: SLF001 - same-package canonical StateStore DB
