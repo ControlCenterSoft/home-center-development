@@ -4,7 +4,8 @@ This composition keeps the generic Runtime reusable for tests and internal compo
 ensuring the actual server process exposes identity provisioning only through the qualification-
 bound provider registry. No provider is registered automatically. QR onboarding uses the
 canonical StateStore migration and the same SQLite transaction lock; the adapter never performs
-its own production schema mutation.
+its own production schema mutation. Home Center 0.64 also exposes bounded safe-repair history
+and Job evidence repositories without registering a repair worker or action adapter.
 """
 from __future__ import annotations
 
@@ -16,13 +17,25 @@ from .qr_onboarding_product_state import QrOnboardingProductStateAdapter, SUPPOR
 from .qr_onboarding_runtime import QrOnboardingRuntimeService, SQLiteQrOnboardingRuntimeRepository
 from .role_identity_provisioning_runtime_safe import SafeRoleIdentityProvisioningRuntimeService
 from .runtime import Runtime
+from .safe_auto_repair_history import SQLiteSafeAutoRepairHistoryRepository
+from .safe_auto_repair_job_migration import apply_safe_auto_repair_job_migration
+from .safe_auto_repair_job_store import SQLiteSafeAutoRepairJobRepository
 
 
 class ProductionRuntime(Runtime):
-    """Server runtime with fail-closed providers and bounded QR effects."""
+    """Server runtime with fail-closed providers, bounded QR effects and read-only repair evidence."""
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         super().__init__(*args, **kwargs)  # type: ignore[arg-type]
+        apply_safe_auto_repair_job_migration(self.store)
+        self.safe_repair_history = SQLiteSafeAutoRepairHistoryRepository(
+            self.store._connection,  # noqa: SLF001 - same-package canonical StateStore DB
+            self.store._lock,  # noqa: SLF001 - share canonical transaction lock
+        )
+        self.safe_repair_jobs = SQLiteSafeAutoRepairJobRepository(
+            self.store._connection,  # noqa: SLF001
+            self.store._lock,  # noqa: SLF001
+        )
         self.role_identity_provisioning = SafeRoleIdentityProvisioningRuntimeService(self.store)
         qr_repository = SQLiteQrOnboardingRuntimeRepository(
             self.store._connection,  # noqa: SLF001 - same-package canonical StateStore DB

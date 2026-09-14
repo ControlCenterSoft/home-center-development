@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://home-center.local/contracts/automation/safe-auto-repair-history-response.v1.schema.json",
+  "title": "Home Center safe auto-repair history response v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "household_id",
+    "resource_id",
+    "items",
+    "mutation_authorized",
+    "execution_authorized",
+    "provider_execution_authorized",
+    "infrastructure_mutation_authorized",
+    "external_publication_authorized"
+  ],
+  "properties": {
+    "schema": {"const": "home-center.safe-auto-repair-history-response.v1"},
+    "household_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "resource_id": {
+      "type": ["string", "null"],
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "items": {"type": "array", "maxItems": 100, "items": {"$ref": "#/$defs/item"}},
+    "mutation_authorized": {"const": false},
+    "execution_authorized": {"const": false},
+    "provider_execution_authorized": {"const": false},
+    "infrastructure_mutation_authorized": {"const": false},
+    "external_publication_authorized": {"const": false}
+  },
+  "$defs": {
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "recommendation_id",
+        "household_id",
+        "resource_id",
+        "resource_generation",
+        "action",
+        "risk",
+        "status",
+        "cozy_message",
+        "recorded_at_epoch",
+        "job_id",
+        "job_updated_at_epoch",
+        "repair_verified",
+        "post_condition_evidence_sha256",
+        "execution_authorized",
+        "provider_execution_authorized",
+        "infrastructure_mutation_authorized",
+        "external_publication_authorized"
+      ],
+      "properties": {
+        "schema": {"const": "home-center.safe-auto-repair-history-projection.v1"},
+        "recommendation_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+        "household_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+        "resource_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+        "resource_generation": {"type": "integer", "minimum": 0},
+        "action": {"type": "string", "minLength": 1, "maxLength": 128},
+        "risk": {"enum": ["low", "medium", "high"]},
+        "status": {
+          "enum": [
+            "blocked",
+            "suggested",
+            "queued",
+            "in-progress",
+            "verifying",
+            "fixed",
+            "failed",
+            "needs-review"
+          ]
+        },
+        "cozy_message": {"type": "string", "minLength": 1, "maxLength": 256},
+        "recorded_at_epoch": {"type": "integer", "minimum": 0},
+        "job_id": {
+          "type": ["string", "null"],
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+        },
+        "job_updated_at_epoch": {"type": ["integer", "null"], "minimum": 0},
+        "repair_verified": {"type": "boolean"},
+        "post_condition_evidence_sha256": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "execution_authorized": {"const": false},
+        "provider_execution_authorized": {"const": false},
+        "infrastructure_mutation_authorized": {"const": false},
+        "external_publication_authorized": {"const": false}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"const": "fixed"}}},
+          "then": {
+            "properties": {
+              "repair_verified": {"const": true},
+              "post_condition_evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+            }
+          },
+          "else": {
+            "properties": {
+              "repair_verified": {"const": false},
+              "post_condition_evidence_sha256": {"type": "null"}
+            }
+          }
+        }
+      ]
+    }
+  }
+}
