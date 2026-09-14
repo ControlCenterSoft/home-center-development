@@ -52,18 +52,22 @@ class HomeServiceDeploymentPlannerTests(unittest.TestCase):
         self.assertEqual(DeploymentPlanState.PLANNED, allowed.state)
         self.assertTrue(allowed.external_publication_enabled)
 
-    def test_local_only_service_rejects_publication(self) -> None:
-        plan = HomeServiceDeploymentPlanner().plan(
-            HomeServiceDeploymentRequest("torrent-client", "home-node-a", True),
-            self.node(
-                "network.external-publication.v1",
-                "network.lan.v1",
-                "runtime.container.v1",
-                "storage.bulk.v1",
-            ),
+    def test_local_only_media_services_reject_publication(self) -> None:
+        node = self.node(
+            "network.external-publication.v1",
+            "network.lan.v1",
+            "runtime.container.v1",
+            "storage.bulk.v1",
         )
-        self.assertIn("publication_forbidden", plan.blockers)
-        self.assertFalse(plan.external_publication_enabled)
+        for service_id in ("torrent-client", "torrserver"):
+            with self.subTest(service_id=service_id):
+                plan = HomeServiceDeploymentPlanner().plan(
+                    HomeServiceDeploymentRequest(service_id, "home-node-a", True),
+                    node,
+                )
+                self.assertEqual(DeploymentPlanState.BLOCKED, plan.state)
+                self.assertIn("publication_forbidden", plan.blockers)
+                self.assertFalse(plan.external_publication_enabled)
 
     def test_preflight_reports_all_capacity_and_capability_blockers(self) -> None:
         plan = HomeServiceDeploymentPlanner().plan(
