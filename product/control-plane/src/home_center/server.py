@@ -13,9 +13,9 @@ import threading
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 
-from .api import PeerRequestHandler
 from .api_v12 import RuntimeRequestHandlerV12
 from .config import load_config
+from .peer_api_v2 import PeerRequestHandlerV2
 from .runtime_safe import ProductionRuntime as Runtime
 
 
@@ -111,7 +111,7 @@ def main() -> None:
     runtime = Runtime(config)
     runtime.start()
     web = HomeCenterServer(config.web_bind, RuntimeRequestHandlerV12, runtime)
-    peer = HomeCenterServer(config.peer_bind, PeerRequestHandler, runtime)
+    peer = HomeCenterServer(config.peer_bind, PeerRequestHandlerV2, runtime)
     web.socket = _web_context(runtime).wrap_socket(web.socket, server_side=True)
     peer.socket = _peer_context(runtime).wrap_socket(peer.socket, server_side=True)
 
