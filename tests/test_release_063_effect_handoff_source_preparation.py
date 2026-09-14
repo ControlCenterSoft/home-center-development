@@ -50,8 +50,10 @@ def test_063_effect_handoff_contracts_are_closed_and_non_authorizing() -> None:
     assert verification["properties"]["external_publication_authorized"] == {"const": False}
 
 
-def test_063_effect_handoff_preserves_closed_authority_at_final_release_identity() -> None:
-    assert (ROOT / "VERSION").read_text(encoding="ascii").strip() == "0.63.0"
+def test_063_effect_handoff_preserves_closed_authority_at_published_release_boundary() -> None:
+    notes = (ROOT / "docs/releases/0.63.0.md").read_text(encoding="utf-8")
+    assert "# Home Center 0.63.0" in notes
+    assert "Status: official release." in notes
     handoff_source = (
         ROOT / "product/control-plane/src/home_center/qr_onboarding_effect_handoff.py"
     ).read_text(encoding="utf-8")
