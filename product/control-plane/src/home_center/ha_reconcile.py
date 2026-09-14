@@ -8,7 +8,7 @@ import threading
 import uuid
 from typing import Any
 
-from .authoritative_state import apply_authoritative_snapshot
+from .authoritative_state import apply_authoritative_snapshot, snapshot_authoritative
 from .config import Config, Peer
 from .ha_peer import (
     HA_SNAPSHOT_SCHEMA,
@@ -16,7 +16,13 @@ from .ha_peer import (
     HAPeerProtocolError,
     MTLHAPeerClient,
 )
-from .ha_state import load_membership, load_transition, validate_membership, validate_transition
+from .ha_state import (
+    HAStateConflict,
+    load_membership,
+    load_transition,
+    validate_membership,
+    validate_transition,
+)
 from .release_identity import ReleaseIdentityError, current_release_identity
 from .store import StateStore
 from .util import utc_now
@@ -65,7 +71,11 @@ class HAStateReconciler:
         }
 
     def start(self) -> None:
-        self.reconcile_once()
+        """Start without making Home Center process startup depend on peer reachability."""
+        try:
+            self.reconcile_once()
+        except Exception:
+            LOG.exception("initial HA state reconciliation failed")
         self._thread.start()
 
     def stop(self) -> None:
@@ -101,12 +111,13 @@ class HAStateReconciler:
         return release
 
     def _single_peer(self, membership: dict[str, Any]) -> Peer:
-        member_ids = {member["node_id"] for member in membership["members"]}
-        if member_ids != {self.config.node_id, *(peer.node_id for peer in self.config.peers)}:
-            raise HAReconcileRejected("configured_peer_membership_mismatch")
         if len(self.config.peers) != 1:
             raise HAReconcileRejected("manual_two_node_ha_requires_one_peer")
-        return self.config.peers[0]
+        peer = self.config.peers[0]
+        member_ids = {member["node_id"] for member in membership["members"]}
+        if member_ids != {self.config.node_id, peer.node_id}:
+            raise HAReconcileRejected("configured_peer_membership_mismatch")
+        return peer
 
     def _validate_status(
         self,
@@ -125,7 +136,8 @@ class HAStateReconciler:
             raise HAReconcileRejected("peer_ha_status_identity_rejected")
         if status.get("version") != release["version"] or status.get("revision") != release["revision"]:
             raise HAReconcileRejected("peer_release_drift")
-        if not isinstance(status.get("authoritative_sha256"), str) or _HEX64.fullmatch(status["authoritative_sha256"]) is None:
+        digest = status.get("authoritative_sha256")
+        if not isinstance(digest, str) or _HEX64.fullmatch(digest) is None:
             raise HAReconcileRejected("peer_authoritative_digest_rejected")
         try:
             uuid.UUID(str(status.get("source_instance_id")))
@@ -148,11 +160,13 @@ class HAStateReconciler:
             "allowed", "reason", "writer_node_id", "generation"
         }:
             raise HAReconcileRejected("peer_writer_admission_rejected")
+        if admission.get("writer_node_id") != membership["writer"] or admission.get("generation") != membership["generation"]:
+            raise HAReconcileRejected("peer_writer_admission_epoch_mismatch")
         if membership["writer"] == peer.node_id:
             if admission.get("allowed") is not True:
                 raise HAReconcileRejected("peer_writer_admission_not_active")
-            if admission.get("writer_node_id") != peer.node_id or admission.get("generation") != membership["generation"]:
-                raise HAReconcileRejected("peer_writer_admission_epoch_mismatch")
+        elif admission.get("allowed") is not False:
+            raise HAReconcileRejected("peer_nonwriter_admission_active")
         return membership, transition
 
     def _takeover_proven(
@@ -215,6 +229,10 @@ class HAStateReconciler:
             raise HAReconcileRejected("peer_snapshot_sequence_not_monotonic")
         return snapshot, str(source_instance_id), source_sequence
 
+    def _local_digest(self) -> str:
+        with self.store._lock:  # noqa: SLF001 - canonical StateStore transaction domain
+            return snapshot_authoritative(self.store._connection)["authoritative_sha256"]  # noqa: SLF001
+
     def reconcile_once(self) -> None:
         with self.store._lock:  # noqa: SLF001 - canonical StateStore transaction domain
             local_membership = load_membership(self.store._connection)  # noqa: SLF001
@@ -240,12 +258,14 @@ class HAStateReconciler:
             if peer_generation < local_generation:
                 if local_membership["writer"] != self.config.node_id:
                     raise HAReconcileRejected("writer_peer_generation_regressed")
+                reason = "peer_stale_writer" if peer_status["writer_admission"]["allowed"] else "peer_epoch_behind"
                 self._set_status(
                     state="writer",
-                    reason="peer_epoch_behind",
+                    reason=reason,
                     direction=None,
                     writer_node_id=self.config.node_id,
                     generation=local_generation,
+                    authoritative_sha256=self._local_digest(),
                     changed=False,
                 )
                 return
@@ -253,14 +273,21 @@ class HAStateReconciler:
             if peer_generation == local_generation:
                 if peer_membership["writer"] != local_membership["writer"]:
                     raise HAReconcileRejected("same_generation_writer_conflict")
+                if peer_membership != local_membership:
+                    raise HAReconcileRejected("same_generation_membership_conflict")
                 if local_membership["writer"] == self.config.node_id:
+                    local_digest = self._local_digest()
                     self._set_status(
                         state="writer",
-                        reason="local_node_is_writer",
+                        reason=(
+                            "writer_peer_in_sync"
+                            if peer_status["authoritative_sha256"] == local_digest
+                            else "writer_peer_state_drift"
+                        ),
                         direction=None,
                         writer_node_id=self.config.node_id,
                         generation=local_generation,
-                        authoritative_sha256=peer_status["authoritative_sha256"],
+                        authoritative_sha256=local_digest,
                         changed=False,
                     )
                     return
@@ -297,7 +324,14 @@ class HAStateReconciler:
                 last_success_at=utc_now(),
                 changed=result["changed"],
             )
-        except (HAReconcileRejected, HAPeerProtocolError, ValueError, TypeError, KeyError) as exc:
+        except (
+            HAReconcileRejected,
+            HAPeerProtocolError,
+            HAStateConflict,
+            ValueError,
+            TypeError,
+            KeyError,
+        ) as exc:
             self._set_status(
                 state="degraded",
                 reason=str(exc),
