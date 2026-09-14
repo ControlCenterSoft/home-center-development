@@ -21,7 +21,7 @@ concurrency:
 jobs:
   publish:
     if: github.event.workflow_run.conclusion == 'success'
-    name: Tag and publish
+    name: Evaluate and publish
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -32,7 +32,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Validate release inputs
+      - name: Evaluate release authorization
         id: release
         shell: bash
         run: |
@@ -42,20 +42,39 @@ jobs:
           notes="docs/releases/${version}.md"
           test -f "$notes"
 
-          if ! grep -Eq '^Status: official release\.?$' "$notes"; then
-            echo "Release notes must contain an exact official-release status" >&2
-            exit 1
-          fi
-          if grep -Eiq 'qualification candidate|ready for qualification|development candidate|source-development package' "$notes"; then
-            echo "Release notes still contain candidate-only wording" >&2
-            exit 1
+          publishable=false
+          if grep -Eq '^Status: official release\.?$' "$notes"; then
+            if grep -Eiq 'qualification candidate|ready for qualification|development candidate|source-development package' "$notes"; then
+              echo "Official release notes still contain candidate-only wording" >&2
+              exit 1
+            fi
+            publishable=true
           fi
 
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
           echo "notes=$notes" >> "$GITHUB_OUTPUT"
+          echo "publishable=$publishable" >> "$GITHUB_OUTPUT"
+
+          if [[ "$publishable" == true ]]; then
+            echo "RELEASE_AUTHORIZATION=OFFICIAL version=${version}" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "RELEASE_AUTHORIZATION=DEVELOPMENT_NO_PUBLISH version=${version}" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Report development release state
+        if: steps.release.outputs.publishable != 'true'
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          echo "RELEASE_STATE=DEVELOPMENT_NO_PUBLISH version=${RELEASE_VERSION} sha=${RELEASE_SHA}"
+          echo "No tag, GitHub Release, deployment artifact, or Stable promotion is authorized for this development revision."
 
       - name: Publish or repair metadata idempotently
+        if: steps.release.outputs.publishable == 'true'
         id: publish
         shell: bash
         env:
@@ -104,8 +123,9 @@ jobs:
             guard_status=$?
             set -e
             if (( guard_status == 2 )); then
-              echo "POST_RELEASE_DEVELOPMENT_SKIP: ${RELEASE_TAG} remains immutable while main contains newer product development"
+              echo "POST_RELEASE_DEVELOPMENT_SKIP: ${RELEASE_TAG} remains immutable while source contains newer product development"
               echo "promote=false" >> "$GITHUB_OUTPUT"
+              echo "RELEASE_STATE=ALREADY_PUBLISHED_WITH_NEWER_SOURCE version=${RELEASE_VERSION}" | tee -a "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
             if (( guard_status != 0 )); then
@@ -153,9 +173,10 @@ jobs:
           [[ "$actual_tag" == "$RELEASE_TAG" ]]
           [[ "$actual_body" == "$expected_body" ]]
           echo "promote=true" >> "$GITHUB_OUTPUT"
+          echo "RELEASE_STATE=PUBLISHED_OR_REPAIRED version=${RELEASE_VERSION} sha=${RELEASE_SHA}" | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Dispatch deployment artifact publication
-        if: steps.publish.outputs.promote == 'true'
+        if: steps.release.outputs.publishable == 'true' && steps.publish.outputs.promote == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
