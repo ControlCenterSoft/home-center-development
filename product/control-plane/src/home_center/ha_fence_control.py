@@ -61,6 +61,16 @@ class FenceOverrideStore:
         flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
         fd = os.open(self.path, flags)
         try:
+            opened = os.fstat(fd)
+            if (
+                not stat.S_ISREG(opened.st_mode)
+                or opened.st_uid != self.expected_uid
+                or stat.S_IMODE(opened.st_mode) != 0o600
+                or opened.st_size > 64
+                or opened.st_dev != info.st_dev
+                or opened.st_ino != info.st_ino
+            ):
+                raise HAFenceControlError("ha_fence_override_file_changed")
             data = os.read(fd, 65)
         finally:
             os.close(fd)
