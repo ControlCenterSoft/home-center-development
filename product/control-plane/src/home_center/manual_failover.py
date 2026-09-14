@@ -198,6 +198,8 @@ def record_final_sync_verified(
         raise ManualFailoverRejected("final_sync_identity_rejected")
     if source.service_active:
         raise ManualFailoverRejected("source_must_remain_quiesced")
+    if not target.ready or not target.service_active or target.fenced is not True:
+        raise ManualFailoverRejected("final_sync_target_not_safe")
     if source.version != target.version or source.revision != target.revision:
         raise ManualFailoverRejected("release_drift")
     if source.authoritative_sha256 != target.authoritative_sha256:
