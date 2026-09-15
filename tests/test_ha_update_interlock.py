@@ -4,6 +4,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from home_center.ha_update_interlock import (
     HAUpdateInterlockRejected,
@@ -69,6 +70,30 @@ class HAUpdateInterlockTests(unittest.TestCase):
         ):
             with hold_update_interlock(self.lock, expected_uid=self.expected_uid):
                 self.fail("symlinked lock must fail closed")
+
+    def test_update_lock_replacement_between_open_and_validation_is_rejected(self) -> None:
+        self.lock.write_text("", encoding="utf-8")
+        self.lock.chmod(0o600)
+        original_open = os.open
+        swapped = False
+
+        def open_then_replace(path: os.PathLike[str] | str, flags: int, mode: int = 0o777) -> int:
+            nonlocal swapped
+            fd = original_open(path, flags, mode)
+            if not swapped and Path(path) == self.lock:
+                swapped = True
+                self.lock.unlink()
+                self.lock.write_text("", encoding="utf-8")
+                self.lock.chmod(0o600)
+            return fd
+
+        with patch("home_center.ha_update_interlock.os.open", side_effect=open_then_replace):
+            with self.assertRaisesRegex(
+                HAUpdateInterlockRejected,
+                "update_lock_changed",
+            ):
+                with hold_update_interlock(self.lock, expected_uid=self.expected_uid):
+                    self.fail("a replaced lock path must never authorize the HA/update interlock")
 
 
 if __name__ == "__main__":
