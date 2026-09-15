@@ -3,6 +3,7 @@
 
   const $member = (selector) => document.querySelector(selector);
   let pendingMemberProposal = null;
+  let memberOperationInFlight = false;
 
   async function memberRequest(path, options = {}) {
     const headers = new Headers(options.headers || {});
@@ -46,11 +47,22 @@
   const planForm = $member('#member-plan-form');
   const confirmButton = $member('#member-confirm-button');
   const cancelButton = $member('#member-cancel-button');
+  const confirmCard = $member('#member-confirm-card');
 
   if (!planForm || !confirmButton || !cancelButton) return;
 
+  function setMemberBusy(busy) {
+    memberOperationInFlight = busy;
+    planForm.setAttribute('aria-busy', busy ? 'true' : 'false');
+    if (confirmCard) confirmCard.setAttribute('aria-busy', busy ? 'true' : 'false');
+    for (const control of planForm.querySelectorAll('input, select, button')) control.disabled = busy;
+    confirmButton.disabled = busy;
+    cancelButton.disabled = busy;
+  }
+
   planForm.addEventListener('submit', async (event) => {
     event.preventDefault();
+    if (memberOperationInFlight) return;
     const button = event.submitter;
     const message = $member('#member-plan-message');
     const displayName = $member('#member-display-name');
@@ -59,7 +71,7 @@
 
     message.textContent = '';
     clearMemberConfirmation();
-    button.disabled = true;
+    setMemberBusy(true);
     try {
       const {response, data} = await memberRequest('/api/v1/household/members/plan', {
         method: 'POST',
@@ -84,20 +96,21 @@
     } catch (_) {
       message.textContent = 'Не удалось связаться с Home Center.';
     } finally {
-      button.disabled = false;
+      setMemberBusy(false);
     }
   });
 
   cancelButton.addEventListener('click', () => {
+    if (memberOperationInFlight) return;
     clearMemberConfirmation();
     $member('#member-plan-message').textContent = 'Изменение отменено. Данные семьи не менялись.';
   });
 
   confirmButton.addEventListener('click', async () => {
-    if (!pendingMemberProposal?.proposal_id) return;
+    if (memberOperationInFlight || !pendingMemberProposal?.proposal_id) return;
     const message = $member('#member-confirm-message');
     message.textContent = '';
-    confirmButton.disabled = true;
+    setMemberBusy(true);
     try {
       const proposalId = pendingMemberProposal.proposal_id;
       const {response, data} = await memberRequest('/api/v1/household/members/confirm', {
@@ -133,7 +146,7 @@
     } catch (_) {
       message.textContent = 'Не удалось связаться с Home Center.';
     } finally {
-      confirmButton.disabled = false;
+      setMemberBusy(false);
     }
   });
 
