@@ -22,6 +22,21 @@ def test_member_change_ui_is_explicit_confirmation_flow() -> None:
     assert 'innerHTML' not in member
 
 
+def test_member_change_ui_serializes_plan_and_confirm_operations() -> None:
+    member = MEMBER.read_text(encoding="utf-8")
+    assert "let memberOperationInFlight = false" in member
+    assert "let memberConfirmationSubmitted = false" in member
+    assert "if (memberOperationInFlight) return" in member
+    assert "if (memberOperationInFlight || !pendingMemberProposal?.proposal_id) return" in member
+    assert "planForm.setAttribute('aria-busy', busy ? 'true' : 'false')" in member
+    assert "confirmCard.setAttribute('aria-busy', busy ? 'true' : 'false')" in member
+    assert "planForm.querySelectorAll('input, select, button')" in member
+    assert "memberConfirmationSubmitted = true" in member
+    assert "Подтверждение уже было отправлено. Обновите состояние семьи, чтобы проверить результат." in member
+    assert "Подтверждение было отправлено, но результат не получен." in member
+    assert "clearMemberConfirmation({resetSubmitted: true})" in member
+
+
 def test_member_ui_preserves_current_main_accessibility_and_fail_closed_node_state() -> None:
     app = APP.read_text(encoding="utf-8")
     index = INDEX.read_text(encoding="utf-8")
