@@ -119,6 +119,10 @@ def test_valid_adapter_identity_contract_still_round_trips() -> None:
         state=PostConditionState.MATCHED,
     )
 
-    assert request.to_dict()["execution_authorized"] is False if "execution_authorized" in request.to_dict() else True
+    request_payload = request.to_dict()
+    assert request_payload["credential_value_access_authorized"] is False
+    assert request_payload["provider_execution_authorized"] is False
+    assert request_payload["generic_infrastructure_mutation_authorized"] is False
+    assert request_payload["external_publication_authorized"] is False
     assert result.to_dict()["post_condition_verified"] is False
     assert observation.verified is True
