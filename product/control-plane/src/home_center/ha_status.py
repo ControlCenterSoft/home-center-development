@@ -1,6 +1,8 @@
 """Read-only HA status projection for the authenticated web API."""
 from __future__ import annotations
 
+import re
+import uuid
 from typing import Any
 
 from .ha_admission import writer_admission
@@ -8,11 +10,26 @@ from .ha_state import HAStateConflict, load_membership, load_transition
 from .util import utc_now
 
 _SYNC_STATUS_SCHEMA = "home-center.ha-sync-status.v1"
+_SYNC_STATUS_FIELDS = frozenset({
+    "schema",
+    "state",
+    "reason",
+    "direction",
+    "writer_node_id",
+    "generation",
+    "authoritative_sha256",
+    "source_instance_id",
+    "source_sequence",
+    "last_success_at",
+    "changed",
+})
+_SYNC_STATES = frozenset({"inactive", "writer", "standby", "degraded"})
 _SYNC_DEGRADED_REASONS = frozenset({
     "writer_peer_state_drift",
     "peer_stale_writer",
     "peer_epoch_behind",
 })
+_HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
 
 def _degraded_sync_status(*, reason: str, writer_node_id: str | None, generation: int | None) -> dict[str, Any]:
@@ -29,6 +46,59 @@ def _degraded_sync_status(*, reason: str, writer_node_id: str | None, generation
         "last_success_at": None,
         "changed": False,
     }
+
+
+def _sync_status_is_well_formed(candidate: Any) -> bool:
+    if not isinstance(candidate, dict) or set(candidate) != _SYNC_STATUS_FIELDS:
+        return False
+    if candidate.get("schema") != _SYNC_STATUS_SCHEMA:
+        return False
+
+    state = candidate.get("state")
+    reason = candidate.get("reason")
+    if state not in _SYNC_STATES or not isinstance(reason, str) or not reason:
+        return False
+
+    direction = candidate.get("direction")
+    if direction is not None and (not isinstance(direction, str) or not direction):
+        return False
+
+    writer_node_id = candidate.get("writer_node_id")
+    if writer_node_id is not None and (not isinstance(writer_node_id, str) or not writer_node_id):
+        return False
+
+    generation = candidate.get("generation")
+    if generation is not None and (
+        isinstance(generation, bool) or not isinstance(generation, int) or generation < 0
+    ):
+        return False
+
+    digest = candidate.get("authoritative_sha256")
+    if digest is not None and (not isinstance(digest, str) or _HEX64.fullmatch(digest) is None):
+        return False
+
+    source_instance_id = candidate.get("source_instance_id")
+    if source_instance_id is not None:
+        if not isinstance(source_instance_id, str):
+            return False
+        try:
+            uuid.UUID(source_instance_id)
+        except ValueError:
+            return False
+
+    source_sequence = candidate.get("source_sequence")
+    if source_sequence is not None and (
+        isinstance(source_sequence, bool) or not isinstance(source_sequence, int) or source_sequence < 0
+    ):
+        return False
+
+    last_success_at = candidate.get("last_success_at")
+    if last_success_at is not None and (
+        not isinstance(last_success_at, str) or not last_success_at.endswith("Z")
+    ):
+        return False
+
+    return isinstance(candidate.get("changed"), bool)
 
 
 def status(runtime: Any) -> dict[str, Any]:
@@ -90,12 +160,7 @@ def status(runtime: Any) -> dict[str, Any]:
             )
             detail = type(exc).__name__
         else:
-            if (
-                not isinstance(candidate, dict)
-                or candidate.get("schema") != _SYNC_STATUS_SCHEMA
-                or not isinstance(candidate.get("state"), str)
-                or not isinstance(candidate.get("reason"), str)
-            ):
+            if not _sync_status_is_well_formed(candidate):
                 sync = _degraded_sync_status(
                     reason="ha_sync_status_invalid",
                     writer_node_id=writer,
