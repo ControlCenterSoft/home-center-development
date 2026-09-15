@@ -111,7 +111,7 @@ class ManualFailoverResumeTests(unittest.TestCase):
                 membership(second="node-c"),
             )
 
-    def test_failed_transition_is_terminal_and_never_resumes_mutation(self) -> None:
+    def test_failed_transition_is_terminal_only_on_known_transition_epochs(self) -> None:
         before_promotion = decide_manual_failover_resume(
             transition("failed"),
             membership(writer="node-a", generation=7),
@@ -124,6 +124,23 @@ class ManualFailoverResumeTests(unittest.TestCase):
         self.assertEqual("terminal_failed", after_promotion.action)
         self.assertTrue(before_promotion.terminal)
         self.assertTrue(after_promotion.terminal)
+
+        drift_cases = (
+            ("node-a", 8),
+            ("node-b", 7),
+            ("node-a", 9),
+            ("node-b", 9),
+        )
+        for writer, generation in drift_cases:
+            with self.subTest(writer=writer, generation=generation):
+                with self.assertRaisesRegex(
+                    ManualFailoverRejected,
+                    "resume_failed_membership_epoch_mismatch",
+                ):
+                    decide_manual_failover_resume(
+                        transition("failed"),
+                        membership(writer=writer, generation=generation),
+                    )
 
 
 if __name__ == "__main__":
