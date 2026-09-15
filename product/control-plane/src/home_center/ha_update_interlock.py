@@ -52,13 +52,25 @@ def _open_lock(path: Path, *, expected_uid: int) -> int:
     except OSError as exc:
         raise HAUpdateInterlockRejected("update_lock_unavailable") from exc
     try:
-        info = os.fstat(fd)
+        opened = os.fstat(fd)
         if (
-            not stat.S_ISREG(info.st_mode)
-            or info.st_uid != expected_uid
-            or stat.S_IMODE(info.st_mode) != 0o600
+            not stat.S_ISREG(opened.st_mode)
+            or opened.st_uid != expected_uid
+            or stat.S_IMODE(opened.st_mode) != 0o600
         ):
             raise HAUpdateInterlockRejected("update_lock_unsafe")
+        try:
+            current = path.lstat()
+        except FileNotFoundError as exc:
+            raise HAUpdateInterlockRejected("update_lock_changed") from exc
+        if (
+            not stat.S_ISREG(current.st_mode)
+            or stat.S_ISLNK(current.st_mode)
+            or current.st_uid != expected_uid
+            or stat.S_IMODE(current.st_mode) != 0o600
+            or (current.st_dev, current.st_ino) != (opened.st_dev, opened.st_ino)
+        ):
+            raise HAUpdateInterlockRejected("update_lock_changed")
         return fd
     except Exception:
         os.close(fd)
