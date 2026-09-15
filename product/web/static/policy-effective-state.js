@@ -8,6 +8,7 @@
   const SAFE_REPAIR_RESPONSE_SCHEMA = 'home-center.safe-auto-repair-history-response.v1';
   const SAFE_REPAIR_ITEM_SCHEMA = 'home-center.safe-auto-repair-history-projection.v1';
   const SHA256 = /^[0-9a-f]{64}$/;
+  let safeRepairHistoryRefreshToken = 0;
 
   function stateLabel(value) {
     if (value === 'verified') return ['Правила применены', 'available'];
@@ -293,6 +294,13 @@
     list.append(card);
   }
 
+  function setSafeRepairHistoryBusy(cozy, full, busy) {
+    [cozy, full].forEach((root) => {
+      if (busy) root.setAttribute('aria-busy', 'true');
+      else root.removeAttribute('aria-busy');
+    });
+  }
+
   async function refreshSafeRepairHistory() {
     const cozy = safeRepairCozyRoot();
     const full = safeRepairFullRoot();
@@ -301,60 +309,70 @@
     const fullList = $('#full-safe-repair-history-list');
     if (!cozyList || !fullList) return;
 
-    let result;
+    const refreshToken = ++safeRepairHistoryRefreshToken;
+    setSafeRepairHistoryBusy(cozy, full, true);
     try {
-      result = await json(SAFE_REPAIR_HISTORY_ENDPOINT);
-    } catch (_) {
+      let result;
+      try {
+        result = await json(SAFE_REPAIR_HISTORY_ENDPOINT);
+      } catch (_) {
+        if (refreshToken !== safeRepairHistoryRefreshToken) return;
+        cozyList.replaceChildren();
+        fullList.replaceChildren();
+        safeRepairError(cozyList, 'Не удалось получить подтверждённую историю исправлений.');
+        cozy.hidden = false;
+        full.hidden = true;
+        return;
+      }
+
+      if (refreshToken !== safeRepairHistoryRefreshToken) return;
+      if (result.response.status === 401 || result.response.status === 403 || result.response.status === 404) {
+        cozy.hidden = true;
+        full.hidden = true;
+        cozyList.replaceChildren();
+        fullList.replaceChildren();
+        return;
+      }
+      if (!result.response.ok || result.data?.schema !== SAFE_REPAIR_RESPONSE_SCHEMA || !Array.isArray(result.data?.items)) {
+        cozyList.replaceChildren();
+        fullList.replaceChildren();
+        safeRepairError(cozyList, 'Ответ не прошёл безопасную проверку. Статус исправлений не изменён.');
+        cozy.hidden = false;
+        full.hidden = true;
+        return;
+      }
+
+      const items = result.data.items.filter((item) => item?.schema === SAFE_REPAIR_ITEM_SCHEMA).slice(0, 20);
       cozyList.replaceChildren();
       fullList.replaceChildren();
-      safeRepairError(cozyList, 'Не удалось получить подтверждённую историю исправлений.');
-      cozy.hidden = false;
-      full.hidden = true;
-      return;
-    }
+      if (!items.length) {
+        const empty = document.createElement('article');
+        empty.className = 'attention-item neutral';
+        const dot = document.createElement('span');
+        dot.className = 'attention-dot';
+        dot.setAttribute('aria-hidden', 'true');
+        const body = document.createElement('div');
+        const title = document.createElement('strong');
+        title.textContent = 'История пока пуста';
+        const copy = document.createElement('p');
+        copy.textContent = 'Подтверждённых записей безопасного исправления пока нет.';
+        body.append(title, copy);
+        empty.append(dot, body);
+        cozyList.append(empty);
+        cozy.hidden = false;
+        full.hidden = true;
+        return;
+      }
 
-    if (result.response.status === 401 || result.response.status === 403 || result.response.status === 404) {
-      cozy.hidden = true;
-      full.hidden = true;
-      cozyList.replaceChildren();
-      fullList.replaceChildren();
-      return;
-    }
-    if (!result.response.ok || result.data?.schema !== SAFE_REPAIR_RESPONSE_SCHEMA || !Array.isArray(result.data?.items)) {
-      cozyList.replaceChildren();
-      fullList.replaceChildren();
-      safeRepairError(cozyList, 'Ответ не прошёл безопасную проверку. Статус исправлений не изменён.');
+      items.slice(0, 5).forEach((item) => cozyList.append(safeRepairCozyCard(item)));
+      items.forEach((item) => fullList.append(safeRepairFullCard(item)));
       cozy.hidden = false;
-      full.hidden = true;
-      return;
+      full.hidden = false;
+    } finally {
+      if (refreshToken === safeRepairHistoryRefreshToken) {
+        setSafeRepairHistoryBusy(cozy, full, false);
+      }
     }
-
-    const items = result.data.items.filter((item) => item?.schema === SAFE_REPAIR_ITEM_SCHEMA).slice(0, 20);
-    cozyList.replaceChildren();
-    fullList.replaceChildren();
-    if (!items.length) {
-      const empty = document.createElement('article');
-      empty.className = 'attention-item neutral';
-      const dot = document.createElement('span');
-      dot.className = 'attention-dot';
-      dot.setAttribute('aria-hidden', 'true');
-      const body = document.createElement('div');
-      const title = document.createElement('strong');
-      title.textContent = 'История пока пуста';
-      const copy = document.createElement('p');
-      copy.textContent = 'Подтверждённых записей безопасного исправления пока нет.';
-      body.append(title, copy);
-      empty.append(dot, body);
-      cozyList.append(empty);
-      cozy.hidden = false;
-      full.hidden = true;
-      return;
-    }
-
-    items.slice(0, 5).forEach((item) => cozyList.append(safeRepairCozyCard(item)));
-    items.forEach((item) => fullList.append(safeRepairFullCard(item)));
-    cozy.hidden = false;
-    full.hidden = false;
   }
 
   async function refresh() {
