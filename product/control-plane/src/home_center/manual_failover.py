@@ -54,6 +54,13 @@ class NodeEvidence:
             raise ManualFailoverRejected("node_revision_invalid")
         if _HEX64.fullmatch(self.authoritative_sha256) is None:
             raise ManualFailoverRejected("authoritative_digest_invalid")
+        for field_name, value in (
+            ("ready", self.ready),
+            ("service_active", self.service_active),
+            ("fenced", self.fenced),
+        ):
+            if not isinstance(value, bool):
+                raise ManualFailoverRejected(f"{field_name}_boolean_required")
         if isinstance(self.source_sequence, bool) or not isinstance(self.source_sequence, int) or self.source_sequence < 0:
             raise ManualFailoverRejected("source_sequence_invalid")
 
