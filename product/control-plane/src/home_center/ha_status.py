@@ -102,6 +102,19 @@ def status(runtime: Any) -> dict[str, Any]:
                     generation=generation,
                 )
                 detail = type(candidate).__name__
+            elif initialized and (
+                not isinstance(candidate.get("writer_node_id"), str)
+                or candidate.get("writer_node_id") != writer
+                or isinstance(candidate.get("generation"), bool)
+                or not isinstance(candidate.get("generation"), int)
+                or candidate.get("generation") != generation
+            ):
+                sync = _degraded_sync_status(
+                    reason="ha_sync_epoch_mismatch",
+                    writer_node_id=writer,
+                    generation=generation,
+                )
+                detail = "reconciler_epoch_mismatch"
             else:
                 sync = candidate
 
