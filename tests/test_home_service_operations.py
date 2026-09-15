@@ -132,6 +132,18 @@ class HomeServiceOperationPlannerTests(unittest.TestCase):
                 self.request(HomeServiceOperation.RESTORE),
             )
 
+    def test_operation_inapplicable_fields_fail_closed(self) -> None:
+        with self.assertRaisesRegex(HomeServiceCatalogError, "configuration_revision_not_allowed"):
+            self.request(
+                HomeServiceOperation.UPDATE,
+                configuration_revision_id="config:12",
+            )
+        with self.assertRaisesRegex(HomeServiceCatalogError, "restore_point_not_allowed"):
+            self.request(
+                HomeServiceOperation.BACKUP,
+                restore_point_id="backup:42",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
