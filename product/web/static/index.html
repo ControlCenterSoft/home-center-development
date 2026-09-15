@@ -7,9 +7,11 @@
   <meta name="theme-color" content="#f6f7f8">
   <title>Home Center</title>
   <link rel="stylesheet" href="/static/app.css">
+  <link rel="stylesheet" href="/static/accessibility.css">
   <link rel="stylesheet" href="/static/member-change.css">
 </head>
 <body>
+  <a class="skip-link" href="#main-content">Перейти к основному содержимому</a>
   <div class="app-shell">
     <header class="topbar">
       <div class="brand" aria-label="Home Center">
@@ -29,7 +31,7 @@
       </div>
     </header>
 
-    <main>
+    <main id="main-content" tabindex="-1">
       <section id="loading-view" class="center-card" aria-live="polite">
         <div class="spinner" aria-hidden="true"></div>
         <h1>Подключаемся к Home Center</h1>
