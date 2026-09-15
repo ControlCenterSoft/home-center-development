@@ -7,11 +7,28 @@ from .ha_admission import writer_admission
 from .ha_state import HAStateConflict, load_membership, load_transition
 from .util import utc_now
 
+_SYNC_STATUS_SCHEMA = "home-center.ha-sync-status.v1"
 _SYNC_DEGRADED_REASONS = frozenset({
     "writer_peer_state_drift",
     "peer_stale_writer",
     "peer_epoch_behind",
 })
+
+
+def _degraded_sync_status(*, reason: str, writer_node_id: str | None, generation: int | None) -> dict[str, Any]:
+    return {
+        "schema": _SYNC_STATUS_SCHEMA,
+        "state": "degraded",
+        "reason": reason,
+        "direction": None,
+        "writer_node_id": writer_node_id,
+        "generation": generation,
+        "authoritative_sha256": None,
+        "source_instance_id": None,
+        "source_sequence": None,
+        "last_success_at": None,
+        "changed": False,
+    }
 
 
 def status(runtime: Any) -> dict[str, Any]:
@@ -59,8 +76,35 @@ def status(runtime: Any) -> dict[str, Any]:
         state = "writer" if admission.allowed else "standby"
         reason = admission.reason
 
+    detail = None
     sync_service = getattr(runtime, "ha_state_reconciler", None)
-    sync = sync_service.status() if sync_service is not None else None
+    sync = None
+    if sync_service is not None:
+        try:
+            candidate = sync_service.status()
+        except Exception as exc:  # status projection must fail closed on reconciler observability failure
+            sync = _degraded_sync_status(
+                reason="ha_sync_status_unavailable",
+                writer_node_id=writer,
+                generation=generation,
+            )
+            detail = type(exc).__name__
+        else:
+            if (
+                not isinstance(candidate, dict)
+                or candidate.get("schema") != _SYNC_STATUS_SCHEMA
+                or not isinstance(candidate.get("state"), str)
+                or not isinstance(candidate.get("reason"), str)
+            ):
+                sync = _degraded_sync_status(
+                    reason="ha_sync_status_invalid",
+                    writer_node_id=writer,
+                    generation=generation,
+                )
+                detail = type(candidate).__name__
+            else:
+                sync = candidate
+
     if initialized and sync is not None:
         sync_state = sync.get("state")
         sync_reason = sync.get("reason")
@@ -84,5 +128,5 @@ def status(runtime: Any) -> dict[str, Any]:
         "membership": membership,
         "transition": transition,
         "sync": sync,
-        "detail": None,
+        "detail": detail,
     }
