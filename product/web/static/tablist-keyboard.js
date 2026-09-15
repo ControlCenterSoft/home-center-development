@@ -3,6 +3,8 @@
 
   const HOME = 'Home';
   const END = 'End';
+  const PREVIOUS = 'ArrowLeft';
+  const NEXT = 'ArrowRight';
 
   function enhanceTablist(selector) {
     const tabs = Array.from(document.querySelectorAll(selector));
@@ -10,10 +12,20 @@
 
     tabs.forEach((tab) => {
       tab.addEventListener('keydown', (event) => {
-        if (event.key !== HOME && event.key !== END) return;
+        if (![HOME, END, PREVIOUS, NEXT].includes(event.key)) return;
         event.preventDefault();
 
-        const target = event.key === HOME ? tabs[0] : tabs[tabs.length - 1];
+        let target;
+        if (event.key === HOME) {
+          target = tabs[0];
+        } else if (event.key === END) {
+          target = tabs[tabs.length - 1];
+        } else {
+          const current = tabs.indexOf(tab);
+          const offset = event.key === NEXT ? 1 : -1;
+          target = tabs[(current + offset + tabs.length) % tabs.length];
+        }
+
         target.click();
         target.focus();
       });
