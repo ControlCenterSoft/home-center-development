@@ -2,6 +2,7 @@
   'use strict';
 
   const $ = (selector) => document.querySelector(selector);
+  let managementPlanInFlight = false;
 
   async function request(path, options = {}) {
     const headers = new Headers(options.headers || {});
@@ -27,6 +28,7 @@
     card.id = 'device-management-card';
     card.className = 'setup-card';
     card.hidden = true;
+    card.setAttribute('aria-busy', 'false');
 
     const heading = document.createElement('div');
     const eyebrow = document.createElement('span');
@@ -64,10 +66,29 @@
     return 'Для этой роли обязательное управление не требуется. Устройство можно оставить зарегистрированным без дополнительных действий.';
   }
 
+  function setManagementPlanBusy(button, busy) {
+    managementPlanInFlight = busy;
+    const card = $('#device-management-card');
+    if (card) card.setAttribute('aria-busy', busy ? 'true' : 'false');
+    document.querySelectorAll('#device-management-list button').forEach((control) => {
+      control.disabled = busy;
+    });
+    if (!button) return;
+    if (busy) {
+      button.dataset.managementIdleLabel = button.textContent || 'Проверить необходимость';
+      button.textContent = 'Проверяем…';
+      return;
+    }
+    button.textContent = button.dataset.managementIdleLabel || 'Проверить необходимость';
+    delete button.dataset.managementIdleLabel;
+  }
+
   async function planManagement(deviceId, button) {
+    if (managementPlanInFlight) return;
     const message = $('#device-management-message');
+    if (!message) return;
     message.textContent = '';
-    button.disabled = true;
+    setManagementPlanBusy(button, true);
     try {
       const {response, data} = await request('/api/v1/household/devices/management/plan', {
         method: 'POST',
@@ -95,14 +116,15 @@
     } catch (_) {
       message.textContent = 'Home Center сейчас не смог подготовить план управления. Повторите проверку позже.';
     } finally {
-      button.disabled = false;
+      setManagementPlanBusy(button, false);
+      void syncDevices();
     }
   }
 
   async function syncDevices() {
     const card = $('#device-management-card');
     const list = $('#device-management-list');
-    if (!card || !list || $('#workspace-view')?.hidden) return;
+    if (!card || !list || $('#workspace-view')?.hidden || managementPlanInFlight) return;
     try {
       const {response, data} = await request('/api/v1/household');
       const household = response.ok && data?.configured === true ? data?.snapshot?.household : null;
