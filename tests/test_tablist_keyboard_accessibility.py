@@ -21,12 +21,24 @@ def test_tablist_keyboard_helper_covers_both_aria_tablists() -> None:
 
     assert "#mode-switch [role=\"tab\"]" in source
     assert ".cozy-nav [role=\"tab\"]" in source
-    assert "event.key !== HOME && event.key !== END" in source
+    assert "const PREVIOUS = 'ArrowLeft'" in source
+    assert "const NEXT = 'ArrowRight'" in source
+    assert "[HOME, END, PREVIOUS, NEXT].includes(event.key)" in source
     assert "event.preventDefault()" in source
     assert "tabs[0]" in source
     assert "tabs[tabs.length - 1]" in source
+    assert "tabs.indexOf(tab)" in source
+    assert "(current + offset + tabs.length) % tabs.length" in source
     assert "target.click()" in source
     assert "target.focus()" in source
+
+
+def test_tablist_keyboard_helper_wraps_previous_and_next_navigation() -> None:
+    source = (STATIC / "tablist-keyboard.js").read_text(encoding="utf-8")
+
+    assert "event.key === NEXT ? 1 : -1" in source
+    assert "current + offset + tabs.length" in source
+    assert "% tabs.length" in source
 
 
 def test_tablist_keyboard_helper_is_navigation_only() -> None:
