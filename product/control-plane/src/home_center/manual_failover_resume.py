@@ -67,6 +67,12 @@ def decide_manual_failover_resume(
     generation = membership["generation"]
 
     if transition.phase == "failed":
+        allowed_failed_epochs = {
+            (transition.source_writer, transition.from_generation),
+            (transition.target_writer, transition.to_generation),
+        }
+        if (writer, generation) not in allowed_failed_epochs:
+            raise ManualFailoverRejected("resume_failed_membership_epoch_mismatch")
         return ManualFailoverResumeDecision(
             transition_id=transition.transition_id,
             phase=transition.phase,
