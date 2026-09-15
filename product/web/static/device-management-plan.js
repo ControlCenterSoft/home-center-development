@@ -2,6 +2,7 @@
   'use strict';
 
   const $ = (selector) => document.querySelector(selector);
+  let planningDeviceId = null;
 
   async function request(path, options = {}) {
     const headers = new Headers(options.headers || {});
@@ -27,6 +28,7 @@
     card.id = 'device-management-card';
     card.className = 'setup-card';
     card.hidden = true;
+    card.setAttribute('aria-busy', 'false');
 
     const heading = document.createElement('div');
     const eyebrow = document.createElement('span');
@@ -64,10 +66,23 @@
     return 'Для этой роли обязательное управление не требуется. Устройство можно оставить зарегистрированным без дополнительных действий.';
   }
 
+  function setPlanningBusy(active, selectedButton = null) {
+    const card = $('#device-management-card');
+    if (card) card.setAttribute('aria-busy', String(active));
+    document.querySelectorAll('[data-device-management-plan]').forEach((button) => {
+      button.disabled = active;
+    });
+    if (selectedButton) {
+      selectedButton.textContent = active ? 'Проверяем…' : 'Проверить необходимость';
+    }
+  }
+
   async function planManagement(deviceId, button) {
+    if (planningDeviceId !== null) return;
+    planningDeviceId = deviceId;
     const message = $('#device-management-message');
     message.textContent = '';
-    button.disabled = true;
+    setPlanningBusy(true, button);
     try {
       const {response, data} = await request('/api/v1/household/devices/management/plan', {
         method: 'POST',
@@ -95,14 +110,15 @@
     } catch (_) {
       message.textContent = 'Home Center сейчас не смог подготовить план управления. Повторите проверку позже.';
     } finally {
-      button.disabled = false;
+      planningDeviceId = null;
+      setPlanningBusy(false, button);
     }
   }
 
   async function syncDevices() {
     const card = $('#device-management-card');
     const list = $('#device-management-list');
-    if (!card || !list || $('#workspace-view')?.hidden) return;
+    if (!card || !list || $('#workspace-view')?.hidden || planningDeviceId !== null) return;
     try {
       const {response, data} = await request('/api/v1/household');
       const household = response.ok && data?.configured === true ? data?.snapshot?.household : null;
@@ -127,6 +143,7 @@
         const button = document.createElement('button');
         button.className = 'secondary-button compact-button';
         button.type = 'button';
+        button.dataset.deviceManagementPlan = device.device_id;
         button.textContent = 'Проверить необходимость';
         button.addEventListener('click', () => planManagement(device.device_id, button));
         body.append(name, meta, button);
