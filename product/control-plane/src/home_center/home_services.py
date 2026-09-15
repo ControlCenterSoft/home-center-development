@@ -226,6 +226,7 @@ BUILTIN_HOME_SERVICES = HomeServiceCatalog(
                     required=("runtime.container.v1", "storage.bulk.v1", "network.lan.v1"),
                     provided=("media.torrent-stream.v1",),
                     storage_gib=8,
+                    publication=PublicationPolicy.LOCAL_ONLY,
                 ),
                 _profile(
                     "yandex-smart-home",
