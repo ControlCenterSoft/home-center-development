@@ -143,6 +143,11 @@ class HomeServiceOperationPlannerTests(unittest.TestCase):
                 HomeServiceOperation.BACKUP,
                 restore_point_id="backup:42",
             )
+        with self.assertRaisesRegex(HomeServiceCatalogError, "secret_references_not_allowed"):
+            self.request(
+                HomeServiceOperation.UPDATE,
+                secret_references=("secret:yandex",),
+            )
 
 
 if __name__ == "__main__":

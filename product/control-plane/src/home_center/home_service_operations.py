@@ -121,6 +121,8 @@ class HomeServiceOperationRequest:
             or len(self.secret_references) > MAX_SECRET_REFERENCES
         ):
             raise HomeServiceCatalogError("invalid_secret_references")
+        if self.operation is not HomeServiceOperation.CONFIGURE and self.secret_references:
+            raise HomeServiceCatalogError("secret_references_not_allowed")
         canonical = tuple(
             sorted(
                 _identifier(reference, "invalid_secret_reference")
