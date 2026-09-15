@@ -3,6 +3,8 @@
 
   const $member = (selector) => document.querySelector(selector);
   let pendingMemberProposal = null;
+  let memberOperationSerial = 0;
+  let activeMemberOperation = 0;
 
   async function memberRequest(path, options = {}) {
     const headers = new Headers(options.headers || {});
@@ -49,6 +51,46 @@
 
   if (!planForm || !confirmButton || !cancelButton) return;
 
+  function setMemberFlowBusy(busy) {
+    const confirmCard = $member('#member-confirm-card');
+    if (busy) {
+      planForm.setAttribute('aria-busy', 'true');
+      if (confirmCard) confirmCard.setAttribute('aria-busy', 'true');
+    } else {
+      planForm.removeAttribute('aria-busy');
+      if (confirmCard) confirmCard.removeAttribute('aria-busy');
+    }
+    Array.from(planForm.elements).forEach((control) => {
+      control.disabled = busy;
+    });
+    confirmButton.disabled = busy;
+    cancelButton.disabled = busy;
+  }
+
+  function beginMemberOperation() {
+    if (activeMemberOperation !== 0) return 0;
+    const operationId = ++memberOperationSerial;
+    activeMemberOperation = operationId;
+    setMemberFlowBusy(true);
+    return operationId;
+  }
+
+  function ownsMemberOperation(operationId) {
+    return operationId !== 0 && activeMemberOperation === operationId;
+  }
+
+  function finishMemberOperation(operationId) {
+    if (!ownsMemberOperation(operationId)) return;
+    activeMemberOperation = 0;
+    setMemberFlowBusy(false);
+  }
+
+  function resetMemberFlowForNavigation() {
+    activeMemberOperation = 0;
+    setMemberFlowBusy(false);
+    clearMemberConfirmation();
+  }
+
   planForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const button = event.submitter;
@@ -57,18 +99,22 @@
     const role = $member('#member-role');
     if (!button || !message || !displayName || !role) return;
 
+    const operationId = beginMemberOperation();
+    if (!operationId) return;
+    const plannedDisplayName = displayName.value.trim();
+    const plannedRole = role.value;
     message.textContent = '';
     clearMemberConfirmation();
-    button.disabled = true;
     try {
       const {response, data} = await memberRequest('/api/v1/household/members/plan', {
         method: 'POST',
         body: JSON.stringify({
           schema: 'home-center.household-member-add-plan.v1',
-          display_name: displayName.value.trim(),
-          role: role.value,
+          display_name: plannedDisplayName,
+          role: plannedRole,
         }),
       });
+      if (!ownsMemberOperation(operationId)) return;
       if (response.status === 401 || (response.status === 403 && data?.error?.code === 'password_change_required')) {
         window.location.reload();
         return;
@@ -82,24 +128,27 @@
       $member('#member-confirm-card').hidden = false;
       confirmButton.focus();
     } catch (_) {
+      if (!ownsMemberOperation(operationId)) return;
       message.textContent = 'Не удалось связаться с Home Center.';
     } finally {
-      button.disabled = false;
+      finishMemberOperation(operationId);
     }
   });
 
   cancelButton.addEventListener('click', () => {
+    if (activeMemberOperation !== 0) return;
     clearMemberConfirmation();
     $member('#member-plan-message').textContent = 'Изменение отменено. Данные семьи не менялись.';
   });
 
   confirmButton.addEventListener('click', async () => {
-    if (!pendingMemberProposal?.proposal_id) return;
+    if (!pendingMemberProposal?.proposal_id || activeMemberOperation !== 0) return;
     const message = $member('#member-confirm-message');
+    const proposalId = pendingMemberProposal.proposal_id;
+    const operationId = beginMemberOperation();
+    if (!operationId) return;
     message.textContent = '';
-    confirmButton.disabled = true;
     try {
-      const proposalId = pendingMemberProposal.proposal_id;
       const {response, data} = await memberRequest('/api/v1/household/members/confirm', {
         method: 'POST',
         body: JSON.stringify({
@@ -108,6 +157,7 @@
           confirmed: true,
         }),
       });
+      if (!ownsMemberOperation(operationId)) return;
       if (response.status === 401 || (response.status === 403 && data?.error?.code === 'password_change_required')) {
         window.location.reload();
         return;
@@ -124,6 +174,7 @@
       }
       const outcome = data?.outcome;
       await refreshMemberWorkspace();
+      if (!ownsMemberOperation(operationId)) return;
       const planMessage = $member('#member-plan-message');
       if (planMessage) planMessage.textContent = outcome === 'already-applied' ? 'Человек уже был добавлен ранее.' : 'Человек добавлен в семью.';
       const displayName = $member('#member-display-name');
@@ -131,14 +182,15 @@
       if (displayName) displayName.value = '';
       if (role) role.value = 'child';
     } catch (_) {
+      if (!ownsMemberOperation(operationId)) return;
       message.textContent = 'Не удалось связаться с Home Center.';
     } finally {
-      confirmButton.disabled = false;
+      finishMemberOperation(operationId);
     }
   });
 
   const refreshButton = $member('#refresh-button');
-  if (refreshButton) refreshButton.addEventListener('click', clearMemberConfirmation);
+  if (refreshButton) refreshButton.addEventListener('click', resetMemberFlowForNavigation);
   const logoutButton = $member('#logout-button');
-  if (logoutButton) logoutButton.addEventListener('click', clearMemberConfirmation);
+  if (logoutButton) logoutButton.addEventListener('click', resetMemberFlowForNavigation);
 })();
