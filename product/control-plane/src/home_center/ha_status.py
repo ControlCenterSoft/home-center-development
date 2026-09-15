@@ -7,6 +7,12 @@ from .ha_admission import writer_admission
 from .ha_state import HAStateConflict, load_membership, load_transition
 from .util import utc_now
 
+_SYNC_DEGRADED_REASONS = frozenset({
+    "writer_peer_state_drift",
+    "peer_stale_writer",
+    "peer_epoch_behind",
+})
+
 
 def status(runtime: Any) -> dict[str, Any]:
     """Return fail-closed HA state without mutating cluster state."""
@@ -55,9 +61,12 @@ def status(runtime: Any) -> dict[str, Any]:
 
     sync_service = getattr(runtime, "ha_state_reconciler", None)
     sync = sync_service.status() if sync_service is not None else None
-    if initialized and sync is not None and sync.get("state") == "degraded":
-        state = "degraded"
-        reason = sync.get("reason") or "ha_sync_degraded"
+    if initialized and sync is not None:
+        sync_state = sync.get("state")
+        sync_reason = sync.get("reason")
+        if sync_state == "degraded" or sync_reason in _SYNC_DEGRADED_REASONS:
+            state = "degraded"
+            reason = sync_reason or "ha_sync_degraded"
 
     return {
         "schema": "home-center.ha-status.v1",
