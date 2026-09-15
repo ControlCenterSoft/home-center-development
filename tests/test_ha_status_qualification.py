@@ -121,6 +121,47 @@ class HAStatusQualificationTests(unittest.TestCase):
                 self.assertFalse(observed["automatic_failover"])
                 self.assertEqual(before, load_membership(self.store._connection))
 
+    def test_sync_status_exception_degrades_cluster_without_losing_writer_epoch(self) -> None:
+        current = membership(generation=3, writer="node-a")
+        initialize_membership(self.store._connection, current)
+        before = load_membership(self.store._connection)
+        current_runtime = runtime(self.store, node_id="node-a", role="leader")
+
+        def unavailable() -> dict:
+            raise RuntimeError("synthetic reconciler status failure")
+
+        current_runtime.ha_state_reconciler = SimpleNamespace(status=unavailable)
+        observed = status(current_runtime)
+
+        self.assertEqual("degraded", observed["state"])
+        self.assertEqual("ha_sync_status_unavailable", observed["reason"])
+        self.assertEqual("leader", observed["effective_role"])
+        self.assertEqual("node-a", observed["writer_node_id"])
+        self.assertEqual(3, observed["generation"])
+        self.assertEqual("ha_sync_status_unavailable", observed["sync"]["reason"])
+        self.assertEqual("RuntimeError", observed["detail"])
+        self.assertFalse(observed["automatic_failover"])
+        self.assertEqual(before, load_membership(self.store._connection))
+
+    def test_malformed_sync_status_degrades_cluster_without_losing_writer_epoch(self) -> None:
+        current = membership(generation=4, writer="node-a")
+        initialize_membership(self.store._connection, current)
+        before = load_membership(self.store._connection)
+        current_runtime = runtime(self.store, node_id="node-a", role="leader")
+        current_runtime.ha_state_reconciler = SimpleNamespace(status=lambda: ["invalid"])
+
+        observed = status(current_runtime)
+
+        self.assertEqual("degraded", observed["state"])
+        self.assertEqual("ha_sync_status_invalid", observed["reason"])
+        self.assertEqual("leader", observed["effective_role"])
+        self.assertEqual("node-a", observed["writer_node_id"])
+        self.assertEqual(4, observed["generation"])
+        self.assertEqual("ha_sync_status_invalid", observed["sync"]["reason"])
+        self.assertEqual("list", observed["detail"])
+        self.assertFalse(observed["automatic_failover"])
+        self.assertEqual(before, load_membership(self.store._connection))
+
     def test_durable_writer_epoch_overrides_static_standby_role_truthfully(self) -> None:
         initialize_membership(self.store._connection, membership(generation=2, writer="node-b"))
         observed = status(runtime(self.store, node_id="node-b", role="standby"))
