@@ -1,0 +1,19 @@
+.skip-link{
+  position:fixed;
+  top:max(8px,env(safe-area-inset-top));
+  left:max(8px,env(safe-area-inset-left));
+  z-index:100;
+  transform:translateY(calc(-100% - 24px));
+  padding:10px 14px;
+  border-radius:10px;
+  background:#17191c;
+  color:#fff;
+  font-weight:800;
+  text-decoration:none;
+  box-shadow:0 6px 18px rgba(20,24,28,.2)
+}
+.skip-link:focus-visible{
+  transform:translateY(0);
+  outline:3px solid rgba(44,95,180,.45);
+  outline-offset:2px
+}
