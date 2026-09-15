@@ -4,6 +4,10 @@
   const $ = (selector) => document.querySelector(selector);
   const POLICY_ENDPOINT = '/api/v1/household/policy/effective-state';
   const HOUSEHOLD_ENDPOINT = '/api/v1/household';
+  const SAFE_REPAIR_HISTORY_ENDPOINT = '/api/v1/household/safe-repair/history';
+  const SAFE_REPAIR_RESPONSE_SCHEMA = 'home-center.safe-auto-repair-history-response.v1';
+  const SAFE_REPAIR_ITEM_SCHEMA = 'home-center.safe-auto-repair-history-projection.v1';
+  const SHA256 = /^[0-9a-f]{64}$/;
 
   function stateLabel(value) {
     if (value === 'verified') return ['Правила применены', 'available'];
@@ -153,6 +157,206 @@
     return card;
   }
 
+  function safeRepairCozyRoot() {
+    const home = $('#cozy-home');
+    if (!home) return null;
+    let root = $('#cozy-safe-repair-history');
+    if (root) return root;
+    root = document.createElement('section');
+    root.id = 'cozy-safe-repair-history';
+    root.className = 'cozy-block';
+    root.hidden = true;
+
+    const heading = document.createElement('div');
+    heading.className = 'section-heading cozy-section-heading';
+    const headingText = document.createElement('div');
+    const eyebrow = document.createElement('span');
+    eyebrow.className = 'eyebrow';
+    eyebrow.textContent = 'Безопасные исправления';
+    const title = document.createElement('h2');
+    title.textContent = 'История исправлений';
+    const copy = document.createElement('p');
+    copy.textContent = 'Статус «Исправлено» появляется только после подтверждённой проверки результата.';
+    headingText.append(eyebrow, title, copy);
+    heading.append(headingText);
+
+    const list = document.createElement('div');
+    list.id = 'cozy-safe-repair-history-list';
+    list.className = 'attention-list';
+    list.setAttribute('aria-live', 'polite');
+    root.append(heading, list);
+    home.append(root);
+    return root;
+  }
+
+  function safeRepairFullRoot() {
+    const full = $('#full-view');
+    if (!full) return null;
+    let root = $('#full-safe-repair-history');
+    if (root) return root;
+    root = document.createElement('section');
+    root.id = 'full-safe-repair-history';
+    root.className = 'section-block';
+    root.hidden = true;
+
+    const heading = document.createElement('div');
+    heading.className = 'section-heading';
+    const title = document.createElement('h2');
+    title.textContent = 'История безопасных исправлений';
+    const copy = document.createElement('p');
+    copy.textContent = 'Read-only evidence: интерфейс не запускает и не повторяет исправления.';
+    heading.append(title, copy);
+    const list = document.createElement('div');
+    list.id = 'full-safe-repair-history-list';
+    list.className = 'capability-list';
+    list.setAttribute('aria-live', 'polite');
+    root.append(heading, list);
+
+    const dashboardMessage = $('#dashboard-message');
+    full.insertBefore(root, dashboardMessage || null);
+    return root;
+  }
+
+  function verifiedFixed(item) {
+    return item?.schema === SAFE_REPAIR_ITEM_SCHEMA
+      && item.status === 'fixed'
+      && item.repair_verified === true
+      && typeof item.post_condition_evidence_sha256 === 'string'
+      && SHA256.test(item.post_condition_evidence_sha256);
+  }
+
+  function safeRepairLabel(item) {
+    if (verifiedFixed(item)) return ['Исправлено', 'available'];
+    const mapping = {
+      blocked: ['Нужно вручную', 'pending'],
+      suggested: ['Предложено', 'neutral'],
+      queued: ['Подготовлено', 'neutral'],
+      'in-progress': ['Выполняется', 'pending'],
+      verifying: ['Проверяется', 'pending'],
+      failed: ['Не исправлено', 'pending'],
+      'needs-review': ['Нужна проверка', 'pending'],
+    };
+    return mapping[item?.status] || ['Статус не подтверждён', 'pending'];
+  }
+
+  function safeRepairCozyCard(item) {
+    const card = document.createElement('article');
+    const fixed = verifiedFixed(item);
+    card.className = `attention-item ${fixed ? 'good' : item?.status === 'failed' || item?.status === 'needs-review' ? 'warn' : 'neutral'}`;
+    const dot = document.createElement('span');
+    dot.className = 'attention-dot';
+    dot.setAttribute('aria-hidden', 'true');
+    const body = document.createElement('div');
+    const title = document.createElement('strong');
+    const [label] = safeRepairLabel(item);
+    title.textContent = label;
+    const copy = document.createElement('p');
+    copy.textContent = typeof item?.cozy_message === 'string' && item.cozy_message.trim()
+      ? item.cozy_message
+      : 'Статус исправления временно недоступен.';
+    body.append(title, copy);
+    card.append(dot, body);
+    return card;
+  }
+
+  function safeRepairFullCard(item) {
+    const card = document.createElement('article');
+    card.className = 'capability-item';
+    const titleRow = document.createElement('div');
+    titleRow.className = 'service-title-row';
+    const title = document.createElement('strong');
+    title.textContent = String(item?.resource_id || 'Ресурс');
+    const badge = document.createElement('span');
+    const [label, className] = safeRepairLabel(item);
+    badge.className = `service-state ${className}`;
+    badge.textContent = label;
+    titleRow.append(title, badge);
+    const detail = document.createElement('p');
+    detail.textContent = `action=${String(item?.action || '—')}; generation=${String(item?.resource_generation ?? '—')}; verified=${verifiedFixed(item) ? 'true' : 'false'}`;
+    card.append(titleRow, detail);
+    return card;
+  }
+
+  function safeRepairError(list, message) {
+    const card = document.createElement('article');
+    card.className = 'attention-item warn';
+    const dot = document.createElement('span');
+    dot.className = 'attention-dot';
+    dot.setAttribute('aria-hidden', 'true');
+    const body = document.createElement('div');
+    const title = document.createElement('strong');
+    title.textContent = 'История недоступна';
+    const copy = document.createElement('p');
+    copy.textContent = message;
+    body.append(title, copy);
+    card.append(dot, body);
+    list.append(card);
+  }
+
+  async function refreshSafeRepairHistory() {
+    const cozy = safeRepairCozyRoot();
+    const full = safeRepairFullRoot();
+    if (!cozy || !full) return;
+    const cozyList = $('#cozy-safe-repair-history-list');
+    const fullList = $('#full-safe-repair-history-list');
+    if (!cozyList || !fullList) return;
+
+    let result;
+    try {
+      result = await json(SAFE_REPAIR_HISTORY_ENDPOINT);
+    } catch (_) {
+      cozyList.replaceChildren();
+      fullList.replaceChildren();
+      safeRepairError(cozyList, 'Не удалось получить подтверждённую историю исправлений.');
+      cozy.hidden = false;
+      full.hidden = true;
+      return;
+    }
+
+    if (result.response.status === 401 || result.response.status === 403 || result.response.status === 404) {
+      cozy.hidden = true;
+      full.hidden = true;
+      cozyList.replaceChildren();
+      fullList.replaceChildren();
+      return;
+    }
+    if (!result.response.ok || result.data?.schema !== SAFE_REPAIR_RESPONSE_SCHEMA || !Array.isArray(result.data?.items)) {
+      cozyList.replaceChildren();
+      fullList.replaceChildren();
+      safeRepairError(cozyList, 'Ответ не прошёл безопасную проверку. Статус исправлений не изменён.');
+      cozy.hidden = false;
+      full.hidden = true;
+      return;
+    }
+
+    const items = result.data.items.filter((item) => item?.schema === SAFE_REPAIR_ITEM_SCHEMA).slice(0, 20);
+    cozyList.replaceChildren();
+    fullList.replaceChildren();
+    if (!items.length) {
+      const empty = document.createElement('article');
+      empty.className = 'attention-item neutral';
+      const dot = document.createElement('span');
+      dot.className = 'attention-dot';
+      dot.setAttribute('aria-hidden', 'true');
+      const body = document.createElement('div');
+      const title = document.createElement('strong');
+      title.textContent = 'История пока пуста';
+      const copy = document.createElement('p');
+      copy.textContent = 'Подтверждённых записей безопасного исправления пока нет.';
+      body.append(title, copy);
+      empty.append(dot, body);
+      cozyList.append(empty);
+      cozy.hidden = false;
+      full.hidden = true;
+      return;
+    }
+
+    items.slice(0, 5).forEach((item) => cozyList.append(safeRepairCozyCard(item)));
+    items.forEach((item) => fullList.append(safeRepairFullCard(item)));
+    cozy.hidden = false;
+    full.hidden = false;
+  }
+
   async function refresh() {
     const cozy = cozyRoot();
     const full = fullRoot();
@@ -205,13 +409,24 @@
   document.addEventListener('DOMContentLoaded', () => {
     cozyRoot();
     fullRoot();
+    safeRepairCozyRoot();
+    safeRepairFullRoot();
+    const homeTab = $('#cozy-tab-home');
     const familyTab = $('#cozy-tab-family');
     const fullMode = $('#mode-full');
     const refreshButton = $('#refresh-button');
+    homeTab?.addEventListener('click', () => { void refreshSafeRepairHistory(); });
     familyTab?.addEventListener('click', () => { void refresh(); });
-    fullMode?.addEventListener('click', () => { void refresh(); });
-    refreshButton?.addEventListener('click', () => { void refresh(); });
+    fullMode?.addEventListener('click', () => {
+      void refresh();
+      void refreshSafeRepairHistory();
+    });
+    refreshButton?.addEventListener('click', () => {
+      void refresh();
+      void refreshSafeRepairHistory();
+    });
     window.addEventListener('homecenter:member-change-completed', () => { void refresh(); });
     void refresh();
+    void refreshSafeRepairHistory();
   });
 })();
