@@ -106,17 +106,23 @@ class HomeServiceOperationRequest:
                     "invalid_configuration_revision",
                 ),
             )
+            if self.operation is not HomeServiceOperation.CONFIGURE:
+                raise HomeServiceCatalogError("configuration_revision_not_allowed")
         if self.restore_point_id is not None:
             object.__setattr__(
                 self,
                 "restore_point_id",
                 _identifier(self.restore_point_id, "invalid_restore_point"),
             )
+            if self.operation is not HomeServiceOperation.RESTORE:
+                raise HomeServiceCatalogError("restore_point_not_allowed")
         if (
             not isinstance(self.secret_references, tuple)
             or len(self.secret_references) > MAX_SECRET_REFERENCES
         ):
             raise HomeServiceCatalogError("invalid_secret_references")
+        if self.operation is not HomeServiceOperation.CONFIGURE and self.secret_references:
+            raise HomeServiceCatalogError("secret_references_not_allowed")
         canonical = tuple(
             sorted(
                 _identifier(reference, "invalid_secret_reference")
