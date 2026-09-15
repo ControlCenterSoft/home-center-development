@@ -138,6 +138,35 @@ class ManualFailoverFinalSyncBindingTests(unittest.TestCase):
                 source_write_rejected=True,
             )
 
+    def test_target_verification_rejects_sequence_regression_after_promotion(self) -> None:
+        current, transition = final_sync_transition()
+        transition = record_source_fenced(
+            transition,
+            evidence("node-a", active=False, fenced=True, digest=FINAL_DIGEST, sequence=11),
+        )
+        transition, _ = promote_membership(transition, current)
+
+        with self.assertRaisesRegex(
+            ManualFailoverRejected,
+            "promoted_writer_sequence_regressed",
+        ):
+            record_target_verified(
+                transition,
+                source=evidence("node-a", active=False, fenced=True, digest=FINAL_DIGEST, sequence=11),
+                target=evidence("node-b", fenced=False, digest=FINAL_DIGEST, sequence=10),
+                write_readback_verified=True,
+                source_write_rejected=True,
+            )
+
+        verified = record_target_verified(
+            transition,
+            source=evidence("node-a", active=False, fenced=True, digest=FINAL_DIGEST, sequence=11),
+            target=evidence("node-b", fenced=False, digest=DRIFT_DIGEST, sequence=12),
+            write_readback_verified=True,
+            source_write_rejected=True,
+        )
+        self.assertEqual("target_verified", verified.phase)
+
 
 if __name__ == "__main__":
     unittest.main()
