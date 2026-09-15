@@ -162,6 +162,45 @@ class HAStatusQualificationTests(unittest.TestCase):
         self.assertFalse(observed["automatic_failover"])
         self.assertEqual(before, load_membership(self.store._connection))
 
+    def test_sync_epoch_mismatch_degrades_cluster_without_losing_durable_writer_epoch(self) -> None:
+        current = membership(generation=5, writer="node-a")
+        initialize_membership(self.store._connection, current)
+        before = load_membership(self.store._connection)
+        base_sync = {
+            "schema": "home-center.ha-sync-status.v1",
+            "state": "writer",
+            "reason": "writer_peer_in_sync",
+            "direction": None,
+            "writer_node_id": "node-a",
+            "generation": 5,
+            "authoritative_sha256": "b" * 64,
+            "source_instance_id": None,
+            "source_sequence": None,
+            "last_success_at": None,
+            "changed": False,
+        }
+
+        cases = (
+            {**base_sync, "writer_node_id": "node-b"},
+            {**base_sync, "generation": 6},
+            {**base_sync, "generation": True},
+        )
+        for sync in cases:
+            with self.subTest(sync_writer=sync["writer_node_id"], sync_generation=sync["generation"]):
+                observed = status(runtime(self.store, node_id="node-a", role="leader", sync=sync))
+
+                self.assertEqual("degraded", observed["state"])
+                self.assertEqual("ha_sync_epoch_mismatch", observed["reason"])
+                self.assertEqual("leader", observed["effective_role"])
+                self.assertEqual("node-a", observed["writer_node_id"])
+                self.assertEqual(5, observed["generation"])
+                self.assertEqual("ha_sync_epoch_mismatch", observed["sync"]["reason"])
+                self.assertEqual("node-a", observed["sync"]["writer_node_id"])
+                self.assertEqual(5, observed["sync"]["generation"])
+                self.assertEqual("reconciler_epoch_mismatch", observed["detail"])
+                self.assertFalse(observed["automatic_failover"])
+                self.assertEqual(before, load_membership(self.store._connection))
+
     def test_durable_writer_epoch_overrides_static_standby_role_truthfully(self) -> None:
         initialize_membership(self.store._connection, membership(generation=2, writer="node-b"))
         observed = status(runtime(self.store, node_id="node-b", role="standby"))
