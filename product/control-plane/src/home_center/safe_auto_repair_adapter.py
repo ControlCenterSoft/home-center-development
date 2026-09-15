@@ -22,6 +22,9 @@ SAFE_REPAIR_ADAPTER_REQUEST_SCHEMA = "home-center.safe-auto-repair-adapter-reque
 SAFE_REPAIR_ADAPTER_RESULT_SCHEMA = "home-center.safe-auto-repair-adapter-result.v1"
 SAFE_REPAIR_POST_CONDITION_SCHEMA = "home-center.safe-auto-repair-post-condition.v1"
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
+_JOB_ID = re.compile(r"hcrpj-[0-9a-f]{24}\Z")
+_RECOMMENDATION_ID = re.compile(r"hcrpr-[0-9a-f]{24}\Z")
+_IDENTIFIER = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\Z")
 
 
 class SafeRepairAdapterError(RuntimeError):
@@ -32,6 +35,12 @@ class SafeRepairAdapterError(RuntimeError):
 
 def _sha256(value: object, code: str) -> str:
     if not isinstance(value, str) or not _SHA256.fullmatch(value):
+        raise SafeRepairAdapterError(code)
+    return value
+
+
+def _match(value: object, pattern: re.Pattern[str], code: str) -> str:
+    if not isinstance(value, str) or not pattern.fullmatch(value):
         raise SafeRepairAdapterError(code)
     return value
 
@@ -53,6 +62,14 @@ class SafeRepairAdapterRequest:
     schema: str = field(default=SAFE_REPAIR_ADAPTER_REQUEST_SCHEMA, init=False)
 
     def __post_init__(self) -> None:
+        _match(self.job_id, _JOB_ID, "safe_repair_adapter_job_id_invalid")
+        _match(
+            self.recommendation_id,
+            _RECOMMENDATION_ID,
+            "safe_repair_adapter_recommendation_id_invalid",
+        )
+        _match(self.household_id, _IDENTIFIER, "safe_repair_adapter_household_id_invalid")
+        _match(self.resource_id, _IDENTIFIER, "safe_repair_adapter_resource_id_invalid")
         _sha256(self.recommendation_sha256, "safe_repair_adapter_recommendation_digest_invalid")
         _sha256(self.source_evidence_sha256, "safe_repair_adapter_source_evidence_invalid")
         if type(self.resource_generation) is not int or self.resource_generation < 0:
@@ -88,6 +105,12 @@ class SafeRepairAdapterResult:
     schema: str = field(default=SAFE_REPAIR_ADAPTER_RESULT_SCHEMA, init=False)
 
     def __post_init__(self) -> None:
+        _match(self.job_id, _JOB_ID, "safe_repair_adapter_result_job_id_invalid")
+        _match(
+            self.recommendation_id,
+            _RECOMMENDATION_ID,
+            "safe_repair_adapter_result_recommendation_id_invalid",
+        )
         if not isinstance(self.action, RepairAction):
             raise SafeRepairAdapterError("safe_repair_adapter_result_action_invalid")
         if not isinstance(self.outcome, RepairExecutionOutcome):
@@ -128,6 +151,22 @@ class SafeRepairPostConditionObservation:
     schema: str = field(default=SAFE_REPAIR_POST_CONDITION_SCHEMA, init=False)
 
     def __post_init__(self) -> None:
+        _match(self.job_id, _JOB_ID, "safe_repair_post_condition_job_id_invalid")
+        _match(
+            self.recommendation_id,
+            _RECOMMENDATION_ID,
+            "safe_repair_post_condition_recommendation_id_invalid",
+        )
+        _match(
+            self.household_id,
+            _IDENTIFIER,
+            "safe_repair_post_condition_household_id_invalid",
+        )
+        _match(
+            self.resource_id,
+            _IDENTIFIER,
+            "safe_repair_post_condition_resource_id_invalid",
+        )
         if type(self.observed_generation) is not int or self.observed_generation < 0:
             raise SafeRepairAdapterError("safe_repair_post_condition_generation_invalid")
         _sha256(self.observation_sha256, "safe_repair_post_condition_digest_invalid")
