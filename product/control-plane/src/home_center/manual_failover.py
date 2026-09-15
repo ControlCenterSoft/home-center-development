@@ -270,6 +270,12 @@ def record_target_verified(
         raise ManualFailoverRejected("target_verification_phase_rejected")
     source.validate()
     target.validate()
+    for field_name, value in (
+        ("write_readback_verified", write_readback_verified),
+        ("source_write_rejected", source_write_rejected),
+    ):
+        if not isinstance(value, bool):
+            raise ManualFailoverRejected(f"{field_name}_boolean_required")
     if source.node_id != transition.source_writer or source.service_active or not source.fenced:
         raise ManualFailoverRejected("old_writer_not_safely_fenced")
     if source.version != transition.version or source.revision != transition.revision:
