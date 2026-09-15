@@ -275,6 +275,8 @@ def record_target_verified(
         raise ManualFailoverRejected("promoted_writer_not_serving")
     if target.version != transition.version or target.revision != transition.revision:
         raise ManualFailoverRejected("promoted_writer_release_changed")
+    if transition.final_source_sequence is None or target.source_sequence < transition.final_source_sequence:
+        raise ManualFailoverRejected("promoted_writer_sequence_regressed")
     if not write_readback_verified:
         raise ManualFailoverRejected("promoted_writer_readback_unverified")
     if not source_write_rejected:
