@@ -85,6 +85,42 @@ class HAStatusQualificationTests(unittest.TestCase):
         self.assertFalse(observed["automatic_failover"])
         self.assertEqual(before, load_membership(self.store._connection))
 
+    def test_writer_side_sync_drift_degrades_cluster_without_demoting_writer(self) -> None:
+        current = membership(writer="node-a")
+        initialize_membership(self.store._connection, current)
+        before = load_membership(self.store._connection)
+
+        for reason in ("writer_peer_state_drift", "peer_stale_writer", "peer_epoch_behind"):
+            with self.subTest(reason=reason):
+                observed = status(
+                    runtime(
+                        self.store,
+                        node_id="node-a",
+                        role="leader",
+                        sync={
+                            "schema": "home-center.ha-sync-status.v1",
+                            "state": "writer",
+                            "reason": reason,
+                            "direction": None,
+                            "writer_node_id": "node-a",
+                            "generation": 1,
+                            "authoritative_sha256": "b" * 64,
+                            "source_instance_id": None,
+                            "source_sequence": None,
+                            "last_success_at": None,
+                            "changed": False,
+                        },
+                    )
+                )
+
+                self.assertEqual("degraded", observed["state"])
+                self.assertEqual(reason, observed["reason"])
+                self.assertEqual("leader", observed["effective_role"])
+                self.assertEqual("node-a", observed["writer_node_id"])
+                self.assertEqual(1, observed["generation"])
+                self.assertFalse(observed["automatic_failover"])
+                self.assertEqual(before, load_membership(self.store._connection))
+
     def test_durable_writer_epoch_overrides_static_standby_role_truthfully(self) -> None:
         initialize_membership(self.store._connection, membership(generation=2, writer="node-b"))
         observed = status(runtime(self.store, node_id="node-b", role="standby"))
