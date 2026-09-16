@@ -2,6 +2,7 @@
   'use strict';
 
   const $ = (selector) => document.querySelector(selector);
+  let managementPlanInFlight = false;
 
   async function request(path, options = {}) {
     const headers = new Headers(options.headers || {});
@@ -27,6 +28,7 @@
     card.id = 'device-management-card';
     card.className = 'setup-card';
     card.hidden = true;
+    card.setAttribute('aria-busy', 'false');
 
     const heading = document.createElement('div');
     const eyebrow = document.createElement('span');
@@ -64,10 +66,24 @@
     return 'Для этой роли обязательное управление не требуется. Устройство можно оставить зарегистрированным без дополнительных действий.';
   }
 
+  function setManagementBusy(busy) {
+    managementPlanInFlight = busy;
+    const card = $('#device-management-card');
+    if (!card) return;
+    card.setAttribute('aria-busy', busy ? 'true' : 'false');
+    card.querySelectorAll('button').forEach((control) => {
+      control.disabled = busy;
+    });
+  }
+
   async function planManagement(deviceId, button) {
+    if (managementPlanInFlight) return;
     const message = $('#device-management-message');
+    if (!message) return;
+    const originalText = button.textContent;
     message.textContent = '';
-    button.disabled = true;
+    setManagementBusy(true);
+    button.textContent = 'Проверяем…';
     try {
       const {response, data} = await request('/api/v1/household/devices/management/plan', {
         method: 'POST',
@@ -95,16 +111,18 @@
     } catch (_) {
       message.textContent = 'Home Center сейчас не смог подготовить план управления. Повторите проверку позже.';
     } finally {
-      button.disabled = false;
+      button.textContent = originalText;
+      setManagementBusy(false);
     }
   }
 
   async function syncDevices() {
     const card = $('#device-management-card');
     const list = $('#device-management-list');
-    if (!card || !list || $('#workspace-view')?.hidden) return;
+    if (!card || !list || $('#workspace-view')?.hidden || managementPlanInFlight) return;
     try {
       const {response, data} = await request('/api/v1/household');
+      if (managementPlanInFlight) return;
       const household = response.ok && data?.configured === true ? data?.snapshot?.household : null;
       const devices = Array.isArray(household?.devices) ? household.devices : [];
       const members = Array.isArray(household?.members) ? household.members : [];
@@ -128,7 +146,7 @@
         button.className = 'secondary-button compact-button';
         button.type = 'button';
         button.textContent = 'Проверить необходимость';
-        button.addEventListener('click', () => planManagement(device.device_id, button));
+        button.addEventListener('click', () => { void planManagement(device.device_id, button); });
         body.append(name, meta, button);
         row.append(body);
         return row;
@@ -136,7 +154,7 @@
       list.replaceChildren(...rows);
       card.hidden = false;
     } catch (_) {
-      card.hidden = true;
+      if (!managementPlanInFlight) card.hidden = true;
     }
   }
 

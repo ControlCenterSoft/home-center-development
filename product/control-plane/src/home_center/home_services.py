@@ -97,6 +97,8 @@ class HomeServiceProfile:
         object.__setattr__(self, "service_id", _identifier(self.service_id, "invalid_service_id"))
         if not isinstance(self.kind, HomeServiceKind):
             raise HomeServiceCatalogError("invalid_service_kind")
+        if self.service_id != self.kind.value:
+            raise HomeServiceCatalogError("service_identity_mismatch")
         if not isinstance(self.name, str) or not 1 <= len(self.name.strip()) <= 80:
             raise HomeServiceCatalogError("invalid_service_name")
         object.__setattr__(self, "name", self.name.strip())
@@ -224,6 +226,7 @@ BUILTIN_HOME_SERVICES = HomeServiceCatalog(
                     required=("runtime.container.v1", "storage.bulk.v1", "network.lan.v1"),
                     provided=("media.torrent-stream.v1",),
                     storage_gib=8,
+                    publication=PublicationPolicy.LOCAL_ONLY,
                 ),
                 _profile(
                     "yandex-smart-home",
