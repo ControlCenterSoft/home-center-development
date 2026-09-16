@@ -52,10 +52,23 @@ class HomeServiceCatalogTests(unittest.TestCase):
         with self.assertRaisesRegex(HomeServiceCatalogError, "noncanonical_profile_order"):
             HomeServiceCatalog(tuple(reversed(BUILTIN_HOME_SERVICES.profiles)))
 
+    def test_profile_rejects_mismatched_service_identity(self) -> None:
+        with self.assertRaisesRegex(HomeServiceCatalogError, "service_identity_mismatch"):
+            HomeServiceProfile(
+                "torrent-client",
+                HomeServiceKind.TORRSERVER,
+                "Mismatched Service",
+                ("runtime.container.v1",),
+                ("media.stream.v1",),
+                4,
+                PublicationPolicy.LOCAL_ONLY,
+                BackupPolicy.STATE,
+            )
+
     def test_profile_rejects_unsafe_or_incomplete_contracts(self) -> None:
         with self.assertRaisesRegex(HomeServiceCatalogError, "invalid_lifecycle"):
             HomeServiceProfile(
-                "service-a",
+                "torrserver",
                 HomeServiceKind.TORRSERVER,
                 "Service A",
                 ("runtime.container.v1",),
@@ -67,7 +80,7 @@ class HomeServiceCatalogTests(unittest.TestCase):
             )
         with self.assertRaisesRegex(HomeServiceCatalogError, "invalid_required_capabilities"):
             HomeServiceProfile(
-                "service-a",
+                "torrserver",
                 HomeServiceKind.TORRSERVER,
                 "Service A",
                 ("runtime.container.v1", "runtime.container.v1"),
